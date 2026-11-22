@@ -93,11 +93,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="v1.1.0-unsigned"
+          TAG="v1.0.0-unsigned"
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" dist/BaytAlQaseed-release-unsigned.apk --clobber
           else
             gh release create "$TAG" dist/BaytAlQaseed-release-unsigned.apk \
-              --title "بيت القصيد v1.1.0 (Unsigned Release APK)" \
-              --notes "الإصدار **1.1.0** من تطبيق **بيت القصيد** (ملف APK غير موقّع جاهز للتوقيع اليدوي عبر \`apksigner\`)."
+              --title "بيت القصيد v1.0.0 (Unsigned Release APK)" \
+              --notes "الإصدار **1.0.0** من تطبيق **بيت القصيد** (ملف APK غير موقّع جاهز للتوقيع اليدوي عبر \`apksigner\`)."
           fi

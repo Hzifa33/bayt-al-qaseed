@@ -13,6 +13,7 @@ import '../../../core/widgets/editorial_divider.dart';
 import '../../../core/widgets/empty_state_view.dart';
 import '../../../core/widgets/verse_renderer.dart';
 import '../../../data/models/poem.dart';
+import '../../../data/models/reader_settings.dart';
 import '../../../data/models/verse.dart';
 import '../../providers/database_providers.dart';
 import '../../providers/settings_provider.dart';
@@ -26,12 +27,12 @@ class PoemReaderScreen extends ConsumerStatefulWidget {
     super.key,
     required this.poemId,
     this.initialVerseIndex,
-    this.highlightQuery,
+    this.highlightMatchedVerseOnce = false,
   });
 
   final int poemId;
   final int? initialVerseIndex;
-  final String? highlightQuery;
+  final bool highlightMatchedVerseOnce;
 
   @override
   ConsumerState<PoemReaderScreen> createState() => _PoemReaderScreenState();
@@ -46,18 +47,31 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
   bool _chromeVisible = true;
   bool _typographyPanelOpen = false;
   double _readProgress = 0.0;
+  int? _transientHighlightIndex;
 
   @override
   void initState() {
     super.initState();
-    _loadPoem(widget.poemId, initialIndex: widget.initialVerseIndex);
+    _loadPoem(
+      widget.poemId,
+      initialIndex: widget.initialVerseIndex,
+      pulseTargetVerse: widget.highlightMatchedVerseOnce,
+    );
     _scrollCtrl.addListener(_onScroll);
   }
 
-  void _loadPoem(int poemId, {int? initialIndex}) {
+  void _loadPoem(
+    int poemId, {
+    int? initialIndex,
+    bool pulseTargetVerse = false,
+  }) {
     final repo = ref.read(poetryRepositoryProvider);
     final poem = repo.getPoemById(poemId);
     _poem = poem;
+    _transientHighlightIndex = (pulseTargetVerse && initialIndex != null)
+        ? initialIndex
+        : null;
+
     if (poem != null) {
       final adj = repo.getAdjacentPoemIds(poem.poetId, poem.id);
       _prevPoemId = adj.$1;
@@ -68,17 +82,30 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
             .read(userDataProvider.notifier)
             .recordReading(poem, lastVerseIndex: initialIndex ?? 0);
         if (initialIndex != null &&
-            initialIndex > 2 &&
+            initialIndex > 1 &&
             _scrollCtrl.hasClients) {
-          final targetOffset = (initialIndex * 76.0).clamp(
+          final isStaggered =
+              ref.read(readerSettingsProvider).verseLayout ==
+              VerseLayoutStyle.staggered;
+          final rowHeight = isStaggered ? 104.0 : 58.0;
+          final targetOffset = (150.0 + initialIndex * rowHeight - 130.0).clamp(
             0.0,
             _scrollCtrl.position.maxScrollExtent,
           );
           _scrollCtrl.animateTo(
             targetOffset,
-            duration: const Duration(milliseconds: 460),
+            duration: const Duration(milliseconds: 420),
             curve: Curves.easeOutCubic,
           );
+        }
+        // Gently highlight ONLY the target verse for ~1.3s, then clear completely
+        // so the reader reads peacefully without any lingering highlights.
+        if (_transientHighlightIndex != null) {
+          Future.delayed(const Duration(milliseconds: 1300), () {
+            if (mounted) {
+              setState(() => _transientHighlightIndex = null);
+            }
+          });
         }
       });
     }
@@ -235,23 +262,51 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              Text(
-                'بطاقة القصيدة',
-                style: Theme.of(context).textTheme.headlineMedium,
+              Row(
+                children: [
+                  Icon(Icons.auto_stories_rounded, size: 22, color: p.accent),
+                  const SizedBox(width: 8),
+                  Text(
+                    'بطاقة القصيدة',
+                    style: Theme.of(context).textTheme.headlineMedium,
+                  ),
+                ],
               ),
               const SizedBox(height: 14),
-              _InfoRow(label: 'الشاعر', value: poem.poetName),
-              _InfoRow(label: 'العصر الأدبي', value: 'العصر ${poem.eraName}'),
-              _InfoRow(label: 'البحر العروضي', value: poem.meterName),
-              if (poem.meterNote.isNotEmpty)
-                _InfoRow(label: 'ملاحظة عروضية', value: poem.meterNote),
-              _InfoRow(label: 'حرف الرويّ', value: poem.rhymeName),
               _InfoRow(
+                icon: Icons.history_edu_rounded,
+                label: 'الشاعر',
+                value: poem.poetName,
+              ),
+              _InfoRow(
+                icon: Icons.hourglass_bottom_rounded,
+                label: 'العصر الأدبي',
+                value: 'العصر ${poem.eraName}',
+              ),
+              _InfoRow(
+                icon: Icons.waves_rounded,
+                label: 'البحر العروضي',
+                value: poem.meterName,
+              ),
+              if (poem.meterNote.isNotEmpty)
+                _InfoRow(
+                  icon: Icons.notes_rounded,
+                  label: 'ملاحظة عروضية',
+                  value: poem.meterNote,
+                ),
+              _InfoRow(
+                icon: Icons.music_note_outlined,
+                label: 'حرف الرويّ',
+                value: poem.rhymeName,
+              ),
+              _InfoRow(
+                icon: Icons.format_list_numbered_rtl_rounded,
                 label: 'عدد الأبيات',
                 value:
                     '${ArabicNormalizer.toArabicNumber(poem.verseCount)} بيتاً',
               ),
               _InfoRow(
+                icon: Icons.spellcheck_rounded,
                 label: 'التشكيل',
                 value: poem.hasDiacritics
                     ? 'مضبوطة بالتشكيل العربي'
@@ -296,6 +351,12 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
                 children: [
                   Row(
                     children: [
+                      Icon(
+                        Icons.collections_bookmark_outlined,
+                        size: 20,
+                        color: p.accent,
+                      ),
+                      const SizedBox(width: 8),
                       Text(
                         'إضافة إلى مجموعة',
                         style: Theme.of(context).textTheme.titleLarge,
@@ -423,8 +484,6 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
       textScaler: textScaler,
     );
 
-    // Requirement #5: Back first dismisses typography panel or clears selected verses;
-    // pressing Back again pops cleanly to the previous screen!
     final interceptBack = inSelection || _typographyPanelOpen;
 
     return PopScope(
@@ -466,7 +525,7 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
                   ),
                   itemCount: poem.verses.length + 2,
                   itemBuilder: (context, idx) {
-                    // Editorial Poem Header
+                    // Editorial Poem Header with Expressive Icons
                     if (idx == 0) {
                       return Padding(
                         padding: const EdgeInsets.fromLTRB(10, 6, 10, 12),
@@ -477,44 +536,65 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
                                 context,
                                 PoetDetailScreen(poetId: poem.poetId),
                               ),
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(14),
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
+                                  horizontal: 12,
                                   vertical: 4,
                                 ),
-                                child: Text(
-                                  poem.poetName,
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontFamily: AppFonts.ruqaa,
-                                    fontSize: 31,
-                                    fontWeight: FontWeight.w700,
-                                    color: p.accent,
-                                    height: 1.4,
-                                  ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.history_edu_rounded,
+                                      size: 20,
+                                      color: p.accent,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Flexible(
+                                      child: Text(
+                                        poem.poetName,
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontFamily: AppFonts.ruqaa,
+                                          fontSize: 30,
+                                          fontWeight: FontWeight.w700,
+                                          color: p.accent,
+                                          height: 1.38,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
                             const SizedBox(height: 8),
                             Wrap(
                               alignment: WrapAlignment.center,
-                              spacing: 8,
+                              spacing: 7,
                               runSpacing: 6,
                               children: [
-                                _HeaderPill(label: 'العصر ${poem.eraName}'),
-                                _HeaderPill(label: 'بحر ${poem.meterName}'),
                                 _HeaderPill(
+                                  icon: Icons.hourglass_bottom_rounded,
+                                  label: 'العصر ${poem.eraName}',
+                                ),
+                                _HeaderPill(
+                                  icon: Icons.waves_rounded,
+                                  label: 'بحر ${poem.meterName}',
+                                ),
+                                _HeaderPill(
+                                  icon: Icons.music_note_outlined,
                                   label: 'الرويّ (${poem.rhymeName})',
                                 ),
                                 _HeaderPill(
+                                  icon: Icons.format_list_numbered_rtl_rounded,
                                   label:
                                       '${ArabicNormalizer.toArabicNumber(poem.verseCount)} بيتاً',
                                 ),
                               ],
                             ),
                             const EditorialDivider(
-                              verticalPadding: 18,
+                              verticalPadding: 16,
                               horizontalPadding: 32,
                             ),
                           ],
@@ -522,7 +602,7 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
                       );
                     }
 
-                    // Footer: Adjacent Poems Navigation + Tip
+                    // Footer: Correctly Oriented RTL Adjacent Poem Navigation
                     if (idx == poem.verses.length + 1) {
                       return Padding(
                         padding: const EdgeInsets.only(top: 24, bottom: 20),
@@ -535,40 +615,68 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
                             if (_prevPoemId != null || _nextPoemId != null)
                               Padding(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
+                                  horizontal: 10,
                                   vertical: 10,
                                 ),
                                 child: Row(
                                   children: [
+                                    // In RTL: «القصيدة السابقة» sits on the RIGHT and points RIGHT (east ->)
                                     if (_prevPoemId != null)
                                       Expanded(
-                                        child: OutlinedButton.icon(
+                                        child: OutlinedButton(
                                           onPressed: () =>
                                               _switchToAdjacentPoem(
                                                 _prevPoemId!,
                                               ),
-                                          icon: const Icon(
-                                            Icons.arrow_forward_rounded,
-                                            size: 17,
+                                          style: OutlinedButton.styleFrom(
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 11,
+                                              horizontal: 10,
+                                            ),
                                           ),
-                                          label: const Text('القصيدة السابقة'),
+                                          child: const Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Icon(
+                                                Icons.east_rounded,
+                                                size: 17,
+                                              ),
+                                              SizedBox(width: 6),
+                                              Text('القصيدة السابقة'),
+                                            ],
+                                          ),
                                         ),
                                       ),
                                     if (_prevPoemId != null &&
                                         _nextPoemId != null)
                                       const SizedBox(width: 10),
+                                    // In RTL: «القصيدة التالية» sits on the LEFT and points LEFT (west <-)
                                     if (_nextPoemId != null)
                                       Expanded(
-                                        child: OutlinedButton.icon(
+                                        child: OutlinedButton(
                                           onPressed: () =>
                                               _switchToAdjacentPoem(
                                                 _nextPoemId!,
                                               ),
-                                          icon: const Icon(
-                                            Icons.arrow_back_rounded,
-                                            size: 17,
+                                          style: OutlinedButton.styleFrom(
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 11,
+                                              horizontal: 10,
+                                            ),
                                           ),
-                                          label: const Text('القصيدة التالية'),
+                                          child: const Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Text('القصيدة التالية'),
+                                              SizedBox(width: 6),
+                                              Icon(
+                                                Icons.west_rounded,
+                                                size: 17,
+                                              ),
+                                            ],
+                                          ),
                                         ),
                                       ),
                                   ],
@@ -587,10 +695,8 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
 
                     final verse = poem.verses[idx - 1];
                     final selected = _selectedIndices.contains(verse.index);
-                    final isSearchTarget =
-                        widget.initialVerseIndex == verse.index &&
-                        widget.highlightQuery != null &&
-                        poem.id == widget.poemId;
+                    final isTransientPulse =
+                        _transientHighlightIndex == verse.index;
 
                     return VerseRowWidget(
                       verse: verse,
@@ -600,10 +706,9 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
                       showDiacritics: settings.showDiacritics,
                       showVerseNumber: settings.showVerseNumbers,
                       isSelected: selected,
-                      isHighlightedVerse: isSearchTarget,
-                      searchHighlightQuery: poem.id == widget.poemId
-                          ? widget.highlightQuery
-                          : null,
+                      isHighlightedVerse: isTransientPulse,
+                      // Never highlight individual words inside the poem
+                      searchHighlightQuery: null,
                       onTap: () {
                         if (_typographyPanelOpen) {
                           setState(() => _typographyPanelOpen = false);
@@ -638,7 +743,7 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
               ),
             ),
 
-            // Immersive Auto-Hiding Top Bar
+            // Immersive Auto-Hiding Top Bar (Correct RTL Back Arrow: east_rounded -> points right!)
             AnimatedPositioned(
               duration: const Duration(milliseconds: 220),
               curve: Curves.easeOutCubic,
@@ -699,10 +804,18 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
                           )
                         : Row(
                             children: [
+                              // Correct Arabic RTL Back Arrow pointing RIGHT (->)
                               IconButton(
+                                tooltip: 'رجوع',
                                 onPressed: () => Navigator.of(context).pop(),
-                                icon: const Icon(Icons.arrow_forward_rounded),
+                                icon: const Icon(Icons.east_rounded),
                               ),
+                              Icon(
+                                Icons.history_edu_rounded,
+                                size: 17,
+                                color: p.accent,
+                              ),
+                              const SizedBox(width: 6),
                               Expanded(
                                 child: Text(
                                   poem.poetName,
@@ -762,7 +875,7 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
               ),
             ),
 
-            // Live Non-Obstructive Typography Dock (Slides up cleanly while poem stays visible!)
+            // Live Non-Obstructive Typography Dock
             AnimatedPositioned(
               duration: const Duration(milliseconds: 260),
               curve: Curves.easeOutQuart,
@@ -820,30 +933,43 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
 }
 
 class _HeaderPill extends StatelessWidget {
-  const _HeaderPill({required this.label});
+  const _HeaderPill({required this.icon, required this.label});
+  final IconData icon;
   final String label;
 
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
         color: p.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(11),
         border: Border.all(color: p.hairline),
       ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.labelSmall
-            ?.copyWith(color: p.inkMuted),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12.5, color: p.accent),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall
+                ?.copyWith(color: p.inkMuted),
+          ),
+        ],
       ),
     );
   }
 }
 
 class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.label, required this.value});
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+  final IconData icon;
   final String label;
   final String value;
 
@@ -855,8 +981,10 @@ class _InfoRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Icon(icon, size: 16, color: p.accent),
+          const SizedBox(width: 8),
           SizedBox(
-            width: 112,
+            width: 100,
             child: Text(
               label,
               style: Theme.of(context).textTheme.bodySmall

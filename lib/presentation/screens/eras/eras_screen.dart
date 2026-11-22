@@ -5,6 +5,7 @@ import '../../../core/animations/bayt_transitions.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/arabic_normalizer.dart';
+import '../../../core/widgets/poet_card.dart';
 import '../../../data/models/poet.dart';
 import '../../providers/app_providers.dart';
 import '../../providers/database_providers.dart';
@@ -64,9 +65,15 @@ class _ErasScreenState extends ConsumerState<ErasScreen>
           unselectedLabelColor: p.inkMuted,
           dividerColor: p.hairline,
           tabs: const [
-            Tab(text: 'العصور'),
-            Tab(text: 'الشعراء'),
-            Tab(text: 'البحور'),
+            Tab(
+              icon: Icon(Icons.hourglass_bottom_rounded, size: 17),
+              text: 'العصور',
+            ),
+            Tab(
+              icon: Icon(Icons.history_edu_rounded, size: 17),
+              text: 'الشعراء',
+            ),
+            Tab(icon: Icon(Icons.waves_rounded, size: 17), text: 'البحور'),
           ],
         ),
       ),
@@ -75,43 +82,46 @@ class _ErasScreenState extends ConsumerState<ErasScreen>
         children: [
           // 1. Literary Eras List
           ListView.separated(
-            padding: const EdgeInsets.fromLTRB(18, 16, 18, 110),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 102),
             itemCount: eras.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
             itemBuilder: (context, i) {
               final era = eras[i];
               return InkWell(
                 onTap: () =>
                     BaytNav.pushEditorial(context, PoetsScreen(era: era)),
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(16),
                 child: Container(
-                  padding: const EdgeInsets.all(18),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 15,
+                    vertical: 14,
+                  ),
                   decoration: BoxDecoration(
                     color: p.surfaceElevated,
-                    borderRadius: BorderRadius.circular(18),
+                    borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: p.hairline),
                   ),
                   child: Row(
                     children: [
                       Container(
-                        width: 46,
-                        height: 46,
+                        width: 42,
+                        height: 42,
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
                           color: p.accentSoft,
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
                           ArabicNormalizer.toArabicNumber(era.displayOrder),
                           style: TextStyle(
                             fontFamily: AppFonts.ruqaa,
-                            fontSize: 22,
+                            fontSize: 21,
                             fontWeight: FontWeight.w700,
                             color: p.accent,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 14),
+                      const SizedBox(width: 13),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -122,7 +132,7 @@ class _ErasScreenState extends ConsumerState<ErasScreen>
                                   'العصر ${era.name}',
                                   style: TextStyle(
                                     fontFamily: AppFonts.ruqaa,
-                                    fontSize: 21,
+                                    fontSize: 20,
                                     fontWeight: FontWeight.w700,
                                     color: p.ink,
                                   ),
@@ -135,22 +145,42 @@ class _ErasScreenState extends ConsumerState<ErasScreen>
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 2),
                             Text(
                               era.subtitle,
                               style: Theme.of(context).textTheme.bodySmall,
                             ),
-                            const SizedBox(height: 6),
-                            Text(
-                              '${ArabicNormalizer.toArabicNumber(era.poetCount)} شاعراً  •  ${ArabicNormalizer.toArabicNumber(era.poemCount)} قصيدة',
-                              style: Theme.of(context).textTheme.labelMedium,
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.history_edu_rounded,
+                                  size: 12.5,
+                                  color: p.accent,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${ArabicNormalizer.toArabicNumber(era.poetCount)} شاعراً',
+                                  style: Theme.of(context).textTheme.labelSmall,
+                                ),
+                                const SizedBox(width: 12),
+                                Icon(
+                                  Icons.auto_stories_outlined,
+                                  size: 12.5,
+                                  color: p.accent,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${ArabicNormalizer.toArabicNumber(era.poemCount)} قصيدة',
+                                  style: Theme.of(context).textTheme.labelSmall,
+                                ),
+                              ],
                             ),
                           ],
                         ),
                       ),
                       Icon(
                         Icons.arrow_back_ios_new_rounded,
-                        size: 16,
+                        size: 15,
                         color: p.inkMuted,
                       ),
                     ],
@@ -160,11 +190,11 @@ class _ErasScreenState extends ConsumerState<ErasScreen>
             },
           ),
 
-          // 2. All Poets Directory with Sorting Chips
+          // 2. All Poets Directory (Using Compact Horizontal PoetCard!)
           Column(
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(18, 14, 18, 8),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                 child: TextField(
                   controller: _poetSearchCtrl,
                   focusNode: _poetSearchFocus,
@@ -188,13 +218,14 @@ class _ErasScreenState extends ConsumerState<ErasScreen>
               ),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.fromLTRB(18, 0, 18, 8),
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                 child: Row(
                   children: PoetSortBy.values.map((s) {
                     return Padding(
                       padding: const EdgeInsets.only(left: 6),
                       child: ChoiceChip(
                         selected: _poetSort == s,
+                        visualDensity: VisualDensity.compact,
                         label: Text(s.label),
                         onSelected: (_) => setState(() => _poetSort = s),
                       ),
@@ -209,69 +240,22 @@ class _ErasScreenState extends ConsumerState<ErasScreen>
                         .read(poetryRepositoryProvider)
                         .getPoets(filterQuery: _poetFilter, sortBy: _poetSort);
                     return ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(18, 4, 18, 110),
+                      padding: const EdgeInsets.fromLTRB(16, 2, 16, 102),
                       itemCount: poets.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 8),
                       itemBuilder: (context, i) {
                         final poet = poets[i];
-                        final isFav = favPoetIds.contains(poet.id);
-                        return InkWell(
+                        return PoetCard(
+                          poet: poet,
+                          showEra: true,
+                          isFavorite: favPoetIds.contains(poet.id),
                           onTap: () => BaytNav.pushEditorial(
                             context,
                             PoetDetailScreen(poetId: poet.id),
                           ),
-                          borderRadius: BorderRadius.circular(14),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 13,
-                            ),
-                            decoration: BoxDecoration(
-                              color: p.surfaceElevated,
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: p.hairline),
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        poet.name,
-                                        style: TextStyle(
-                                          fontFamily: AppFonts.scheherazade,
-                                          fontSize: 21,
-                                          fontWeight: FontWeight.w700,
-                                          color: p.ink,
-                                          height: 1.45,
-                                        ),
-                                      ),
-                                      Text(
-                                        'العصر ${poet.eraName}  •  ${ArabicNormalizer.toArabicNumber(poet.poemCount)} قصيدة  •  ${ArabicNormalizer.toArabicNumber(poet.verseCount)} بيتاً',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .labelSmall,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                IconButton(
-                                  onPressed: () => ref
-                                      .read(userDataProvider.notifier)
-                                      .toggleFavoritePoet(poet.id),
-                                  icon: Icon(
-                                    isFav
-                                        ? Icons.favorite_rounded
-                                        : Icons.favorite_border_rounded,
-                                    color: isFav ? p.accent : p.inkMuted,
-                                    size: 20,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                          onToggleFavorite: () => ref
+                              .read(userDataProvider.notifier)
+                              .toggleFavoritePoet(poet.id),
                         );
                       },
                     );
@@ -283,9 +267,9 @@ class _ErasScreenState extends ConsumerState<ErasScreen>
 
           // 3. Poetic Meters Directory
           ListView.separated(
-            padding: const EdgeInsets.fromLTRB(18, 16, 18, 110),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 102),
             itemCount: meters.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            separatorBuilder: (_, __) => const SizedBox(height: 9),
             itemBuilder: (context, i) {
               final m = meters[i];
               return InkWell(
@@ -294,8 +278,8 @@ class _ErasScreenState extends ConsumerState<ErasScreen>
                 borderRadius: BorderRadius.circular(14),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 15,
+                    horizontal: 16,
+                    vertical: 13,
                   ),
                   decoration: BoxDecoration(
                     color: p.surfaceElevated,
@@ -304,6 +288,8 @@ class _ErasScreenState extends ConsumerState<ErasScreen>
                   ),
                   child: Row(
                     children: [
+                      Icon(Icons.waves_rounded, size: 19, color: p.accent),
+                      const SizedBox(width: 10),
                       Text(
                         'بحر ${m.name}',
                         style: TextStyle(
@@ -327,7 +313,7 @@ class _ErasScreenState extends ConsumerState<ErasScreen>
                           '${ArabicNormalizer.toArabicNumber(m.poemCount)} قصيدة',
                           style: TextStyle(
                             fontFamily: AppFonts.ui,
-                            fontSize: 12,
+                            fontSize: 11.5,
                             fontWeight: FontWeight.w600,
                             color: p.accent,
                           ),

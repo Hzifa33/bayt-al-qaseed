@@ -44,7 +44,9 @@ class FeaturedVerse {
     required this.ajuz,
     required this.poetName,
     required this.eraName,
+    this.category = 'خالدات',
     this.tag = 'من عيون الشعر',
+    this.verseCount = 0,
   });
 
   final int id;
@@ -56,7 +58,9 @@ class FeaturedVerse {
   final String ajuz;
   final String poetName;
   final String eraName;
+  final String category;
   final String tag;
+  final int verseCount;
 
   Verse toVerse() => Verse(index: verseIndex, sadr: sadr, ajuz: ajuz);
 }

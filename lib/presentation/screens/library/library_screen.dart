@@ -8,6 +8,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/arabic_normalizer.dart';
 import '../../../core/utils/share_formatter.dart';
 import '../../../core/widgets/empty_state_view.dart';
+import '../../../core/widgets/poet_card.dart';
 import '../../../data/models/verse.dart';
 import '../../providers/app_providers.dart';
 import '../../providers/user_data_providers.dart';
@@ -112,11 +113,23 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
           unselectedLabelColor: p.inkMuted,
           dividerColor: p.hairline,
           tabs: const [
-            Tab(text: 'القصائد'),
-            Tab(text: 'الأبيات'),
-            Tab(text: 'الشعراء'),
-            Tab(text: 'المجموعات'),
-            Tab(text: 'السجل'),
+            Tab(
+              icon: Icon(Icons.bookmark_outline_rounded, size: 17),
+              text: 'القصائد',
+            ),
+            Tab(
+              icon: Icon(Icons.format_quote_rounded, size: 17),
+              text: 'الأبيات',
+            ),
+            Tab(
+              icon: Icon(Icons.history_edu_rounded, size: 17),
+              text: 'الشعراء',
+            ),
+            Tab(
+              icon: Icon(Icons.collections_bookmark_outlined, size: 17),
+              text: 'المجموعات',
+            ),
+            Tab(icon: Icon(Icons.history_rounded, size: 17), text: 'السجل'),
           ],
         ),
       ),
@@ -333,60 +346,22 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                   subtitle: 'أضف شعراءك الأثيرين للوصول السريع إلى دواوينهم.',
                 )
               : ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(18, 14, 18, 110),
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 102),
                   itemCount: favPoets.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
                   itemBuilder: (context, i) {
                     final poet = favPoets[i];
-                    return InkWell(
+                    return PoetCard(
+                      poet: poet,
+                      showEra: true,
+                      isFavorite: true,
                       onTap: () => BaytNav.pushEditorial(
                         context,
                         PoetDetailScreen(poetId: poet.id),
                       ),
-                      borderRadius: BorderRadius.circular(14),
-                      child: Container(
-                        padding: const EdgeInsets.all(15),
-                        decoration: BoxDecoration(
-                          color: p.surfaceElevated,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: p.hairline),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    poet.name,
-                                    style: TextStyle(
-                                      fontFamily: AppFonts.scheherazade,
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.w700,
-                                      color: p.ink,
-                                    ),
-                                  ),
-                                  Text(
-                                    'العصر ${poet.eraName}  •  ${ArabicNormalizer.toArabicNumber(poet.poemCount)} قصيدة',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .labelSmall,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            IconButton(
-                              onPressed: () => ref
-                                  .read(userDataProvider.notifier)
-                                  .toggleFavoritePoet(poet.id),
-                              icon: Icon(
-                                Icons.favorite_rounded,
-                                color: p.accent,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                      onToggleFavorite: () => ref
+                          .read(userDataProvider.notifier)
+                          .toggleFavoritePoet(poet.id),
                     );
                   },
                 ),

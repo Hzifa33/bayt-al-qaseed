@@ -266,16 +266,28 @@ class _PoetDetailScreenState extends ConsumerState<PoetDetailScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          poet.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontFamily: AppFonts.ruqaa,
-                            fontSize: 21,
-                            fontWeight: FontWeight.w700,
-                            color: p.ink,
-                          ),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.history_edu_rounded,
+                              size: 17,
+                              color: p.accent,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                poet.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontFamily: AppFonts.ruqaa,
+                                  fontSize: 21,
+                                  fontWeight: FontWeight.w700,
+                                  color: p.ink,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 2),
                         Text(

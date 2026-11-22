@@ -38,7 +38,6 @@ class _MainShellScreenState extends State<MainShellScreen> {
       const LibraryScreen(),
     ];
 
-    // Requirement #5: Back on any non-Home tab returns cleanly to Home first.
     return PopScope(
       canPop: _index == 0,
       onPopInvokedWithResult: (didPop, _) {
@@ -49,7 +48,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
       child: Scaffold(
         extendBody: true,
         body: IndexedStack(index: _index, children: pages),
-        bottomNavigationBar: _FloatingHeritageNavBar(
+        bottomNavigationBar: _SculptedFloatingNavBar(
           selectedIndex: _index,
           onSelect: _goToTab,
         ),
@@ -84,7 +83,7 @@ const _navItems = [
   _NavItemData(
     label: 'البحث',
     icon: Icons.search_rounded,
-    activeIcon: Icons.manage_search_rounded,
+    activeIcon: Icons.search_rounded,
   ),
   _NavItemData(
     label: 'مكتبتي',
@@ -93,10 +92,13 @@ const _navItems = [
   ),
 ];
 
-/// Floating Neo-Heritage Pill Bottom Bar with double hairline frame and smooth
-/// animated sliding highlight pill.
-class _FloatingHeritageNavBar extends StatelessWidget {
-  const _FloatingHeritageNavBar({
+/// Ultra-clean, sculpted floating capsule navigation bar.
+///
+/// The active destination smoothly expands horizontally into a warm antique-gold
+/// pill displaying `[Icon + Label]`, while inactive tabs remain light, minimalist
+/// icons — delivering modern refinement with quiet Neo-Heritage poise.
+class _SculptedFloatingNavBar extends StatelessWidget {
+  const _SculptedFloatingNavBar({
     required this.selectedIndex,
     required this.onSelect,
   });
@@ -112,109 +114,81 @@ class _FloatingHeritageNavBar extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
+        padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
         child: Container(
-          height: 66,
-          padding: const EdgeInsets.all(5),
+          height: 58,
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
           decoration: BoxDecoration(
-            color: p.surfaceElevated.withValues(alpha: isDark ? 0.94 : 0.96),
-            borderRadius: BorderRadius.circular(26),
+            color: p.surfaceElevated.withValues(alpha: isDark ? 0.95 : 0.97),
+            borderRadius: BorderRadius.circular(30),
             border: Border.all(
-              color: p.ornament.withValues(alpha: 0.48),
-              width: 1.05,
+              color: p.ornament.withValues(alpha: isDark ? 0.42 : 0.36),
+              width: 1.0,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.42 : 0.10),
-                blurRadius: 24,
+                color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.09),
+                blurRadius: 22,
                 spreadRadius: -4,
                 offset: const Offset(0, 10),
               ),
-              BoxShadow(
-                color: p.accent.withValues(alpha: 0.06),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
             ],
           ),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 3),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(21),
-              border: Border.all(
-                color: p.hairline.withValues(alpha: 0.65),
-                width: 0.65,
-              ),
-            ),
-            child: Row(
-              children: List.generate(_navItems.length, (i) {
-                final item = _navItems[i];
-                final active = i == selectedIndex;
-                return Expanded(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => onSelect(i),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 280),
-                      curve: Curves.easeOutCubic,
-                      margin: const EdgeInsets.symmetric(
-                        horizontal: 2,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: active ? p.accentSoft : Colors.transparent,
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(
-                          color: active
-                              ? p.accent.withValues(alpha: 0.32)
-                              : Colors.transparent,
-                          width: 0.9,
-                        ),
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          AnimatedScale(
-                            scale: active ? 1.08 : 0.95,
-                            duration: const Duration(milliseconds: 220),
-                            curve: Curves.easeOutBack,
-                            child: Icon(
-                              active ? item.activeIcon : item.icon,
-                              size: 21,
-                              color: active ? p.accent : p.inkMuted,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            item.label,
-                            maxLines: 1,
-                            style: TextStyle(
-                              fontFamily: AppFonts.ui,
-                              fontSize: 11,
-                              fontWeight: active
-                                  ? FontWeight.w700
-                                  : FontWeight.w500,
-                              color: active ? p.accent : p.inkMuted,
-                              height: 1.15,
-                            ),
-                          ),
-                          AnimatedContainer(
-                            duration: const Duration(milliseconds: 240),
-                            margin: const EdgeInsets.only(top: 2),
-                            width: active ? 12 : 0,
-                            height: 2,
-                            decoration: BoxDecoration(
-                              color: p.accent,
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: List.generate(_navItems.length, (i) {
+              final item = _navItems[i];
+              final active = i == selectedIndex;
+              return GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => onSelect(i),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 280),
+                  curve: Curves.easeOutCubic,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: active ? 16 : 14,
+                    vertical: 8,
                   ),
-                );
-              }),
-            ),
+                  decoration: BoxDecoration(
+                    color: active ? p.accent : Colors.transparent,
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        active ? item.activeIcon : item.icon,
+                        size: 21,
+                        color: active
+                            ? Theme.of(context).colorScheme.onPrimary
+                            : p.inkMuted,
+                      ),
+                      AnimatedSize(
+                        duration: const Duration(milliseconds: 260),
+                        curve: Curves.easeOutCubic,
+                        child: active
+                            ? Padding(
+                                padding: const EdgeInsets.only(right: 7),
+                                child: Text(
+                                  item.label,
+                                  maxLines: 1,
+                                  style: TextStyle(
+                                    fontFamily: AppFonts.ui,
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onPrimary,
+                                  ),
+                                ),
+                              )
+                            : const SizedBox.shrink(),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
           ),
         ),
       ),

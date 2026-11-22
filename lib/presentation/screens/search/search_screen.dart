@@ -9,6 +9,8 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/arabic_normalizer.dart';
 import '../../../core/widgets/empty_state_view.dart';
+import '../../../data/models/era.dart';
+import '../../../data/models/meter.dart';
 import '../../../data/models/search_result.dart';
 import '../../providers/app_providers.dart';
 import '../../providers/database_providers.dart';
@@ -38,6 +40,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   Timer? _debounce;
   SearchFilter _filter = const SearchFilter();
   SearchBundle? _bundle;
+  bool _isSearching = false;
   List<String> _recentQueries = const [];
 
   @override
@@ -77,31 +80,80 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   void _onQueryChanged(String value) {
     _debounce?.cancel();
-    if (value.trim().isEmpty) {
-      setState(() => _bundle = null);
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      setState(() {
+        _isSearching = false;
+        _bundle = null;
+      });
       return;
     }
-    _debounce = Timer(const Duration(milliseconds: 160), _executeSearch);
+    // Set searching state immediately so "لم يتم العثور" NEVER flashes prematurely!
+    setState(() => _isSearching = true);
+    _debounce = Timer(const Duration(milliseconds: 220), _executeSearch);
   }
 
   void _executeSearch({bool saveHistory = false}) {
     final q = _ctrl.text.trim();
     if (q.isEmpty) {
-      setState(() => _bundle = null);
+      setState(() {
+        _isSearching = false;
+        _bundle = null;
+      });
       return;
     }
     if (saveHistory) _saveRecentQuery(q);
     final res = ref
         .read(poetryRepositoryProvider)
         .search(rawQuery: q, filter: _filter, poemLimit: 80, poetLimit: 12);
-    setState(() => _bundle = res);
+    if (!mounted) return;
+    setState(() {
+      _bundle = res;
+      _isSearching = false;
+    });
   }
 
   void _applySuggestion(String text) {
     _searchFocus.unfocus();
     _ctrl.text = text;
     _ctrl.selection = TextSelection.collapsed(offset: text.length);
-    _executeSearch(saveHistory: true);
+    setState(() => _isSearching = true);
+    Future.microtask(() => _executeSearch(saveHistory: true));
+  }
+
+  int get _activeFilterCount {
+    var c = 0;
+    if (_filter.eraId != null) c++;
+    if (_filter.meterId != null) c++;
+    if (_filter.rhymeId != null) c++;
+    return c;
+  }
+
+  Future<void> _openUnifiedFiltersSheet(
+    List<Era> eras,
+    List<Meter> meters,
+    List<Rhyme> rhymes,
+  ) async {
+    BaytNav.unfocus();
+    final updated = await showModalBottomSheet<SearchFilter>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => _SearchFiltersSheet(
+        initial: _filter,
+        eras: eras,
+        meters: meters,
+        rhymes: rhymes,
+      ),
+    );
+    if (updated != null) {
+      setState(() {
+        _filter = updated;
+        if (_ctrl.text.trim().isNotEmpty) _isSearching = true;
+      });
+      if (_ctrl.text.trim().isNotEmpty) {
+        Future.microtask(_executeSearch);
+      }
+    }
   }
 
   @override
@@ -110,14 +162,15 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final eras = ref.watch(erasProvider);
     final meters = ref.watch(metersProvider);
     final rhymes = ref.watch(rhymesProvider);
+    final filterCount = _activeFilterCount;
 
     return Scaffold(
       appBar: AppBar(title: const Text('البحث في الديوان')),
       body: Column(
         children: [
-          // Search Bar (Keyboard opens ONLY on direct tap or tapping Clear!)
+          // 1. Clean Search Input Field
           Padding(
-            padding: const EdgeInsets.fromLTRB(18, 6, 18, 10),
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
             child: TextField(
               controller: _ctrl,
               focusNode: _searchFocus,
@@ -127,17 +180,22 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               textInputAction: TextInputAction.search,
               onSubmitted: (_) {
                 _searchFocus.unfocus();
-                _executeSearch(saveHistory: true);
+                setState(() => _isSearching = true);
+                Future.microtask(() => _executeSearch(saveHistory: true));
               },
               decoration: InputDecoration(
-                hintText: 'ابحث في الأبيات أو الشعراء بالتشكيل أو بدونه…',
+                hintText: 'ابحث في الأبيات أو الشعراء…',
                 prefixIcon: Icon(Icons.search_rounded, color: p.accent),
                 suffixIcon: _ctrl.text.isNotEmpty
                     ? IconButton(
                         tooltip: 'مسح النص',
                         onPressed: () {
+                          _debounce?.cancel();
                           _ctrl.clear();
-                          setState(() => _bundle = null);
+                          setState(() {
+                            _isSearching = false;
+                            _bundle = null;
+                          });
                           _searchFocus.requestFocus();
                         },
                         icon: Icon(Icons.close_rounded, color: p.inkMuted),
@@ -147,159 +205,98 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             ),
           ),
 
-          // Precision Search Mode Bar (Same-Verse vs Exact-Sequence + Partial Word Toggle)
+          // 2. Simple, Crystal-Clear Single-Row Search Controls
           Padding(
-            padding: const EdgeInsets.fromLTRB(18, 0, 18, 8),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: Row(
               children: [
+                // Toggle 1: Same-Verse vs Exact Consecutive Phrase
                 Expanded(
-                  child: SegmentedButton<SearchMatchMode>(
-                    showSelectedIcon: false,
-                    style: const ButtonStyle(
-                      visualDensity: VisualDensity.compact,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      textStyle: WidgetStatePropertyAll(
-                        TextStyle(
-                          fontFamily: AppFonts.ui,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    segments: SearchMatchMode.values
-                        .map(
-                          (m) => ButtonSegment<SearchMatchMode>(
-                            value: m,
-                            label: Text(m.label),
-                          ),
-                        )
-                        .toList(),
-                    selected: {_filter.matchMode},
-                    onSelectionChanged: (set) {
+                  child: _SimpleOptionPill(
+                    icon: _filter.matchMode == SearchMatchMode.exactSequence
+                        ? Icons.format_quote_rounded
+                        : Icons.view_headline_rounded,
+                    label: _filter.matchMode == SearchMatchMode.exactSequence
+                        ? 'عبارة متتابعة'
+                        : 'في نفس البيت',
+                    active: _filter.matchMode == SearchMatchMode.exactSequence,
+                    onTap: () {
                       HapticFeedback.selectionClick();
-                      setState(
-                        () => _filter = _filter.copyWith(matchMode: set.first),
-                      );
-                      _executeSearch();
+                      final next =
+                          _filter.matchMode == SearchMatchMode.sameVerse
+                          ? SearchMatchMode.exactSequence
+                          : SearchMatchMode.sameVerse;
+                      setState(() {
+                        _filter = _filter.copyWith(matchMode: next);
+                        if (_ctrl.text.trim().isNotEmpty) _isSearching = true;
+                      });
+                      if (_ctrl.text.trim().isNotEmpty) {
+                        Future.microtask(_executeSearch);
+                      }
                     },
                   ),
                 ),
                 const SizedBox(width: 8),
-                Tooltip(
-                  message: _filter.matchPartialWords
-                      ? 'مطابقة أجزاء الكلمة: «قل» تشمل «قلب» و«قليل»'
-                      : 'كلمات تامة بمسافة: «قل» تطابق «قل» وحدها',
-                  child: FilterChip(
-                    visualDensity: VisualDensity.compact,
-                    selected: _filter.matchPartialWords,
-                    label: Text(
-                      _filter.matchPartialWords ? 'أجزاء الكلمة' : 'كلمة تامة',
-                      style: const TextStyle(fontSize: 11.5),
-                    ),
-                    onSelected: (v) {
+                // Toggle 2: Partial Word (قل -> قلب) vs Whole Word (قل فقط)
+                Expanded(
+                  child: _SimpleOptionPill(
+                    icon: _filter.matchPartialWords
+                        ? Icons.short_text_rounded
+                        : Icons.space_bar_rounded,
+                    label: _filter.matchPartialWords
+                        ? 'بداية الكلمة'
+                        : 'كلمة تامة',
+                    active: !_filter.matchPartialWords,
+                    onTap: () {
                       HapticFeedback.selectionClick();
-                      setState(
-                        () => _filter = _filter.copyWith(matchPartialWords: v),
-                      );
-                      _executeSearch();
+                      setState(() {
+                        _filter = _filter.copyWith(
+                          matchPartialWords: !_filter.matchPartialWords,
+                        );
+                        if (_ctrl.text.trim().isNotEmpty) _isSearching = true;
+                      });
+                      if (_ctrl.text.trim().isNotEmpty) {
+                        Future.microtask(_executeSearch);
+                      }
                     },
                   ),
+                ),
+                const SizedBox(width: 8),
+                // Unified Classification Button (Era / Meter / Rhyme)
+                _SimpleOptionPill(
+                  icon: Icons.tune_rounded,
+                  label: filterCount > 0
+                      ? 'تصفية (${ArabicNormalizer.toArabicNumber(filterCount)})'
+                      : 'تصفية',
+                  active: filterCount > 0,
+                  onTap: () => _openUnifiedFiltersSheet(eras, meters, rhymes),
                 ),
               ],
             ),
           ),
 
-          // Era / Meter / Rhyme Classification Pills
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 18),
-            child: Row(
-              children: [
-                _SearchFilterPill(
-                  label: _filter.eraId == null
-                      ? 'العصر'
-                      : eras.firstWhere((e) => e.id == _filter.eraId).name,
-                  active: _filter.eraId != null,
-                  onTap: () => _pickFilter(
-                    title: 'تصفية حسب العصر',
-                    items: eras.map((e) => (e.id, 'العصر ${e.name}')).toList(),
-                    current: _filter.eraId,
-                    onPick: (id) {
-                      setState(() {
-                        _filter = id == null
-                            ? _filter.copyWith(clearEra: true)
-                            : _filter.copyWith(eraId: id);
-                      });
-                      _executeSearch();
-                    },
-                  ),
-                ),
-                const SizedBox(width: 8),
-                _SearchFilterPill(
-                  label: _filter.meterId == null
-                      ? 'البحر'
-                      : meters.firstWhere((m) => m.id == _filter.meterId).name,
-                  active: _filter.meterId != null,
-                  onTap: () => _pickFilter(
-                    title: 'تصفية حسب البحر العروضي',
-                    items: meters.map((m) => (m.id, 'بحر ${m.name}')).toList(),
-                    current: _filter.meterId,
-                    onPick: (id) {
-                      setState(() {
-                        _filter = id == null
-                            ? _filter.copyWith(clearMeter: true)
-                            : _filter.copyWith(meterId: id);
-                      });
-                      _executeSearch();
-                    },
-                  ),
-                ),
-                const SizedBox(width: 8),
-                _SearchFilterPill(
-                  label: _filter.rhymeId == null
-                      ? 'الرويّ'
-                      : 'قافية (${rhymes.firstWhere((r) => r.id == _filter.rhymeId).name})',
-                  active: _filter.rhymeId != null,
-                  onTap: () => _pickFilter(
-                    title: 'تصفية حسب حرف الرويّ',
-                    items: rhymes
-                        .map((r) => (r.id, 'قافية (${r.name})'))
-                        .toList(),
-                    current: _filter.rhymeId,
-                    onPick: (id) {
-                      setState(() {
-                        _filter = id == null
-                            ? _filter.copyWith(clearRhyme: true)
-                            : _filter.copyWith(rhymeId: id);
-                      });
-                      _executeSearch();
-                    },
-                  ),
-                ),
-                if (_filter.hasActiveFilters) ...[
-                  const SizedBox(width: 8),
-                  ActionChip(
-                    label: const Text('إلغاء التصفية'),
-                    onPressed: () {
-                      setState(
-                        () => _filter = SearchFilter(
-                          matchMode: _filter.matchMode,
-                          matchPartialWords: _filter.matchPartialWords,
-                        ),
-                      );
-                      _executeSearch();
-                    },
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
+          if (_isSearching)
+            LinearProgressIndicator(
+              minHeight: 2,
+              backgroundColor: Colors.transparent,
+              valueColor: AlwaysStoppedAnimation(p.accent),
+            )
+          else
+            const SizedBox(height: 2),
 
-          // Results Area
+          // 3. Results / Loading / Suggestions Area
           Expanded(
-            child: _bundle == null
+            child: _ctrl.text.trim().isEmpty
                 ? _buildInitialSuggestions(context)
+                : _isSearching && _bundle == null
+                ? Center(
+                    child: CircularProgressIndicator(
+                      color: p.accent,
+                      strokeWidth: 2.2,
+                    ),
+                  )
+                : _bundle == null
+                ? const SizedBox.shrink()
                 : _buildResults(context, _bundle!),
           ),
         ],
@@ -310,25 +307,38 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   Widget _buildInitialSuggestions(BuildContext context) {
     final p = context.palette;
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 112),
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 108),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Icon(Icons.manage_search_rounded, size: 40, color: p.ornament),
-          const SizedBox(height: 10),
-          Text(
-            'ابحث في ذاكرة الشعر العربي',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.headlineMedium,
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'تُجمع الكلمات داخل البيت الواحد، مع خيار المطابقة المتتابعة ومطابقة أجزاء الكلمة أو الكلمة التامة.',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodySmall,
+          // Clear 2-line helper explaining the two simple search toggles
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: p.surface,
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(color: p.hairline),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'تلميح للبحث الدقيق',
+                  style: Theme.of(context).textTheme.titleSmall
+                      ?.copyWith(color: p.accent),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '• «في نفس البيت» يجمع الكلمات داخل البيت الواحد، و«عبارة متتابعة» يشترط الترتيب.\n'
+                  '• «بداية الكلمة» يجعل البحث عن «قل» يُظهر «قلب» و«قليل»، بينما «كلمة تامة» يطابق «قل» وحدها.',
+                  style: Theme.of(context).textTheme.bodySmall
+                      ?.copyWith(height: 1.7),
+                ),
+              ],
+            ),
           ),
           if (_recentQueries.isNotEmpty) ...[
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -363,7 +373,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   .toList(),
             ),
           ],
-          const SizedBox(height: 20),
+          const SizedBox(height: 18),
           Text(
             'مقترحات من عيون الشعر:',
             style: Theme.of(context).textTheme.titleSmall,
@@ -393,22 +403,23 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   Widget _buildResults(BuildContext context, SearchBundle bundle) {
     final p = context.palette;
-    if (bundle.poems.isEmpty && bundle.poets.isEmpty) {
+
+    // Never show "not found" while a fresh query is still running!
+    if (!_isSearching && bundle.poems.isEmpty && bundle.poets.isEmpty) {
       return EmptyStateView(
         icon: Icons.search_off_rounded,
         title: 'لا توجد نتائج مطابقة',
         subtitle: _filter.matchMode == SearchMatchMode.exactSequence
-            ? 'جرّب التبديل إلى «في بيتٍ واحد» أو تفعيل «أجزاء الكلمة».'
-            : 'جرّب كلماتٍ أقل أو أزل التصفية بالعصر أو البحر.',
+            ? 'جرّب التبديل إلى «في نفس البيت» أو اختيار «بداية الكلمة».'
+            : 'جرّب كلماتٍ أخرى أو أزل التصفية بالعصر أو البحر.',
       );
     }
 
     return CustomScrollView(
       slivers: [
-        // Clean literary result summary (Zero technical jargon!)
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 2, 20, 10),
+            padding: const EdgeInsets.fromLTRB(18, 6, 18, 10),
             child: Text(
               'عُثر على ${ArabicNormalizer.toArabicNumber(bundle.poems.length)} قصيدة'
               '${bundle.poets.isNotEmpty ? ' و${ArabicNormalizer.toArabicNumber(bundle.poets.length)} شاعر' : ''}',
@@ -422,12 +433,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         if (bundle.poets.isNotEmpty) ...[
           SliverToBoxAdapter(
             child: SizedBox(
-              height: 76,
+              height: 68,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 18),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 itemCount: bundle.poets.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 10),
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
                 itemBuilder: (context, i) {
                   final poet = bundle.poets[i];
                   return InkWell(
@@ -442,7 +453,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 14,
-                        vertical: 10,
+                        vertical: 8,
                       ),
                       decoration: BoxDecoration(
                         color: p.accentSoft,
@@ -459,13 +470,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                             poet.namePlain,
                             style: TextStyle(
                               fontFamily: AppFonts.ruqaa,
-                              fontSize: 17,
+                              fontSize: 16.5,
                               fontWeight: FontWeight.w700,
                               color: p.ink,
                             ),
                           ),
                           Text(
-                            'العصر ${poet.eraName} • ${ArabicNormalizer.toArabicNumber(poet.poemCount)} قصيدة',
+                            'العصر ${poet.eraName}  •  ${ArabicNormalizer.toArabicNumber(poet.poemCount)} قصيدة',
                             style: Theme.of(context).textTheme.labelSmall,
                           ),
                         ],
@@ -476,15 +487,15 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               ),
             ),
           ),
-          const SliverToBoxAdapter(child: SizedBox(height: 12)),
+          const SliverToBoxAdapter(child: SizedBox(height: 10)),
         ],
 
-        // Matched Poems & Highlighted Verses
+        // Clean Verse-Only Search Result Cards (NO word-by-word highlighting!)
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(18, 0, 18, 112),
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 106),
           sliver: SliverList.separated(
             itemCount: bundle.poems.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            separatorBuilder: (_, __) => const SizedBox(height: 9),
             itemBuilder: (context, i) {
               final hit = bundle.poems[i];
               final verseStyle = TextStyle(
@@ -501,13 +512,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     PoemReaderScreen(
                       poemId: hit.poemId,
                       initialVerseIndex: hit.matchedVerseIndex,
-                      highlightQuery: bundle.query,
+                      highlightMatchedVerseOnce: true,
                     ),
                   );
                 },
                 borderRadius: BorderRadius.circular(16),
                 child: Container(
-                  padding: const EdgeInsets.all(15),
+                  padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     color: p.surfaceElevated,
                     borderRadius: BorderRadius.circular(16),
@@ -516,38 +527,45 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      RichText(
-                        textDirection: TextDirection.rtl,
-                        text: TextSpan(
-                          children: ArabicNormalizer.buildHighlightedSpans(
-                            originalText: hit.matchedSadr,
-                            rawQuery: bundle.query,
-                            baseStyle: verseStyle,
-                            highlightBackground: p.highlightFill,
-                            highlightForeground: p.ink,
-                          ),
+                      // Clean verse display without highlighting individual words
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: p.surface.withValues(alpha: 0.72),
+                          borderRadius: BorderRadius.circular(11),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              hit.matchedSadr,
+                              textAlign: TextAlign.right,
+                              style: verseStyle,
+                            ),
+                            if (hit.matchedAjuz.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(right: 22),
+                                child: Text(
+                                  hit.matchedAjuz,
+                                  textAlign: TextAlign.left,
+                                  style: verseStyle,
+                                ),
+                              ),
+                          ],
                         ),
                       ),
-                      if (hit.matchedAjuz.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 22),
-                          child: RichText(
-                            textDirection: TextDirection.rtl,
-                            textAlign: TextAlign.left,
-                            text: TextSpan(
-                              children: ArabicNormalizer.buildHighlightedSpans(
-                                originalText: hit.matchedAjuz,
-                                rawQuery: bundle.query,
-                                baseStyle: verseStyle,
-                                highlightBackground: p.highlightFill,
-                                highlightForeground: p.ink,
-                              ),
-                            ),
-                          ),
-                        ),
                       const SizedBox(height: 8),
                       Row(
                         children: [
+                          Icon(
+                            Icons.history_edu_rounded,
+                            size: 14,
+                            color: p.accent,
+                          ),
+                          const SizedBox(width: 5),
                           Text(
                             hit.poetName,
                             style: TextStyle(
@@ -557,7 +575,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                               color: p.accent,
                             ),
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 6),
                           Expanded(
                             child: Text(
                               '•  ${hit.eraName}  •  بحر ${hit.meterName}',
@@ -598,70 +616,17 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       ],
     );
   }
-
-  Future<void> _pickFilter({
-    required String title,
-    required List<(int, String)> items,
-    required int? current,
-    required void Function(int?) onPick,
-  }) async {
-    BaytNav.unfocus();
-    final p = context.palette;
-    final res = await showModalBottomSheet<int?>(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
-              child: Row(
-                children: [
-                  Text(title, style: Theme.of(context).textTheme.titleMedium),
-                  const Spacer(),
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx, -1),
-                    child: Text('الكل', style: TextStyle(color: p.accent)),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(),
-            Flexible(
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: items.length,
-                itemBuilder: (_, i) {
-                  final (id, label) = items[i];
-                  return ListTile(
-                    title: Text(label),
-                    trailing: id == current
-                        ? Icon(Icons.check_rounded, color: p.accent)
-                        : null,
-                    onTap: () => Navigator.pop(ctx, id),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (res == -1) {
-      onPick(null);
-    } else if (res != null) {
-      onPick(res);
-    }
-  }
 }
 
-class _SearchFilterPill extends StatelessWidget {
-  const _SearchFilterPill({
+class _SimpleOptionPill extends StatelessWidget {
+  const _SimpleOptionPill({
+    required this.icon,
     required this.label,
     required this.active,
     required this.onTap,
   });
 
+  final IconData icon;
   final String label;
   final bool active;
   final VoidCallback onTap;
@@ -671,35 +636,177 @@ class _SearchFilterPill extends StatelessWidget {
     final p = context.palette;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      borderRadius: BorderRadius.circular(14),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
           color: active ? p.accentSoft : p.surface,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: active ? p.accent.withValues(alpha: 0.45) : p.hairline,
+            color: active ? p.accent.withValues(alpha: 0.48) : p.hairline,
+            width: 0.9,
           ),
         ),
         child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontFamily: AppFonts.ui,
-                fontSize: 12,
-                fontWeight: active ? FontWeight.w600 : FontWeight.w400,
-                color: active ? p.accent : p.ink,
+            Icon(icon, size: 15, color: active ? p.accent : p.inkMuted),
+            const SizedBox(width: 5),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: AppFonts.ui,
+                  fontSize: 11.8,
+                  fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                  color: active ? p.accent : p.ink,
+                ),
               ),
             ),
-            const SizedBox(width: 4),
-            Icon(
-              Icons.keyboard_arrow_down_rounded,
-              size: 16,
-              color: active ? p.accent : p.inkMuted,
-            ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SearchFiltersSheet extends StatefulWidget {
+  const _SearchFiltersSheet({
+    required this.initial,
+    required this.eras,
+    required this.meters,
+    required this.rhymes,
+  });
+
+  final SearchFilter initial;
+  final List<Era> eras;
+  final List<Meter> meters;
+  final List<Rhyme> rhymes;
+
+  @override
+  State<_SearchFiltersSheet> createState() => _SearchFiltersSheetState();
+}
+
+class _SearchFiltersSheetState extends State<_SearchFiltersSheet> {
+  late SearchFilter _draft;
+
+  @override
+  void initState() {
+    super.initState();
+    _draft = widget.initial;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    'تصفية نتائج البحث',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _draft = SearchFilter(
+                          matchMode: _draft.matchMode,
+                          matchPartialWords: _draft.matchPartialWords,
+                        );
+                      });
+                    },
+                    child: Text(
+                      'إلغاء الكل',
+                      style: TextStyle(color: p.accent),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'العصر الأدبي',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: widget.eras.map((e) {
+                  final sel = _draft.eraId == e.id;
+                  return ChoiceChip(
+                    selected: sel,
+                    visualDensity: VisualDensity.compact,
+                    label: Text(e.name),
+                    onSelected: (_) => setState(() {
+                      _draft = sel
+                          ? _draft.copyWith(clearEra: true)
+                          : _draft.copyWith(eraId: e.id);
+                    }),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                'البحر العروضي',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: widget.meters.take(16).map((m) {
+                  final sel = _draft.meterId == m.id;
+                  return ChoiceChip(
+                    selected: sel,
+                    visualDensity: VisualDensity.compact,
+                    label: Text(m.name),
+                    onSelected: (_) => setState(() {
+                      _draft = sel
+                          ? _draft.copyWith(clearMeter: true)
+                          : _draft.copyWith(meterId: m.id);
+                    }),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 14),
+              Text('حرف الرويّ', style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: widget.rhymes.take(28).map((r) {
+                  final sel = _draft.rhymeId == r.id;
+                  return ChoiceChip(
+                    selected: sel,
+                    visualDensity: VisualDensity.compact,
+                    label: Text(r.name),
+                    onSelected: (_) => setState(() {
+                      _draft = sel
+                          ? _draft.copyWith(clearRhyme: true)
+                          : _draft.copyWith(rhymeId: r.id);
+                    }),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 18),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, _draft),
+                child: const Text('تطبيق التصفية'),
+              ),
+            ],
+          ),
         ),
       ),
     );

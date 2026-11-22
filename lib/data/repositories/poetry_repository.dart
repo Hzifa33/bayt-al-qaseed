@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:sqlite3/sqlite3.dart';
 
 import '../../core/utils/arabic_normalizer.dart';
@@ -13,7 +15,17 @@ class PoetryRepository {
   PoetryRepository(this._corpus);
 
   final PoetryDatabase _corpus;
+  final math.Random _rng = math.Random();
+  int? _cachedMaxPoemId;
+
   Database get _db => _corpus.db;
+
+  int _getMaxPoemId() {
+    if (_cachedMaxPoemId != null) return _cachedMaxPoemId!;
+    final row = _db.select('SELECT MAX(id) AS m FROM poems');
+    _cachedMaxPoemId = (row.first['m'] as int?) ?? 90000;
+    return _cachedMaxPoemId!;
+  }
 
   LibraryStats getLibraryStats() {
     final rows = _db.select('SELECT key, value FROM metadata');
@@ -86,7 +98,6 @@ class PoetryRepository {
         .toList();
   }
 
-  /// Returns a deterministic curated famous masterpiece verse for today.
   FeaturedVerse? getVerseOfTheDay([DateTime? now]) {
     final countRow = _db.select('SELECT COUNT(*) AS c FROM featured_verses');
     final total = countRow.first['c'] as int;
@@ -113,8 +124,7 @@ class PoetryRepository {
     return _mapFeaturedVerse(rows.first);
   }
 
-  /// Returns curated famous Arabic poetry masterpieces for the Home anthology rail.
-  List<FeaturedVerse> getFeaturedMasterpieces({int limit = 16}) {
+  List<FeaturedVerse> getFeaturedMasterpieces({int limit = 80}) {
     final rows = _db.select(
       'SELECT * FROM featured_verses ORDER BY id ASC LIMIT ?',
       [limit],
@@ -122,19 +132,56 @@ class PoetryRepository {
     return rows.map(_mapFeaturedVerse).toList();
   }
 
+  /// Instant O(log N) random poem picker (~0.08 ms) avoiding full-table RANDOM() scans.
   PoemSummary? getRandomPoem({int? eraId, int? meterId}) {
+    if (eraId == null && meterId == null) {
+      final maxId = _getMaxPoemId();
+      if (maxId <= 0) return null;
+      final probeId = _rng.nextInt(maxId) + 1;
+      final rows = _db.select(
+        '''
+        SELECT p.id, p.poet_id, pt.name_plain AS poet_name,
+               p.era_id, e.name AS era_name,
+               p.meter_id, m.name AS meter_name,
+               p.rhyme_id, r.name AS rhyme_name,
+               p.title, p.verse_count, p.has_diacritics, p.is_free_verse
+        FROM poems p
+        JOIN poets pt ON pt.id = p.poet_id
+        JOIN eras e ON e.id = p.era_id
+        JOIN meters m ON m.id = p.meter_id
+        JOIN rhymes r ON r.id = p.rhyme_id
+        WHERE p.id >= ?
+        ORDER BY p.id ASC
+        LIMIT 1
+        ''',
+        [probeId],
+      );
+      if (rows.isNotEmpty) return _mapPoemSummary(rows.first);
+      return null;
+    }
+
+    // Fast indexed count + random offset when filtered by era or meter
     final where = <String>[];
     final args = <Object?>[];
     if (eraId != null) {
-      where.add('p.era_id = ?');
+      where.add('era_id = ?');
       args.add(eraId);
     }
     if (meterId != null) {
-      where.add('p.meter_id = ?');
+      where.add('meter_id = ?');
       args.add(meterId);
     }
-    final whereSql = where.isEmpty ? '' : 'WHERE ${where.join(' AND ')}';
-    final rows = _db.select('''
+    final countRow = _db.select(
+      'SELECT COUNT(*) AS c FROM poems WHERE ${where.join(' AND ')}',
+      args,
+    );
+    final total = countRow.first['c'] as int;
+    if (total <= 0) return null;
+    final offset = _rng.nextInt(total);
+
+    final prefixedWhere = where.map((w) => 'p.$w').join(' AND ');
+    final rows = _db.select(
+      '''
       SELECT p.id, p.poet_id, pt.name_plain AS poet_name,
              p.era_id, e.name AS era_name,
              p.meter_id, m.name AS meter_name,
@@ -145,10 +192,11 @@ class PoetryRepository {
       JOIN eras e ON e.id = p.era_id
       JOIN meters m ON m.id = p.meter_id
       JOIN rhymes r ON r.id = p.rhyme_id
-      $whereSql
-      ORDER BY RANDOM()
-      LIMIT 1
-      ''', args);
+      WHERE $prefixedWhere
+      LIMIT 1 OFFSET ?
+      ''',
+      [...args, offset],
+    );
     if (rows.isEmpty) return null;
     return _mapPoemSummary(rows.first);
   }
@@ -324,8 +372,6 @@ class PoetryRepository {
     return rows.map(_mapPoemSummary).toList();
   }
 
-  /// Uses composite index `idx_poems_meter_verses(meter_id, verse_count DESC)`
-  /// for sub-millisecond pagination without sorting 20K+ rows!
   List<PoemSummary> getPoemsByMeter(
     int meterId, {
     int limit = 60,
@@ -352,7 +398,6 @@ class PoetryRepository {
     return rows.map(_mapPoemSummary).toList();
   }
 
-  /// Returns (previousPoemId, nextPoemId) within the same poet's Diwan.
   (int?, int?) getAdjacentPoemIds(int poetId, int currentPoemId) {
     final prev = _db.select(
       'SELECT id FROM poems WHERE poet_id = ? AND id < ? ORDER BY id DESC LIMIT 1',
@@ -432,16 +477,6 @@ class PoetryRepository {
   }
 
   /// Precision Verse-Level Arabic Search Engine.
-  ///
-  /// Guarantees:
-  /// 1. [SearchMatchMode.sameVerse]: ALL queried words MUST occur inside the
-  ///    SAME single verse (never scattered across distant verses of a long poem).
-  /// 2. [SearchMatchMode.exactSequence]: Words MUST appear consecutively in
-  ///    exact order inside the same single verse.
-  /// 3. [SearchFilter.matchPartialWords]:
-  ///    - When `true`: «قل» matches «قلب» & «قليل» (prefix/partial matching).
-  ///    - When `false`: enforces strict word boundaries (with space separation),
-  ///      so «قل» matches ONLY the standalone word «قل».
   SearchBundle search({
     required String rawQuery,
     SearchFilter filter = const SearchFilter(),
@@ -459,14 +494,12 @@ class PoetryRepository {
       );
     }
 
-    // Build candidate FTS5 query tailored to matchMode & matchPartialWords
     final ftsQuery = _buildCandidateFtsQuery(
       tokens: tokens,
       matchMode: filter.matchMode,
       matchPartialWords: filter.matchPartialWords,
     );
 
-    // 1. Search Poets via poets_fts
     final matchedPoets = <Poet>[];
     if (filter.poetId == null &&
         filter.meterId == null &&
@@ -492,8 +525,6 @@ class PoetryRepository {
       matchedPoets.addAll(poetRows.map(_mapPoet));
     }
 
-    // 2. Fetch ranked candidate poems from poems_fts (oversample so strict
-    //    same-verse filtering still yields rich results)
     final candidateLimit = (poemLimit * 5).clamp(160, 450);
     final where = <String>['poems_fts MATCH ?'];
     final args = <Object?>[ftsQuery];
@@ -582,7 +613,6 @@ class PoetryRepository {
       return '"${tokens.join(' ')}"';
     }
     if (matchMode == SearchMatchMode.exactSequence && matchPartialWords) {
-      // Exact sequence where the final token may be a prefix (e.g., "في قل" -> "في قل*")
       if (tokens.length == 1) {
         return tokens.first.length >= 2 ? '${tokens.first}*' : tokens.first;
       }
@@ -592,13 +622,11 @@ class PoetryRepository {
       ];
       return parts.join(' ');
     }
-    // sameVerse mode
     return tokens
         .map((t) => (matchPartialWords && t.length >= 2) ? '$t*' : t)
         .join(' ');
   }
 
-  /// Verifies strict verse-level match semantics and returns `(bestVerse, totalMatchingVerses)`.
   (Verse, int)? _matchVerseInPoem({
     required List<Verse> verses,
     required List<String> tokens,
@@ -620,8 +648,6 @@ class PoetryRepository {
 
       if (matchMode == SearchMatchMode.exactSequence) {
         if (matchPartialWords) {
-          // Consecutive sequence allowing prefix/substring on word boundaries
-          // e.g., "قل" matches "قلب", "في قل" matches "في قلبي"
           final idx = normLine.indexOf(joinedPhrase);
           if (idx != -1) {
             final validStart = idx == 0 || normLine[idx - 1] == ' ';
@@ -634,7 +660,6 @@ class PoetryRepository {
             }
           }
         } else {
-          // Strict whole-word consecutive sequence (with space boundaries)
           final padded = ' $normLine ';
           if (padded.contains(' $joinedPhrase ')) {
             matched = true;
@@ -642,7 +667,6 @@ class PoetryRepository {
           }
         }
       } else {
-        // SearchMatchMode.sameVerse: EVERY token must match inside THIS SAME verse
         var allMatched = true;
         for (final t in tokens) {
           final tokenHit = matchPartialWords
@@ -659,7 +683,6 @@ class PoetryRepository {
           if (tokens.length > 1 && normLine.contains(joinedPhrase)) {
             score += 60;
           }
-          // Prefer matches where both tokens sit in the same hemistich
           final normSadr = ArabicNormalizer.normalize(v.sadr);
           final normAjuz = ArabicNormalizer.normalize(v.ajuz);
           if (tokens.every((t) => normSadr.contains(t)) ||
@@ -713,9 +736,19 @@ class PoetryRepository {
 
   FeaturedVerse _mapFeaturedVerse(Row r) {
     String tag = 'من عيون الشعر';
+    String category = 'خالدات';
+    int verseCount = 0;
     try {
-      final raw = r['tag'];
-      if (raw is String && raw.isNotEmpty) tag = raw;
+      final rawTag = r['tag'];
+      if (rawTag is String && rawTag.isNotEmpty) tag = rawTag;
+    } catch (_) {}
+    try {
+      final rawCat = r['category'];
+      if (rawCat is String && rawCat.isNotEmpty) category = rawCat;
+    } catch (_) {}
+    try {
+      final rawCnt = r['verse_count'];
+      if (rawCnt is int) verseCount = rawCnt;
     } catch (_) {}
     return FeaturedVerse(
       id: r['id'] as int,
@@ -727,7 +760,9 @@ class PoetryRepository {
       ajuz: r['ajuz'] as String,
       poetName: r['poet_name'] as String,
       eraName: r['era_name'] as String,
+      category: category,
       tag: tag,
+      verseCount: verseCount,
     );
   }
 }

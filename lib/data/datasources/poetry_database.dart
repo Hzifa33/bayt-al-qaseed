@@ -21,14 +21,14 @@ class PoetryDatabase {
   }) async {
     final docsDir = await getApplicationDocumentsDirectory();
 
-    // Clean up older version DB file if present
-    final legacyFile = File(
-      p.join(docsDir.path, AppConstants.legacyCorpusDbFileName),
-    );
-    if (await legacyFile.exists()) {
-      try {
-        await legacyFile.delete();
-      } catch (_) {}
+    // Clean up older version DB files if present
+    for (final oldName in AppConstants.legacyCorpusDbFileNames) {
+      final legacyFile = File(p.join(docsDir.path, oldName));
+      if (await legacyFile.exists()) {
+        try {
+          await legacyFile.delete();
+        } catch (_) {}
+      }
     }
 
     final dbPath = p.join(docsDir.path, AppConstants.corpusDbFileName);

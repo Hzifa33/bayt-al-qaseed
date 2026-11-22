@@ -3,9 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/animations/bayt_transitions.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/arabic_normalizer.dart';
 import '../../../core/widgets/empty_state_view.dart';
+import '../../../core/widgets/poet_card.dart';
 import '../../../data/models/era.dart';
 import '../../../data/models/poet.dart';
 import '../../providers/database_providers.dart';
@@ -47,14 +47,24 @@ class _PoetsScreenState extends ConsumerState<PoetsScreen> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(18, 6, 18, 8),
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  '${widget.era.subtitle}  •  ${ArabicNormalizer.toArabicNumber(widget.era.poetCount)} شاعراً',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodySmall,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.hourglass_bottom_rounded,
+                      size: 13.5,
+                      color: p.accent,
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      '${widget.era.subtitle}  •  ${ArabicNormalizer.toArabicNumber(widget.era.poetCount)} شاعراً',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 10),
                 TextField(
@@ -86,6 +96,7 @@ class _PoetsScreenState extends ConsumerState<PoetsScreen> {
                         padding: const EdgeInsets.only(left: 6),
                         child: ChoiceChip(
                           selected: _sortBy == s,
+                          visualDensity: VisualDensity.compact,
                           label: Text(s.label),
                           onSelected: (_) => setState(() => _sortBy = s),
                         ),
@@ -104,80 +115,22 @@ class _PoetsScreenState extends ConsumerState<PoetsScreen> {
                     subtitle: 'جرّب كتابة جزءٍ من الاسم دون تشكيل.',
                   )
                 : ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(18, 4, 18, 28),
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
                     itemCount: poets.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
                     itemBuilder: (context, i) {
                       final poet = poets[i];
-                      final isFav = favPoetIds.contains(poet.id);
-                      return InkWell(
+                      return PoetCard(
+                        poet: poet,
+                        showEra: false,
+                        isFavorite: favPoetIds.contains(poet.id),
                         onTap: () => BaytNav.pushEditorial(
                           context,
                           PoetDetailScreen(poetId: poet.id),
                         ),
-                        borderRadius: BorderRadius.circular(16),
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: p.surfaceElevated,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: p.hairline),
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      poet.name,
-                                      style: TextStyle(
-                                        fontFamily: AppFonts.scheherazade,
-                                        fontSize: 22,
-                                        fontWeight: FontWeight.w700,
-                                        color: p.ink,
-                                        height: 1.4,
-                                      ),
-                                    ),
-                                    if (poet.formattedDates.isNotEmpty) ...[
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        poet.formattedDates,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .labelSmall,
-                                      ),
-                                    ],
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      '${ArabicNormalizer.toArabicNumber(poet.poemCount)} قصيدة  •  ${ArabicNormalizer.toArabicNumber(poet.verseCount)} بيتاً',
-                                      style: TextStyle(
-                                        fontFamily: AppFonts.ui,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: p.accent,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              IconButton(
-                                tooltip: isFav
-                                    ? 'إزالة من المفضلة'
-                                    : 'إضافة للمفضلة',
-                                onPressed: () => ref
-                                    .read(userDataProvider.notifier)
-                                    .toggleFavoritePoet(poet.id),
-                                icon: Icon(
-                                  isFav
-                                      ? Icons.favorite_rounded
-                                      : Icons.favorite_border_rounded,
-                                  color: isFav ? p.accent : p.inkMuted,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                        onToggleFavorite: () => ref
+                            .read(userDataProvider.notifier)
+                            .toggleFavoritePoet(poet.id),
                       );
                     },
                   ),
