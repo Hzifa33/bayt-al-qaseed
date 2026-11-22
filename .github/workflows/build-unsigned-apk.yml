@@ -1,0 +1,99 @@
+name: Build Unsigned Release APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-unsigned-apk:
+    name: Analyze, Test & Build Unsigned Release APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle 8.10.2
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+
+      - name: Set up Flutter (stable)
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Ensure Gradle wrapper exists in android/
+        run: |
+          cd android
+          if [ ! -f gradlew ]; then
+            gradle wrapper --gradle-version 8.10.2
+          fi
+          chmod +x gradlew
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Run Flutter static analysis
+        run: flutter analyze
+
+      - name: Run unit & FTS5 database tests
+        run: flutter test
+
+      - name: Build Unsigned Release APK
+        run: |
+          flutter build apk --release --target-platform android-arm64,android-arm || true
+          mkdir -p dist
+          if [ -f build/app/outputs/apk/release/app-release-unsigned.apk ]; then
+            cp build/app/outputs/apk/release/app-release-unsigned.apk dist/BaytAlQaseed-release-unsigned.apk
+          elif [ -f build/app/outputs/flutter-apk/app-release.apk ]; then
+            cp build/app/outputs/flutter-apk/app-release.apk dist/BaytAlQaseed-release-unsigned.apk
+          else
+            echo "ERROR: No release APK was produced!"
+            find build/app/outputs -maxdepth 4 -ls || true
+            exit 1
+          fi
+
+      - name: Verify APK integrity & confirm unsigned status
+        run: |
+          APK="dist/BaytAlQaseed-release-unsigned.apk"
+          ls -lh "$APK"
+          echo "=== Verifying bundled DB & native SQLite3 ==="
+          unzip -l "$APK" | grep -E "bayt_al_qaseed\.db\.gz|libsqlite3\.so|libapp\.so|ArefRuqaa|ScheherazadeNew|IBMPlexSansArabic"
+          echo "=== Confirming APK is unsigned (no META-INF signatures) ==="
+          if unzip -l "$APK" | grep -qE "META-INF/.*\.(RSA|DSA|EC|SF)$"; then
+            echo "ERROR: APK unexpectedly contains signature files!"
+            exit 1
+          fi
+          echo "Verified: APK is cleanly built and genuinely unsigned."
+
+      - name: Upload Unsigned APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BaytAlQaseed-release-unsigned
+          path: dist/BaytAlQaseed-release-unsigned.apk
+          retention-days: 90
+
+      - name: Publish Unsigned APK to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="v1.0.0-unsigned"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/BaytAlQaseed-release-unsigned.apk --clobber
+          else
+            gh release create "$TAG" dist/BaytAlQaseed-release-unsigned.apk \
+              --title "بيت القصيد v1.0.0 (Unsigned Release APK)" \
+              --notes "إصدار Release غير موقّع لتطبيق **بيت القصيد** جاهز للتوقيع اليدوي عبر \`apksigner\`."
+          fi

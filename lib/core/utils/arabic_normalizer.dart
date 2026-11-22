@@ -1,0 +1,219 @@
+import 'package:flutter/material.dart';
+
+/// Arabic text normalization, FTS5 query builder, and diacritic-preserving highlighter.
+///
+/// Mirrors the exact normalization rules applied during SQLite FTS5 indexing:
+/// - Remove tashkeel (harakat) and tatweel (kashida)
+/// - Unify Alef forms: أ إ آ ٱ -> ا
+/// - Unify Alef Maqsura: ى -> ي
+/// - Unify Taa Marbuta: ة -> ه
+class ArabicNormalizer {
+  ArabicNormalizer._();
+
+  static final RegExp _tashkeelRe = RegExp(
+    r'[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]',
+  );
+  static final RegExp _tatweelRe = RegExp(r'\u0640');
+  static final RegExp _nonSearchCharsRe = RegExp(r'[^\u0621-\u064A0-9\s]');
+  static final RegExp _multiSpaceRe = RegExp(r'\s+');
+
+  /// Removes Arabic diacritics (tashkeel) while preserving base letters & punctuation.
+  static String stripDiacritics(String input) {
+    if (input.isEmpty) return input;
+    return input.replaceAll(_tashkeelRe, '');
+  }
+
+  /// Normalizes Arabic text for search indexing & query matching.
+  static String normalize(String input) {
+    if (input.isEmpty) return '';
+    final stripped = input
+        .replaceAll(_tashkeelRe, '')
+        .replaceAll(_tatweelRe, '')
+        .replaceAll('أ', 'ا')
+        .replaceAll('إ', 'ا')
+        .replaceAll('آ', 'ا')
+        .replaceAll('ٱ', 'ا')
+        .replaceAll('ى', 'ي')
+        .replaceAll('ة', 'ه')
+        .replaceAll(_nonSearchCharsRe, ' ')
+        .replaceAll(_multiSpaceRe, ' ')
+        .trim();
+    return stripped;
+  }
+
+  /// Splits user input into clean normalized tokens.
+  static List<String> tokenize(String query) {
+    final norm = normalize(query);
+    if (norm.isEmpty) return const [];
+    return norm.split(' ').where((t) => t.isNotEmpty).toList();
+  }
+
+  /// Builds a safe SQLite FTS5 MATCH query from arbitrary Arabic user input.
+  ///
+  /// Uses prefix matching on the last token for instant type-ahead responsiveness
+  /// when [prefixLastToken] is true, or exact phrase matching when [exactPhrase] is true.
+  static String buildFts5Query(
+    String rawQuery, {
+    bool exactPhrase = false,
+    bool prefixLastToken = true,
+  }) {
+    final tokens = tokenize(rawQuery);
+    if (tokens.isEmpty) return '';
+
+    if (exactPhrase && tokens.length > 1) {
+      return '"${tokens.join(' ')}"';
+    }
+
+    if (tokens.length == 1) {
+      final t = tokens.first;
+      return (prefixLastToken && t.length >= 2) ? '$t*' : t;
+    }
+
+    final parts = <String>[];
+    for (var i = 0; i < tokens.length; i++) {
+      final t = tokens[i];
+      if (prefixLastToken && i == tokens.length - 1 && t.length >= 2) {
+        parts.add('$t*');
+      } else {
+        parts.add(t);
+      }
+    }
+    return parts.join(' ');
+  }
+
+  /// Builds [TextSpan] list highlighting every occurrence of [rawQuery] tokens inside
+  /// [originalText] while keeping the original Arabic tashkeel intact!
+  static List<TextSpan> buildHighlightedSpans({
+    required String originalText,
+    required String rawQuery,
+    required TextStyle baseStyle,
+    required Color highlightBackground,
+    required Color highlightForeground,
+  }) {
+    final tokens = tokenize(rawQuery);
+    if (tokens.isEmpty || originalText.isEmpty) {
+      return [TextSpan(text: originalText, style: baseStyle)];
+    }
+
+    // Build parallel normalized string + index map back to originalText code units.
+    final normBuf = StringBuffer();
+    final origIndices = <int>[];
+
+    for (var i = 0; i < originalText.length; i++) {
+      final ch = originalText[i];
+      if (_tashkeelRe.hasMatch(ch) || ch == '\u0640') {
+        continue;
+      }
+      String mapped;
+      switch (ch) {
+        case 'أ':
+        case 'إ':
+        case 'آ':
+        case 'ٱ':
+          mapped = 'ا';
+        case 'ى':
+          mapped = 'ي';
+        case 'ة':
+          mapped = 'ه';
+        default:
+          mapped = ch;
+      }
+      normBuf.write(mapped);
+      origIndices.add(i);
+    }
+
+    final normText = normBuf.toString();
+    if (normText.isEmpty) {
+      return [TextSpan(text: originalText, style: baseStyle)];
+    }
+
+    // Find all matched ranges in originalText coordinates.
+    final ranges = <(int, int)>[];
+    for (final token in tokens) {
+      if (token.isEmpty) continue;
+      var searchFrom = 0;
+      while (true) {
+        final matchIdx = normText.indexOf(token, searchFrom);
+        if (matchIdx == -1) break;
+        final origStart = origIndices[matchIdx];
+        final lastNormPos = matchIdx + token.length - 1;
+        var origEnd = origIndices[lastNormPos] + 1;
+        // Include any trailing diacritics attached to the final matched letter.
+        while (origEnd < originalText.length &&
+            (_tashkeelRe.hasMatch(originalText[origEnd]) ||
+                originalText[origEnd] == '\u0640')) {
+          origEnd++;
+        }
+        ranges.add((origStart, origEnd));
+        searchFrom = matchIdx + token.length;
+      }
+    }
+
+    if (ranges.isEmpty) {
+      return [TextSpan(text: originalText, style: baseStyle)];
+    }
+
+    // Sort & merge overlapping ranges.
+    ranges.sort((a, b) => a.$1.compareTo(b.$1));
+    final merged = <(int, int)>[];
+    for (final r in ranges) {
+      if (merged.isEmpty || r.$1 > merged.last.$2) {
+        merged.add(r);
+      } else {
+        final prev = merged.removeLast();
+        merged.add((prev.$1, r.$2 > prev.$2 ? r.$2 : prev.$2));
+      }
+    }
+
+    final highlightStyle = baseStyle.copyWith(
+      backgroundColor: highlightBackground,
+      color: highlightForeground,
+      fontWeight: FontWeight.w700,
+    );
+
+    final spans = <TextSpan>[];
+    var cursor = 0;
+    for (final r in merged) {
+      if (r.$1 > cursor) {
+        spans.add(
+          TextSpan(
+            text: originalText.substring(cursor, r.$1),
+            style: baseStyle,
+          ),
+        );
+      }
+      spans.add(
+        TextSpan(
+          text: originalText.substring(r.$1, r.$2),
+          style: highlightStyle,
+        ),
+      );
+      cursor = r.$2;
+    }
+    if (cursor < originalText.length) {
+      spans.add(
+        TextSpan(text: originalText.substring(cursor), style: baseStyle),
+      );
+    }
+    return spans;
+  }
+
+  /// Converts ASCII digits to Eastern Arabic numerals (٠١٢٣٤٥٦٧٨٩) with thousand separators.
+  static String toArabicNumber(int value) {
+    final s = value.toString();
+    final buf = StringBuffer();
+    final len = s.length;
+    for (var i = 0; i < len; i++) {
+      if (i > 0 && (len - i) % 3 == 0) {
+        buf.write('٬');
+      }
+      final code = s.codeUnitAt(i);
+      if (code >= 48 && code <= 57) {
+        buf.writeCharCode(0x0660 + (code - 48));
+      } else {
+        buf.writeCharCode(code);
+      }
+    }
+    return buf.toString();
+  }
+}

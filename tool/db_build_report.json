@@ -1,0 +1,48 @@
+{
+  "legacy_raw_mb": 170.14,
+  "sqlite_uncompressed_mb": 227.59,
+  "sqlite_gzip_mb": 80.77,
+  "stats": {
+    "poets": 542,
+    "poems": 90238,
+    "verses": 1162119,
+    "empty_poems_dropped": 17,
+    "skipped_duplicate_poets": 1,
+    "featured_verses": 240
+  },
+  "meters_count": 27,
+  "rhymes_count": 31,
+  "benchmarks": [
+    {
+      "query": "المتنبي سيف",
+      "hits_returned": 30,
+      "latency_ms": 3.18
+    },
+    {
+      "query": "لا تعذليه (بدون تشكيل)",
+      "hits_returned": 7,
+      "latency_ms": 0.94
+    },
+    {
+      "query": "قفا نبك (توحيد الألف)",
+      "hits_returned": 30,
+      "latency_ms": 1.56
+    },
+    {
+      "query": "الحب والشوق",
+      "hits_returned": 30,
+      "latency_ms": 5.88
+    },
+    {
+      "query": "البحث مع فلتر العصر والبحر",
+      "hits_returned": 30,
+      "latency_ms": 21.36
+    },
+    {
+      "query": "بحث باسم الشاعر (تطبيع الهمزة)",
+      "hits_returned": 1,
+      "latency_ms": 0.6
+    }
+  ],
+  "total_build_sec": 297.48
+}
