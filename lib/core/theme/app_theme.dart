@@ -6,7 +6,7 @@ enum ReadingThemeMode {
   parchment(
     id: 'parchment',
     displayName: 'الورق الدافئ',
-    subtitle: 'نهاري مريح كصفحات الكتب',
+    subtitle: 'نهاري مريح كصفحات الدواوين',
     previewBg: Color(0xFFF8F5EE),
     previewInk: Color(0xFF1C1A17),
     previewAccent: Color(0xFF8C5E35),
@@ -26,6 +26,14 @@ enum ReadingThemeMode {
     previewBg: Color(0xFF121210),
     previewInk: Color(0xFFE6E0D4),
     previewAccent: Color(0xFFC5A567),
+  ),
+  materialYou(
+    id: 'material_you',
+    displayName: 'ألوان النظام',
+    subtitle: 'متناغم تلقائياً مع خلفية جهازك',
+    previewBg: Color(0xFFECE6F0),
+    previewInk: Color(0xFF1D1B20),
+    previewAccent: Color(0xFF6750A4),
   );
 
   const ReadingThemeMode({
@@ -92,7 +100,7 @@ class BaytPalette extends ThemeExtension<BaytPalette> {
     accentSoft: Color(0x1F8C5E35),
     hairline: Color(0xFFE2D9C8),
     highlightFill: Color(0x40C5A567),
-    selectedVerseFill: Color(0x248C5E35),
+    selectedVerseFill: Color(0x228C5E35),
     ornament: Color(0xFFB59B72),
   );
 
@@ -106,7 +114,7 @@ class BaytPalette extends ThemeExtension<BaytPalette> {
     accentSoft: Color(0x247D4E24),
     hairline: Color(0xFFD5C4A6),
     highlightFill: Color(0x45B88B44),
-    selectedVerseFill: Color(0x287D4E24),
+    selectedVerseFill: Color(0x267D4E24),
     ornament: Color(0xFFA68557),
   );
 
@@ -120,9 +128,25 @@ class BaytPalette extends ThemeExtension<BaytPalette> {
     accentSoft: Color(0x24C5A567),
     hairline: Color(0xFF2B2822),
     highlightFill: Color(0x45C5A567),
-    selectedVerseFill: Color(0x2AC5A567),
+    selectedVerseFill: Color(0x28C5A567),
     ornament: Color(0xFF8F7749),
   );
+
+  static BaytPalette fromColorScheme(ColorScheme cs) {
+    return BaytPalette(
+      canvas: cs.surface,
+      surface: cs.surfaceContainer,
+      surfaceElevated: cs.surfaceContainerHigh,
+      ink: cs.onSurface,
+      inkMuted: cs.onSurfaceVariant,
+      accent: cs.primary,
+      accentSoft: cs.primary.withValues(alpha: 0.14),
+      hairline: cs.outlineVariant.withValues(alpha: 0.7),
+      highlightFill: cs.tertiaryContainer.withValues(alpha: 0.65),
+      selectedVerseFill: cs.primaryContainer.withValues(alpha: 0.45),
+      ornament: cs.secondary.withValues(alpha: 0.72),
+    );
+  }
 
   @override
   BaytPalette copyWith({
@@ -184,30 +208,53 @@ extension BaytThemeX on BuildContext {
 class AppTheme {
   AppTheme._();
 
-  static ThemeData build(ReadingThemeMode mode) {
-    final palette = switch (mode) {
-      ReadingThemeMode.parchment => BaytPalette.parchment,
-      ReadingThemeMode.sepia => BaytPalette.sepia,
-      ReadingThemeMode.obsidian => BaytPalette.obsidian,
-    };
+  static ThemeData build(
+    ReadingThemeMode mode, {
+    ColorScheme? dynamicLight,
+    ColorScheme? dynamicDark,
+    Brightness platformBrightness = Brightness.light,
+  }) {
+    late final BaytPalette palette;
+    late final ColorScheme colorScheme;
+    late final Brightness brightness;
 
-    final brightness = mode.isDark ? Brightness.dark : Brightness.light;
-    final colorScheme = ColorScheme(
-      brightness: brightness,
-      primary: palette.accent,
-      onPrimary: mode.isDark
-          ? const Color(0xFF15130E)
-          : const Color(0xFFFCF9F2),
-      secondary: palette.ornament,
-      onSecondary: palette.ink,
-      error: mode.isDark ? const Color(0xFFE07A6B) : const Color(0xFFA63A2B),
-      onError: Colors.white,
-      surface: palette.canvas,
-      onSurface: palette.ink,
-      surfaceContainerHighest: palette.surface,
-      outline: palette.hairline,
-      outlineVariant: palette.hairline,
-    );
+    if (mode == ReadingThemeMode.materialYou) {
+      brightness = platformBrightness;
+      final dynamicScheme = brightness == Brightness.dark
+          ? dynamicDark
+          : dynamicLight;
+      colorScheme =
+          dynamicScheme ??
+          ColorScheme.fromSeed(
+            seedColor: const Color(0xFF8C5E35),
+            brightness: brightness,
+          );
+      palette = BaytPalette.fromColorScheme(colorScheme);
+    } else {
+      palette = switch (mode) {
+        ReadingThemeMode.parchment => BaytPalette.parchment,
+        ReadingThemeMode.sepia => BaytPalette.sepia,
+        ReadingThemeMode.obsidian => BaytPalette.obsidian,
+        ReadingThemeMode.materialYou => BaytPalette.parchment,
+      };
+      brightness = mode.isDark ? Brightness.dark : Brightness.light;
+      colorScheme = ColorScheme(
+        brightness: brightness,
+        primary: palette.accent,
+        onPrimary: mode.isDark
+            ? const Color(0xFF15130E)
+            : const Color(0xFFFCF9F2),
+        secondary: palette.ornament,
+        onSecondary: palette.ink,
+        error: mode.isDark ? const Color(0xFFE07A6B) : const Color(0xFFA63A2B),
+        onError: Colors.white,
+        surface: palette.canvas,
+        onSurface: palette.ink,
+        surfaceContainerHighest: palette.surface,
+        outline: palette.hairline,
+        outlineVariant: palette.hairline,
+      );
+    }
 
     final textTheme = AppTypography.buildUiTextTheme(
       palette.ink,
@@ -242,7 +289,7 @@ class AppTheme {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(18),
           side: BorderSide(color: palette.hairline, width: 1),
         ),
         margin: EdgeInsets.zero,
@@ -252,51 +299,28 @@ class AppTheme {
         thickness: 0.8,
         space: 1,
       ),
-      navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: palette.surfaceElevated,
-        surfaceTintColor: Colors.transparent,
-        indicatorColor: palette.accentSoft,
-        elevation: 0,
-        height: 68,
-        labelTextStyle: WidgetStateProperty.resolveWith((states) {
-          final selected = states.contains(WidgetState.selected);
-          return TextStyle(
-            fontFamily: AppFonts.ui,
-            fontSize: 12,
-            fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-            color: selected ? palette.accent : palette.inkMuted,
-          );
-        }),
-        iconTheme: WidgetStateProperty.resolveWith((states) {
-          final selected = states.contains(WidgetState.selected);
-          return IconThemeData(
-            color: selected ? palette.accent : palette.inkMuted,
-            size: 22,
-          );
-        }),
-      ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: palette.surface,
         hintStyle: TextStyle(
           fontFamily: AppFonts.ui,
           color: palette.inkMuted,
-          fontSize: 14.5,
+          fontSize: 14,
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 13,
         ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(color: palette.hairline),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(color: palette.hairline),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(color: palette.accent, width: 1.4),
         ),
       ),
@@ -306,12 +330,12 @@ class AppTheme {
         side: BorderSide(color: palette.hairline),
         labelStyle: TextStyle(
           fontFamily: AppFonts.ui,
-          fontSize: 13,
+          fontSize: 12.5,
           color: palette.ink,
         ),
         secondaryLabelStyle: TextStyle(
           fontFamily: AppFonts.ui,
-          fontSize: 13,
+          fontSize: 12.5,
           fontWeight: FontWeight.w600,
           color: palette.accent,
         ),
@@ -321,18 +345,20 @@ class AppTheme {
         backgroundColor: palette.surfaceElevated,
         surfaceTintColor: Colors.transparent,
         shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
         ),
       ),
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: mode.isDark ? palette.surfaceElevated : palette.ink,
+        backgroundColor: brightness == Brightness.dark
+            ? palette.surfaceElevated
+            : palette.ink,
         contentTextStyle: TextStyle(
           fontFamily: AppFonts.ui,
-          color: mode.isDark ? palette.ink : palette.canvas,
+          color: brightness == Brightness.dark ? palette.ink : palette.canvas,
           fontSize: 14,
         ),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
     );
   }

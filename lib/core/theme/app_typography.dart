@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 
-/// Curated Arabic typography suite for «بيت القصيد».
+/// Curated elite Arabic typography suite for «بيت القصيد».
 ///
-/// Display titles use monochrome vector `ArefRuqaa` (full Impeller/Skia & dark-mode
-/// compatibility vs COLRv1 `Aref Ruqaa Ink`), paired with `Gulzar` and `ReemKufi`.
-/// Poetry body offers 4 distinguished literary scripts with crisp tashkeel support.
-/// UI chrome uses modern geometric `IBMPlexSansArabic`.
+/// Every literary poetry font is an authentic, distinct Arabic script bundled inside
+/// the application (Android's default Noto Naskh has been completely replaced).
 class AppFonts {
   AppFonts._();
 
@@ -16,7 +14,10 @@ class AppFonts {
 
   static const String scheherazade = 'ScheherazadeNew';
   static const String ruwudu = 'Ruwudu';
-  static const String notoNaskh = 'NotoNaskhArabic';
+  static const String mirza = 'Mirza';
+  static const String amiriQuran = 'AmiriQuran';
+  static const String harmattan = 'Harmattan';
+  static const String katibeh = 'Katibeh';
   static const String lateef = 'Lateef';
 }
 
@@ -26,31 +27,55 @@ enum PoetryFontOption {
     family: AppFonts.scheherazade,
     displayName: 'شهرزاد النسخي',
     subtitle: 'نسخ مطبعي رفيع متقن التشكيل',
-    baseHeight: 2.05,
+    baseHeight: 2.02,
     scaleMultiplier: 1.12,
+  ),
+  mirza(
+    id: 'mirza',
+    family: AppFonts.mirza,
+    displayName: 'ميرزا الأدبي',
+    subtitle: 'نسخ تراثي أنيق برشاقة فائقة',
+    baseHeight: 1.98,
+    scaleMultiplier: 1.08,
   ),
   ruwudu(
     id: 'ruwudu',
     family: AppFonts.ruwudu,
     displayName: 'رُودو الخطّي',
-    subtitle: 'طابع خطّاطي كلاسيكي مهيب',
-    baseHeight: 2.15,
+    subtitle: 'طابع خطّاطي مغربي مهيب',
+    baseHeight: 2.14,
     scaleMultiplier: 1.04,
   ),
-  notoNaskh(
-    id: 'noto_naskh',
-    family: AppFonts.notoNaskh,
-    displayName: 'نوتو نسخ الأدبي',
-    subtitle: 'وضوح فائق للقراءة الطويلة',
-    baseHeight: 2.0,
-    scaleMultiplier: 0.96,
+  amiriQuran(
+    id: 'amiri_quran',
+    family: AppFonts.amiriQuran,
+    displayName: 'نسخ المخطوطات',
+    subtitle: 'ضبط كلاسيكي عريق للتشكيل',
+    baseHeight: 2.15,
+    scaleMultiplier: 1.02,
+  ),
+  katibeh(
+    id: 'katibeh',
+    family: AppFonts.katibeh,
+    displayName: 'كاتِبة الديواني',
+    subtitle: 'خطّ أدبي فخم للعناوين والقصائد',
+    baseHeight: 1.92,
+    scaleMultiplier: 1.18,
+  ),
+  harmattan(
+    id: 'harmattan',
+    family: AppFonts.harmattan,
+    displayName: 'هارماتان العصري',
+    subtitle: 'واضح ومنسّق للقراءة الطويلة',
+    baseHeight: 1.98,
+    scaleMultiplier: 1.12,
   ),
   lateef(
     id: 'lateef',
     family: AppFonts.lateef,
     displayName: 'لطيف المشرقي',
     subtitle: 'خفيف منساب مريح للعين',
-    baseHeight: 1.98,
+    baseHeight: 1.96,
     scaleMultiplier: 1.24,
   );
 
@@ -101,6 +126,7 @@ class AppTypography {
     required double fontSize,
     required Color color,
     FontWeight fontWeight = FontWeight.w400,
+    double? wordSpacing,
   }) {
     return TextStyle(
       fontFamily: font.family,
@@ -108,6 +134,7 @@ class AppTypography {
       fontWeight: fontWeight,
       height: font.baseHeight,
       color: color,
+      wordSpacing: wordSpacing,
     );
   }
 
@@ -129,7 +156,7 @@ class AppTypography {
       ),
       titleLarge: TextStyle(
         fontFamily: AppFonts.ui,
-        fontSize: 20,
+        fontSize: 19.5,
         fontWeight: FontWeight.w600,
         color: primary,
         height: 1.4,
@@ -167,7 +194,7 @@ class AppTypography {
         fontSize: 12.5,
         fontWeight: FontWeight.w400,
         color: secondary,
-        height: 1.5,
+        height: 1.55,
       ),
       labelLarge: TextStyle(
         fontFamily: AppFonts.ui,

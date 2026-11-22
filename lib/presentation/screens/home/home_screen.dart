@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/animations/bayt_transitions.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/arabic_normalizer.dart';
+import '../../../core/widgets/bayt_ornaments.dart';
 import '../../../core/widgets/editorial_divider.dart';
 import '../../../data/models/verse.dart';
 import '../../providers/app_providers.dart';
 import '../../providers/database_providers.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/user_data_providers.dart';
+import '../about/about_screen.dart';
 import '../eras/meter_poems_screen.dart';
 import '../eras/poets_screen.dart';
 import '../reader/poem_reader_screen.dart';
@@ -34,18 +38,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   FeaturedVerse? _customFeatured;
 
   void _shuffleFeaturedVerse() {
-    final random = ref.read(poetryRepositoryProvider).getRandomFeaturedVerse();
+    HapticFeedback.selectionClick();
+    final currentId =
+        _customFeatured?.id ?? ref.read(verseOfTheDayProvider)?.id;
+    final random = ref
+        .read(poetryRepositoryProvider)
+        .getRandomFeaturedVerse(excludeId: currentId);
     if (random != null) {
       setState(() => _customFeatured = random);
     }
   }
 
   void _openRandomPoem() {
+    HapticFeedback.lightImpact();
     final poem = ref.read(poetryRepositoryProvider).getRandomPoem();
     if (poem == null) return;
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => PoemReaderScreen(poemId: poem.id)),
-    );
+    BaytNav.pushDrop(context, PoemReaderScreen(poemId: poem.id));
   }
 
   @override
@@ -55,6 +63,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final stats = ref.watch(libraryStatsProvider);
     final eras = ref.watch(erasProvider);
     final meters = ref.watch(metersProvider);
+    final masterpieces = ref.watch(masterpiecesProvider);
     final userData = ref.watch(userDataProvider);
     final featured = _customFeatured ?? ref.watch(verseOfTheDayProvider);
 
@@ -64,80 +73,109 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           SliverAppBar(
             floating: true,
             snap: true,
-            toolbarHeight: 68,
-            titleSpacing: 20,
+            toolbarHeight: 70,
+            titleSpacing: 16,
             centerTitle: false,
-            title: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            title: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  AppConstants.appName,
-                  style: TextStyle(
-                    fontFamily: AppFonts.ruqaa,
-                    fontSize: 28,
-                    fontWeight: FontWeight.w700,
-                    color: p.ink,
-                    height: 1.25,
+                GestureDetector(
+                  onTap: () => BaytNav.pushDrop(
+                    context,
+                    const AboutScreen(),
+                    origin: const Offset(360, 48),
                   ),
+                  child: const BaytEmblem(size: 38),
                 ),
-                Text(
-                  'موسوعة الشعر العربي',
-                  style: Theme.of(context).textTheme.labelSmall
-                      ?.copyWith(color: p.accent, letterSpacing: 0.2),
+                const SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      AppConstants.appName,
+                      style: TextStyle(
+                        fontFamily: AppFonts.ruqaa,
+                        fontSize: 25,
+                        fontWeight: FontWeight.w700,
+                        color: p.ink,
+                        height: 1.2,
+                      ),
+                    ),
+                    Text(
+                      AppConstants.appTagline,
+                      style: Theme.of(context).textTheme.labelSmall
+                          ?.copyWith(color: p.accent),
+                    ),
+                  ],
                 ),
               ],
             ),
             actions: [
+              // Dedicated Triad: Day (Parchment) | Night (Obsidian) | Material You
+              _ThemeTriadBar(
+                current: settings.themeMode,
+                onSelect: (mode) {
+                  HapticFeedback.selectionClick();
+                  ref.read(readerSettingsProvider.notifier).setThemeMode(mode);
+                },
+              ),
+              const SizedBox(width: 4),
+              // Discreet Developer / About side icon button
               IconButton(
-                tooltip: 'تبديل وضع القراءة',
-                onPressed: () =>
-                    ref.read(readerSettingsProvider.notifier).cycleThemeMode(),
+                tooltip: 'عن التطبيق والمطوّر',
+                visualDensity: VisualDensity.compact,
+                onPressed: () => BaytNav.pushDrop(
+                  context,
+                  const AboutScreen(),
+                  origin: const Offset(32, 48),
+                ),
                 icon: Icon(
-                  settings.themeMode.isDark
-                      ? Icons.wb_sunny_outlined
-                      : Icons.dark_mode_outlined,
-                  color: p.accent,
+                  Icons.info_outline_rounded,
+                  size: 20,
+                  color: p.inkMuted,
                 ),
               ),
-              IconButton(
-                tooltip: 'البحث الفوري',
-                onPressed: widget.onOpenSearchTab,
-                icon: Icon(Icons.search_rounded, color: p.ink),
-              ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 8),
             ],
           ),
 
-          // Verse of the Day Editorial Hero Card
+          // Curated Iconic Verse of the Day Hero Card
           if (featured != null)
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(18, 10, 18, 8),
-                child: _VerseOfTheDayCard(
-                  verse: featured,
-                  isShuffled: _customFeatured != null,
-                  onShuffle: _shuffleFeaturedVerse,
-                  onOpenPoem: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => PoemReaderScreen(
-                          poemId: featured.poemId,
-                          initialVerseIndex: featured.verseIndex,
-                        ),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 340),
+                  switchInCurve: Curves.easeOutCubic,
+                  transitionBuilder: (child, anim) => FadeTransition(
+                    opacity: anim,
+                    child: ScaleTransition(
+                      scale: Tween<double>(begin: 0.97, end: 1.0).animate(anim),
+                      child: child,
+                    ),
+                  ),
+                  child: _VerseOfTheDayCard(
+                    key: ValueKey(featured.id),
+                    verse: featured,
+                    isShuffled: _customFeatured != null,
+                    onShuffle: _shuffleFeaturedVerse,
+                    onOpenPoem: () => BaytNav.pushDrop(
+                      context,
+                      PoemReaderScreen(
+                        poemId: featured.poemId,
+                        initialVerseIndex: featured.verseIndex,
                       ),
-                    );
-                  },
-                  onDesignCard: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => PoetryCardStudioScreen(
-                          verses: [featured.toVerse()],
-                          poetName: featured.poetName,
-                          eraName: featured.eraName,
-                        ),
+                    ),
+                    onDesignCard: () => BaytNav.pushDrop(
+                      context,
+                      PoetryCardStudioScreen(
+                        verses: [featured.toVerse()],
+                        poetName: featured.poetName,
+                        eraName: featured.eraName,
                       ),
-                    );
-                  },
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -146,37 +184,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           if (userData.lastRead != null)
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(18, 12, 18, 4),
+                padding: const EdgeInsets.fromLTRB(18, 10, 18, 4),
                 child: _ContinueReadingCard(
                   title: userData.lastRead!.poemTitle,
                   poetName: userData.lastRead!.poetName,
                   meterName: userData.lastRead!.meterName,
                   verseCount: userData.lastRead!.verseCount,
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => PoemReaderScreen(
-                          poemId: userData.lastRead!.poemId,
-                          initialVerseIndex: userData.lastRead!.lastVerseIndex,
-                        ),
-                      ),
-                    );
-                  },
+                  onTap: () => BaytNav.pushDrop(
+                    context,
+                    PoemReaderScreen(
+                      poemId: userData.lastRead!.poemId,
+                      initialVerseIndex: userData.lastRead!.lastVerseIndex,
+                    ),
+                  ),
                 ),
               ),
             ),
 
-          // Serendipity Action Row
+          // Eloquent Arabic Discovery Tiles
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(18, 14, 18, 4),
+              padding: const EdgeInsets.fromLTRB(18, 12, 18, 4),
               child: Row(
                 children: [
                   Expanded(
                     child: _QuickActionTile(
                       icon: Icons.auto_awesome_outlined,
-                      title: 'قصيدة بمحض الصدفة',
-                      subtitle: 'اكتشف درّة من الدواوين',
+                      title: 'درّةٌ من الديوان',
+                      subtitle: 'قصيدةٌ تلوح بغير ميعاد',
                       onTap: _openRandomPoem,
                     ),
                   ),
@@ -184,8 +219,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   Expanded(
                     child: _QuickActionTile(
                       icon: Icons.format_quote_rounded,
-                      title: 'بيتٌ مُختار',
-                      subtitle: 'تبديل اقتباس اليوم',
+                      title: 'شاهدٌ آخر',
+                      subtitle: 'بيتٌ من عيون القصيد',
                       onTap: _shuffleFeaturedVerse,
                     ),
                   ),
@@ -193,6 +228,128 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
           ),
+
+          // Immortal Arabic Masterpieces Horizontal Carousel
+          if (masterpieces.isNotEmpty) ...[
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 22, 20, 10),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'عيونُ القصيد الخالدة',
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
+                    Text(
+                      'مختاراتٌ شهيرة',
+                      style: Theme.of(context).textTheme.labelSmall
+                          ?.copyWith(color: p.accent),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height: 158,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  itemCount: masterpieces.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 12),
+                  itemBuilder: (context, i) {
+                    final m = masterpieces[i];
+                    return InkWell(
+                      onTap: () => BaytNav.pushDrop(
+                        context,
+                        PoemReaderScreen(
+                          poemId: m.poemId,
+                          initialVerseIndex: m.verseIndex,
+                        ),
+                      ),
+                      borderRadius: BorderRadius.circular(18),
+                      child: Container(
+                        width: 248,
+                        padding: const EdgeInsets.all(15),
+                        decoration: BoxDecoration(
+                          color: p.surfaceElevated,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: p.hairline),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 9,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: p.accentSoft,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                m.tag,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontFamily: AppFonts.ui,
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: p.accent,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Expanded(
+                              child: Text(
+                                m.ajuz.isNotEmpty
+                                    ? '${m.sadr}\n${m.ajuz}'
+                                    : m.sadr,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontFamily: AppFonts.scheherazade,
+                                  fontSize: 18,
+                                  height: 1.65,
+                                  color: p.ink,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    '${m.poetName}  •  ${m.eraName}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelSmall
+                                        ?.copyWith(
+                                          color: p.accent,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.arrow_back_ios_new_rounded,
+                                  size: 11,
+                                  color: p.inkMuted,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
 
           const SliverToBoxAdapter(
             child: EditorialDivider(verticalPadding: 18),
@@ -212,7 +369,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   TextButton(
                     onPressed: widget.onOpenErasTab,
                     child: Text(
-                      'عرض الكل',
+                      'الديوان كاملاً',
                       style: TextStyle(
                         color: p.accent,
                         fontWeight: FontWeight.w600,
@@ -235,16 +392,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 itemBuilder: (context, index) {
                   final era = eras[index];
                   return InkWell(
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => PoetsScreen(era: era),
-                        ),
-                      );
-                    },
+                    onTap: () =>
+                        BaytNav.pushEditorial(context, PoetsScreen(era: era)),
                     borderRadius: BorderRadius.circular(18),
                     child: Container(
-                      width: 162,
+                      width: 164,
                       padding: const EdgeInsets.all(15),
                       decoration: BoxDecoration(
                         color: p.surfaceElevated,
@@ -342,13 +494,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 runSpacing: 8,
                 children: meters.take(12).map((m) {
                   return ActionChip(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => MeterPoemsScreen(meter: m),
-                        ),
-                      );
-                    },
+                    onPressed: () => BaytNav.pushEditorial(
+                      context,
+                      MeterPoemsScreen(meter: m),
+                    ),
                     label: Text(
                       '${m.name} (${ArabicNormalizer.toArabicNumber(m.poemCount)})',
                     ),
@@ -358,10 +507,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
 
-          // Library Statistics Editorial Card
+          // Clean Literary Library Statistics Card (Zero Technical Jargon!)
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(18, 26, 18, 32),
+              padding: const EdgeInsets.fromLTRB(18, 24, 18, 112),
               child: Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -375,13 +524,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     Row(
                       children: [
                         Icon(
-                          Icons.library_books_outlined,
+                          Icons.auto_stories_outlined,
                           size: 18,
                           color: p.accent,
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          'إحصاءات خزانة «بيت القصيد»',
+                          'خزانة «بيت القصيد»',
                           style: Theme.of(context).textTheme.titleSmall
                               ?.copyWith(color: p.accent),
                         ),
@@ -406,13 +555,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           value: ArabicNormalizer.toArabicNumber(
                             stats.poetCount,
                           ),
-                          label: 'شاعر',
+                          label: 'شاعراً',
                         ),
                       ],
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'تعمل الموسوعة بالكامل دون اتصال بالإنترنت عبر محرك بحث فوري FTS5 ومخطط بيانات منقّح ومشكّل.',
+                      'موسوعةٌ شعريةٌ مضبوطةُ التشكيل تمتدُّ عبر أحدَ عشرَ عصراً أدبياً، جاهزةٌ للمطالعة والبحث في كلّ حينٍ دون اتصال.',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
@@ -426,8 +575,118 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 }
 
+/// Compact 3-mode Theme Triad right in the AppBar:
+/// Day (Warm Parchment) | Night (Quiet Obsidian) | Material You (Dynamic System Colors)
+class _ThemeTriadBar extends StatelessWidget {
+  const _ThemeTriadBar({required this.current, required this.onSelect});
+
+  final ReadingThemeMode current;
+  final ValueChanged<ReadingThemeMode> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: p.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: p.hairline, width: 0.9),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _TriadButton(
+            tooltip: 'الوضع النهاري',
+            active:
+                current == ReadingThemeMode.parchment ||
+                current == ReadingThemeMode.sepia,
+            onTap: () => onSelect(ReadingThemeMode.parchment),
+            child: Icon(
+              Icons.wb_sunny_outlined,
+              size: 17,
+              color:
+                  (current == ReadingThemeMode.parchment ||
+                      current == ReadingThemeMode.sepia)
+                  ? p.accent
+                  : p.inkMuted,
+            ),
+          ),
+          _TriadButton(
+            tooltip: 'الوضع الليلي',
+            active: current == ReadingThemeMode.obsidian,
+            onTap: () => onSelect(ReadingThemeMode.obsidian),
+            child: Icon(
+              Icons.dark_mode_outlined,
+              size: 17,
+              color: current == ReadingThemeMode.obsidian
+                  ? p.accent
+                  : p.inkMuted,
+            ),
+          ),
+          _TriadButton(
+            tooltip: 'ألوان النظام (Material You)',
+            active: current == ReadingThemeMode.materialYou,
+            onTap: () => onSelect(ReadingThemeMode.materialYou),
+            child: MaterialYouIcon(
+              size: 17,
+              filled: current == ReadingThemeMode.materialYou,
+              color: current == ReadingThemeMode.materialYou
+                  ? p.accent
+                  : p.inkMuted,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TriadButton extends StatelessWidget {
+  const _TriadButton({
+    required this.tooltip,
+    required this.active,
+    required this.onTap,
+    required this.child,
+  });
+
+  final String tooltip;
+  final bool active;
+  final VoidCallback onTap;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: 31,
+          height: 28,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: active ? p.accentSoft : Colors.transparent,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: active
+                  ? p.accent.withValues(alpha: 0.4)
+                  : Colors.transparent,
+              width: 0.8,
+            ),
+          ),
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
 class _VerseOfTheDayCard extends StatelessWidget {
   const _VerseOfTheDayCard({
+    super.key,
     required this.verse,
     required this.isShuffled,
     required this.onShuffle,
@@ -447,7 +706,7 @@ class _VerseOfTheDayCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: p.surfaceElevated,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(
           color: p.ornament.withValues(alpha: 0.45),
           width: 1.1,
@@ -455,9 +714,9 @@ class _VerseOfTheDayCard extends StatelessWidget {
       ),
       child: InkWell(
         onTap: onOpenPoem,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(24),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -473,7 +732,7 @@ class _VerseOfTheDayCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      isShuffled ? 'مختارات الديوان' : 'بيت اليوم',
+                      isShuffled ? verse.tag : 'بيتُ اليوم  •  ${verse.tag}',
                       style: TextStyle(
                         fontFamily: AppFonts.ui,
                         fontSize: 11.5,
@@ -485,7 +744,7 @@ class _VerseOfTheDayCard extends StatelessWidget {
                   const Spacer(),
                   IconButton(
                     visualDensity: VisualDensity.compact,
-                    tooltip: 'بيت آخر',
+                    tooltip: 'شاهدٌ آخر',
                     onPressed: onShuffle,
                     icon: Icon(
                       Icons.shuffle_rounded,
@@ -495,7 +754,7 @@ class _VerseOfTheDayCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 12),
               Text(
                 verse.sadr,
                 textAlign: TextAlign.right,
@@ -508,7 +767,7 @@ class _VerseOfTheDayCard extends StatelessWidget {
               ),
               if (verse.ajuz.isNotEmpty)
                 Padding(
-                  padding: const EdgeInsets.only(right: 28),
+                  padding: const EdgeInsets.only(right: 26),
                   child: Text(
                     verse.ajuz,
                     textAlign: TextAlign.left,
@@ -548,11 +807,7 @@ class _VerseOfTheDayCard extends StatelessWidget {
                   ),
                   TextButton.icon(
                     onPressed: onDesignCard,
-                    icon: Icon(
-                      Icons.palette_outlined,
-                      size: 16,
-                      color: p.accent,
-                    ),
+                    icon: Icon(Icons.brush_outlined, size: 16, color: p.accent),
                     label: Text(
                       'بطاقة',
                       style: TextStyle(
@@ -606,7 +861,7 @@ class _ContinueReadingCard extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(18),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(15),
         decoration: BoxDecoration(
           color: p.surface,
           borderRadius: BorderRadius.circular(18),
@@ -629,7 +884,7 @@ class _ContinueReadingCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'استكمال القراءة',
+                    'مواصلة القراءة',
                     style: TextStyle(
                       fontFamily: AppFonts.ui,
                       fontSize: 11.5,

@@ -1,3 +1,13 @@
+enum PoetSortBy {
+  poemsDesc('الأغزر قصائد'),
+  versesDesc('الأكثر أبياتاً'),
+  alphabetical('الترتيب الهجائي'),
+  oldest('الأقدم عهداً');
+
+  const PoetSortBy(this.label);
+  final String label;
+}
+
 class Poet {
   const Poet({
     required this.id,

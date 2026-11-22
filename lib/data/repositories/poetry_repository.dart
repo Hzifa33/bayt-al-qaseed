@@ -86,7 +86,7 @@ class PoetryRepository {
         .toList();
   }
 
-  /// Returns a deterministic "Verse of the Day" based on the current calendar date.
+  /// Returns a deterministic curated famous masterpiece verse for today.
   FeaturedVerse? getVerseOfTheDay([DateTime? now]) {
     final countRow = _db.select('SELECT COUNT(*) AS c FROM featured_verses');
     final total = countRow.first['c'] as int;
@@ -94,22 +94,34 @@ class PoetryRepository {
     final date = now ?? DateTime.now();
     final daySeed = date.year * 1000 + date.month * 32 + date.day;
     final offset = daySeed % total;
-    final rows = _db.select('SELECT * FROM featured_verses LIMIT 1 OFFSET ?', [
-      offset,
-    ]);
-    if (rows.isEmpty) return null;
-    return _mapFeaturedVerse(rows.first);
-  }
-
-  FeaturedVerse? getRandomFeaturedVerse() {
     final rows = _db.select(
-      'SELECT * FROM featured_verses ORDER BY RANDOM() LIMIT 1',
+      'SELECT * FROM featured_verses ORDER BY id ASC LIMIT 1 OFFSET ?',
+      [offset],
     );
     if (rows.isEmpty) return null;
     return _mapFeaturedVerse(rows.first);
   }
 
-  /// Returns a random classical/modern poem for "قصيدة بمحض الصدفة".
+  FeaturedVerse? getRandomFeaturedVerse({int? excludeId}) {
+    final rows = excludeId != null
+        ? _db.select(
+            'SELECT * FROM featured_verses WHERE id != ? ORDER BY RANDOM() LIMIT 1',
+            [excludeId],
+          )
+        : _db.select('SELECT * FROM featured_verses ORDER BY RANDOM() LIMIT 1');
+    if (rows.isEmpty) return null;
+    return _mapFeaturedVerse(rows.first);
+  }
+
+  /// Returns curated famous Arabic poetry masterpieces for the Home anthology rail.
+  List<FeaturedVerse> getFeaturedMasterpieces({int limit = 16}) {
+    final rows = _db.select(
+      'SELECT * FROM featured_verses ORDER BY id ASC LIMIT ?',
+      [limit],
+    );
+    return rows.map(_mapFeaturedVerse).toList();
+  }
+
   PoemSummary? getRandomPoem({int? eraId, int? meterId}) {
     final where = <String>[];
     final args = <Object?>[];
@@ -141,7 +153,11 @@ class PoetryRepository {
     return _mapPoemSummary(rows.first);
   }
 
-  List<Poet> getPoets({int? eraId, String? filterQuery}) {
+  List<Poet> getPoets({
+    int? eraId,
+    String? filterQuery,
+    PoetSortBy sortBy = PoetSortBy.poemsDesc,
+  }) {
     final where = <String>[];
     final args = <Object?>[];
 
@@ -157,13 +173,20 @@ class PoetryRepository {
       }
     }
 
+    final orderBy = switch (sortBy) {
+      PoetSortBy.poemsDesc => 'pt.poem_count DESC, pt.name_norm ASC',
+      PoetSortBy.versesDesc => 'pt.verse_count DESC, pt.name_norm ASC',
+      PoetSortBy.alphabetical => 'pt.name_norm ASC',
+      PoetSortBy.oldest => 'pt.era_id ASC, pt.id ASC',
+    };
+
     final whereSql = where.isEmpty ? '' : 'WHERE ${where.join(' AND ')}';
     final rows = _db.select('''
       SELECT pt.*, e.name AS era_name
       FROM poets pt
       JOIN eras e ON e.id = pt.era_id
       $whereSql
-      ORDER BY pt.poem_count DESC, pt.name_norm ASC
+      ORDER BY $orderBy
       ''', args);
     return rows.map(_mapPoet).toList();
   }
@@ -250,7 +273,7 @@ class PoetryRepository {
     int? meterId,
     int? rhymeId,
     String? titleFilter,
-    int limit = 1000,
+    int limit = 2500,
     int offset = 0,
   }) {
     final where = <String>['p.poet_id = ?'];
@@ -301,9 +324,11 @@ class PoetryRepository {
     return rows.map(_mapPoemSummary).toList();
   }
 
+  /// Uses composite index `idx_poems_meter_verses(meter_id, verse_count DESC)`
+  /// for sub-millisecond pagination without sorting 20K+ rows!
   List<PoemSummary> getPoemsByMeter(
     int meterId, {
-    int limit = 80,
+    int limit = 60,
     int offset = 0,
   }) {
     final rows = _db.select(
@@ -325,6 +350,22 @@ class PoetryRepository {
       [meterId, limit, offset],
     );
     return rows.map(_mapPoemSummary).toList();
+  }
+
+  /// Returns (previousPoemId, nextPoemId) within the same poet's Diwan.
+  (int?, int?) getAdjacentPoemIds(int poetId, int currentPoemId) {
+    final prev = _db.select(
+      'SELECT id FROM poems WHERE poet_id = ? AND id < ? ORDER BY id DESC LIMIT 1',
+      [poetId, currentPoemId],
+    );
+    final next = _db.select(
+      'SELECT id FROM poems WHERE poet_id = ? AND id > ? ORDER BY id ASC LIMIT 1',
+      [poetId, currentPoemId],
+    );
+    return (
+      prev.isEmpty ? null : prev.first['id'] as int,
+      next.isEmpty ? null : next.first['id'] as int,
+    );
   }
 
   List<PoemSummary> getPoemsByIds(List<int> ids) {
@@ -390,11 +431,17 @@ class PoetryRepository {
     );
   }
 
-  /// Instant FTS5 search across 1.16M+ Arabic verses, poem titles, and poets.
+  /// Precision Verse-Level Arabic Search Engine.
   ///
-  /// Normalizes Arabic input seamlessly (tashkeel, alef, alef maqsura, taa marbuta)
-  /// and locates the exact best-matching verse inside each hit while preserving
-  /// original diacritics for golden highlighting in the UI.
+  /// Guarantees:
+  /// 1. [SearchMatchMode.sameVerse]: ALL queried words MUST occur inside the
+  ///    SAME single verse (never scattered across distant verses of a long poem).
+  /// 2. [SearchMatchMode.exactSequence]: Words MUST appear consecutively in
+  ///    exact order inside the same single verse.
+  /// 3. [SearchFilter.matchPartialWords]:
+  ///    - When `true`: «قل» matches «قلب» & «قليل» (prefix/partial matching).
+  ///    - When `false`: enforces strict word boundaries (with space separation),
+  ///      so «قل» matches ONLY the standalone word «قل».
   SearchBundle search({
     required String rawQuery,
     SearchFilter filter = const SearchFilter(),
@@ -402,12 +449,8 @@ class PoetryRepository {
     int poetLimit = 12,
   }) {
     final sw = Stopwatch()..start();
-    final ftsQuery = ArabicNormalizer.buildFts5Query(
-      rawQuery,
-      exactPhrase: filter.exactPhrase,
-      prefixLastToken: !filter.exactPhrase,
-    );
-    if (ftsQuery.isEmpty) {
+    final tokens = ArabicNormalizer.tokenize(rawQuery);
+    if (tokens.isEmpty) {
       return SearchBundle(
         query: rawQuery,
         poems: const [],
@@ -416,7 +459,14 @@ class PoetryRepository {
       );
     }
 
-    // 1. Search Poets via poets_fts (only when no poem-only filter is narrowing it)
+    // Build candidate FTS5 query tailored to matchMode & matchPartialWords
+    final ftsQuery = _buildCandidateFtsQuery(
+      tokens: tokens,
+      matchMode: filter.matchMode,
+      matchPartialWords: filter.matchPartialWords,
+    );
+
+    // 1. Search Poets via poets_fts
     final matchedPoets = <Poet>[];
     if (filter.poetId == null &&
         filter.meterId == null &&
@@ -442,7 +492,9 @@ class PoetryRepository {
       matchedPoets.addAll(poetRows.map(_mapPoet));
     }
 
-    // 2. Search Poems & Verses via poems_fts
+    // 2. Fetch ranked candidate poems from poems_fts (oversample so strict
+    //    same-verse filtering still yields rich results)
+    final candidateLimit = (poemLimit * 5).clamp(160, 450);
     final where = <String>['poems_fts MATCH ?'];
     final args = <Object?>[ftsQuery];
     if (filter.eraId != null) {
@@ -477,14 +529,21 @@ class PoetryRepository {
       ORDER BY bm25(poems_fts, 2.5, 1.0, 1.5)
       LIMIT ?
       ''',
-      [...args, poemLimit],
+      [...args, candidateLimit],
     );
 
-    final tokens = ArabicNormalizer.tokenize(rawQuery);
     final hits = <PoemSearchHit>[];
     for (final r in poemRows) {
       final verses = Verse.parseBody(r['body'] as String);
-      final best = _findBestMatchingVerse(verses, tokens);
+      final match = _matchVerseInPoem(
+        verses: verses,
+        tokens: tokens,
+        matchMode: filter.matchMode,
+        matchPartialWords: filter.matchPartialWords,
+      );
+      if (match == null) continue;
+
+      final (bestVerse, matchCount) = match;
       hits.add(
         PoemSearchHit(
           poemId: r['id'] as int,
@@ -495,11 +554,13 @@ class PoetryRepository {
           rhymeName: r['rhyme_name'] as String,
           title: r['title'] as String,
           verseCount: r['verse_count'] as int,
-          matchedVerseIndex: best.index,
-          matchedSadr: best.sadr,
-          matchedAjuz: best.ajuz,
+          matchedVerseIndex: bestVerse.index,
+          matchedSadr: bestVerse.sadr,
+          matchedAjuz: bestVerse.ajuz,
+          matchingVersesCount: matchCount,
         ),
       );
+      if (hits.length >= poemLimit) break;
     }
 
     sw.stop();
@@ -511,34 +572,114 @@ class PoetryRepository {
     );
   }
 
-  Verse _findBestMatchingVerse(List<Verse> verses, List<String> tokens) {
-    if (verses.isEmpty) {
-      return const Verse(index: 0, sadr: '', ajuz: '');
+  String _buildCandidateFtsQuery({
+    required List<String> tokens,
+    required SearchMatchMode matchMode,
+    required bool matchPartialWords,
+  }) {
+    if (matchMode == SearchMatchMode.exactSequence && !matchPartialWords) {
+      if (tokens.length == 1) return tokens.first;
+      return '"${tokens.join(' ')}"';
     }
-    if (tokens.isEmpty) return verses.first;
+    if (matchMode == SearchMatchMode.exactSequence && matchPartialWords) {
+      // Exact sequence where the final token may be a prefix (e.g., "في قل" -> "في قل*")
+      if (tokens.length == 1) {
+        return tokens.first.length >= 2 ? '${tokens.first}*' : tokens.first;
+      }
+      final parts = <String>[
+        for (var i = 0; i < tokens.length - 1; i++) tokens[i],
+        tokens.last.length >= 2 ? '${tokens.last}*' : tokens.last,
+      ];
+      return parts.join(' ');
+    }
+    // sameVerse mode
+    return tokens
+        .map((t) => (matchPartialWords && t.length >= 2) ? '$t*' : t)
+        .join(' ');
+  }
 
-    var bestVerse = verses.first;
+  /// Verifies strict verse-level match semantics and returns `(bestVerse, totalMatchingVerses)`.
+  (Verse, int)? _matchVerseInPoem({
+    required List<Verse> verses,
+    required List<String> tokens,
+    required SearchMatchMode matchMode,
+    required bool matchPartialWords,
+  }) {
+    Verse? bestVerse;
     var bestScore = -1;
-    final fullPhrase = tokens.join(' ');
+    var matchCount = 0;
+    final joinedPhrase = tokens.join(' ');
 
     for (final v in verses) {
       final normLine = ArabicNormalizer.normalize('${v.sadr} ${v.ajuz}');
-      var score = 0;
-      if (tokens.length > 1 && normLine.contains(fullPhrase)) {
-        score += 100;
-      }
-      for (final t in tokens) {
-        if (normLine.contains(t)) {
-          score += 10;
+      if (normLine.isEmpty) continue;
+
+      final words = normLine.split(' ');
+      bool matched = false;
+      int score = 0;
+
+      if (matchMode == SearchMatchMode.exactSequence) {
+        if (matchPartialWords) {
+          // Consecutive sequence allowing prefix/substring on word boundaries
+          // e.g., "قل" matches "قلب", "في قل" matches "في قلبي"
+          final idx = normLine.indexOf(joinedPhrase);
+          if (idx != -1) {
+            final validStart = idx == 0 || normLine[idx - 1] == ' ';
+            if (validStart) {
+              matched = true;
+              final endPos = idx + joinedPhrase.length;
+              final exactWordEnd =
+                  endPos == normLine.length || normLine[endPos] == ' ';
+              score = exactWordEnd ? 200 : 140;
+            }
+          }
+        } else {
+          // Strict whole-word consecutive sequence (with space boundaries)
+          final padded = ' $normLine ';
+          if (padded.contains(' $joinedPhrase ')) {
+            matched = true;
+            score = 220;
+          }
+        }
+      } else {
+        // SearchMatchMode.sameVerse: EVERY token must match inside THIS SAME verse
+        var allMatched = true;
+        for (final t in tokens) {
+          final tokenHit = matchPartialWords
+              ? words.any((w) => w.startsWith(t))
+              : words.contains(t);
+          if (!tokenHit) {
+            allMatched = false;
+            break;
+          }
+        }
+        if (allMatched) {
+          matched = true;
+          score = 100;
+          if (tokens.length > 1 && normLine.contains(joinedPhrase)) {
+            score += 60;
+          }
+          // Prefer matches where both tokens sit in the same hemistich
+          final normSadr = ArabicNormalizer.normalize(v.sadr);
+          final normAjuz = ArabicNormalizer.normalize(v.ajuz);
+          if (tokens.every((t) => normSadr.contains(t)) ||
+              tokens.every((t) => normAjuz.contains(t))) {
+            score += 20;
+          }
         }
       }
-      if (score > bestScore) {
-        bestScore = score;
-        bestVerse = v;
-        if (score >= 100 + tokens.length * 10) break;
+
+      if (matched) {
+        matchCount++;
+        if (score > bestScore) {
+          bestScore = score;
+          bestVerse = v;
+        }
       }
     }
-    return bestVerse;
+
+    if (bestVerse == null) return null;
+    return (bestVerse, matchCount);
   }
 
   Poet _mapPoet(Row r) => Poet(
@@ -570,15 +711,23 @@ class PoetryRepository {
     isFreeVerse: (r['is_free_verse'] as int) == 1,
   );
 
-  FeaturedVerse _mapFeaturedVerse(Row r) => FeaturedVerse(
-    id: r['id'] as int,
-    poemId: r['poem_id'] as int,
-    poetId: r['poet_id'] as int,
-    eraId: r['era_id'] as int,
-    verseIndex: r['verse_index'] as int,
-    sadr: r['sadr'] as String,
-    ajuz: r['ajuz'] as String,
-    poetName: r['poet_name'] as String,
-    eraName: r['era_name'] as String,
-  );
+  FeaturedVerse _mapFeaturedVerse(Row r) {
+    String tag = 'من عيون الشعر';
+    try {
+      final raw = r['tag'];
+      if (raw is String && raw.isNotEmpty) tag = raw;
+    } catch (_) {}
+    return FeaturedVerse(
+      id: r['id'] as int,
+      poemId: r['poem_id'] as int,
+      poetId: r['poet_id'] as int,
+      eraId: r['era_id'] as int,
+      verseIndex: r['verse_index'] as int,
+      sadr: r['sadr'] as String,
+      ajuz: r['ajuz'] as String,
+      poetName: r['poet_name'] as String,
+      eraName: r['era_name'] as String,
+      tag: tag,
+    );
+  }
 }

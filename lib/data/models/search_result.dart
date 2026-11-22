@@ -1,5 +1,14 @@
 import 'poet.dart';
 
+enum SearchMatchMode {
+  sameVerse('في بيتٍ واحد', 'تجمع الكلمات داخل البيت نفسه بأي ترتيب'),
+  exactSequence('عبارةٌ متتابعة', 'تُطابق الكلمات متتابعةً على الترتيب');
+
+  const SearchMatchMode(this.label, this.subtitle);
+  final String label;
+  final String subtitle;
+}
+
 class PoemSearchHit {
   const PoemSearchHit({
     required this.poemId,
@@ -13,6 +22,7 @@ class PoemSearchHit {
     required this.matchedVerseIndex,
     required this.matchedSadr,
     required this.matchedAjuz,
+    this.matchingVersesCount = 1,
   });
 
   final int poemId;
@@ -26,6 +36,7 @@ class PoemSearchHit {
   final int matchedVerseIndex;
   final String matchedSadr;
   final String matchedAjuz;
+  final int matchingVersesCount;
 }
 
 class SearchFilter {
@@ -34,21 +45,24 @@ class SearchFilter {
     this.poetId,
     this.meterId,
     this.rhymeId,
-    this.exactPhrase = false,
+    this.matchMode = SearchMatchMode.sameVerse,
+    this.matchPartialWords = true,
   });
 
   final int? eraId;
   final int? poetId;
   final int? meterId;
   final int? rhymeId;
-  final bool exactPhrase;
+
+  /// Whether words may appear anywhere inside the same verse or strictly consecutively.
+  final SearchMatchMode matchMode;
+
+  /// When true, a query like «قل» matches «قلب» & «قليل» (prefix/partial match).
+  /// When false, enforces strict word boundaries (with space separation).
+  final bool matchPartialWords;
 
   bool get hasActiveFilters =>
-      eraId != null ||
-      poetId != null ||
-      meterId != null ||
-      rhymeId != null ||
-      exactPhrase;
+      eraId != null || poetId != null || meterId != null || rhymeId != null;
 
   SearchFilter copyWith({
     int? eraId,
@@ -59,14 +73,16 @@ class SearchFilter {
     bool clearMeter = false,
     int? rhymeId,
     bool clearRhyme = false,
-    bool? exactPhrase,
+    SearchMatchMode? matchMode,
+    bool? matchPartialWords,
   }) {
     return SearchFilter(
       eraId: clearEra ? null : (eraId ?? this.eraId),
       poetId: clearPoet ? null : (poetId ?? this.poetId),
       meterId: clearMeter ? null : (meterId ?? this.meterId),
       rhymeId: clearRhyme ? null : (rhymeId ?? this.rhymeId),
-      exactPhrase: exactPhrase ?? this.exactPhrase,
+      matchMode: matchMode ?? this.matchMode,
+      matchPartialWords: matchPartialWords ?? this.matchPartialWords,
     );
   }
 }

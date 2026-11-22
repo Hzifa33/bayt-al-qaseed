@@ -22,7 +22,7 @@ class ReaderSettingsNotifier extends StateNotifier<ReaderSettings> {
     state = ReaderSettings(
       themeMode: ReadingThemeMode.fromId(prefs.getString(_kTheme)),
       poetryFont: PoetryFontOption.fromId(prefs.getString(_kFont)),
-      fontSize: (prefs.getDouble(_kSize) ?? 20.0).clamp(15.0, 30.0),
+      fontSize: (prefs.getDouble(_kSize) ?? 20.5).clamp(15.0, 30.0),
       verseLayout: VerseLayoutStyle.fromId(prefs.getString(_kLayout)),
       showDiacritics: prefs.getBool(_kDiacritics) ?? true,
       showVerseNumbers: prefs.getBool(_kNumbers) ?? false,
@@ -37,7 +37,8 @@ class ReaderSettingsNotifier extends StateNotifier<ReaderSettings> {
   void cycleThemeMode() {
     final next = switch (state.themeMode) {
       ReadingThemeMode.parchment => ReadingThemeMode.obsidian,
-      ReadingThemeMode.obsidian => ReadingThemeMode.sepia,
+      ReadingThemeMode.obsidian => ReadingThemeMode.materialYou,
+      ReadingThemeMode.materialYou => ReadingThemeMode.sepia,
       ReadingThemeMode.sepia => ReadingThemeMode.parchment,
     };
     setThemeMode(next);

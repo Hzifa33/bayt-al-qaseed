@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/animations/bayt_transitions.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/arabic_normalizer.dart';
@@ -29,8 +30,8 @@ class CollectionDetailScreen extends ConsumerWidget {
       body: poems.isEmpty
           ? const EmptyStateView(
               icon: Icons.playlist_add_rounded,
-              title: 'هذه المجموعة فارغة حالياً',
-              subtitle: 'افتح أي قصيدة واضغط على أيقونة الإضافة للمجموعات لحفظها هنا.',
+              title: 'هذه المجموعة فارغةٌ حالياً',
+              subtitle: 'افتح أيّ قصيدةٍ واضغط على أيقونة الإضافة للمجموعات لحفظها هنا.',
             )
           : ListView.separated(
               padding: const EdgeInsets.fromLTRB(18, 14, 18, 28),
@@ -39,10 +40,9 @@ class CollectionDetailScreen extends ConsumerWidget {
               itemBuilder: (context, i) {
                 final poem = poems[i];
                 return InkWell(
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => PoemReaderScreen(poemId: poem.id),
-                    ),
+                  onTap: () => BaytNav.pushDrop(
+                    context,
+                    PoemReaderScreen(poemId: poem.id),
                   ),
                   borderRadius: BorderRadius.circular(14),
                   child: Container(

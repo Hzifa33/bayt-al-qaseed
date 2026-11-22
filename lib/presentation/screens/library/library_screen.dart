@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/animations/bayt_transitions.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/arabic_normalizer.dart';
@@ -85,7 +86,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
       } catch (_) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('توجد مجموعة بهذا الاسم مسبقاً')),
+            const SnackBar(content: Text('توجد مجموعةٌ بهذا الاسم مسبقاً')),
           );
         }
       }
@@ -126,21 +127,19 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
           favPoems.isEmpty
               ? const EmptyStateView(
                   icon: Icons.bookmark_border_rounded,
-                  title: 'لا توجد قصائد مفضلة بعد',
-                  subtitle:
-                      'اضغط على أيقونة الحفظ داخل أي قصيدة لتجدها هنا فوراً.',
+                  title: 'لا توجد قصائد محفوظة بعد',
+                  subtitle: 'اضغط على أيقونة الحفظ داخل أيّ قصيدةٍ لتجدها هنا في متناول يدك.',
                 )
               : ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(18, 14, 18, 28),
+                  padding: const EdgeInsets.fromLTRB(18, 14, 18, 110),
                   itemCount: favPoems.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 10),
                   itemBuilder: (context, i) {
                     final poem = favPoems[i];
                     return InkWell(
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => PoemReaderScreen(poemId: poem.id),
-                        ),
+                      onTap: () => BaytNav.pushDrop(
+                        context,
+                        PoemReaderScreen(poemId: poem.id),
                       ),
                       borderRadius: BorderRadius.circular(14),
                       child: Container(
@@ -199,10 +198,10 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
               ? const EmptyStateView(
                   icon: Icons.format_quote_rounded,
                   title: 'لا توجد أبيات محفوظة بعد',
-                  subtitle: 'اضغط مطوّلاً على أي بيت داخل القصيدة لحفظه هنا أو تحويله لبطاقة.',
+                  subtitle: 'اضغط مطوّلاً على أيّ بيتٍ داخل القصيدة لحفظه هنا أو تحويله إلى بطاقة.',
                 )
               : ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(18, 14, 18, 28),
+                  padding: const EdgeInsets.fromLTRB(18, 14, 18, 110),
                   itemCount: userData.favoriteVerses.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 12),
                   itemBuilder: (context, i) {
@@ -250,12 +249,11 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                             children: [
                               Expanded(
                                 child: InkWell(
-                                  onTap: () => Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (_) => PoemReaderScreen(
-                                        poemId: item.poemId,
-                                        initialVerseIndex: item.verseIndex,
-                                      ),
+                                  onTap: () => BaytNav.pushDrop(
+                                    context,
+                                    PoemReaderScreen(
+                                      poemId: item.poemId,
+                                      initialVerseIndex: item.verseIndex,
                                     ),
                                   ),
                                   child: Text(
@@ -282,9 +280,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                                     ),
                                   );
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('تم نسخ البيت'),
-                                    ),
+                                    const SnackBar(content: Text('نُسخ البيت')),
                                   );
                                 },
                                 icon: Icon(
@@ -296,16 +292,15 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                               IconButton(
                                 tooltip: 'تصميم بطاقة',
                                 visualDensity: VisualDensity.compact,
-                                onPressed: () => Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => PoetryCardStudioScreen(
-                                      verses: [v],
-                                      poetName: item.poetName,
-                                    ),
+                                onPressed: () => BaytNav.pushDrop(
+                                  context,
+                                  PoetryCardStudioScreen(
+                                    verses: [v],
+                                    poetName: item.poetName,
                                   ),
                                 ),
                                 icon: Icon(
-                                  Icons.palette_outlined,
+                                  Icons.brush_outlined,
                                   size: 18,
                                   color: p.accent,
                                 ),
@@ -338,16 +333,15 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                   subtitle: 'أضف شعراءك الأثيرين للوصول السريع إلى دواوينهم.',
                 )
               : ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(18, 14, 18, 28),
+                  padding: const EdgeInsets.fromLTRB(18, 14, 18, 110),
                   itemCount: favPoets.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 10),
                   itemBuilder: (context, i) {
                     final poet = favPoets[i];
                     return InkWell(
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => PoetDetailScreen(poetId: poet.id),
-                        ),
+                      onTap: () => BaytNav.pushEditorial(
+                        context,
+                        PoetDetailScreen(poetId: poet.id),
                       ),
                       borderRadius: BorderRadius.circular(14),
                       child: Container(
@@ -422,20 +416,18 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                     ? const EmptyStateView(
                         icon: Icons.collections_bookmark_outlined,
                         title: 'أنشئ مجموعاتك الخاصة',
-                        subtitle: 'نظّم القصائد حسب الموضوع أو الحالة الشعورية (مثل: الحكمة، الرثاء، الأندلسيات).',
+                        subtitle: 'نظّم القصائد حسب الموضوع أو المعنى (مثل: الحكمة، الرثاء، الأندلسيات).',
                       )
                     : ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(18, 10, 18, 28),
+                        padding: const EdgeInsets.fromLTRB(18, 10, 18, 110),
                         itemCount: userData.collections.length,
                         separatorBuilder: (_, __) => const SizedBox(height: 10),
                         itemBuilder: (context, i) {
                           final col = userData.collections[i];
                           return InkWell(
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    CollectionDetailScreen(collection: col),
-                              ),
+                            onTap: () => BaytNav.pushEditorial(
+                              context,
+                              CollectionDetailScreen(collection: col),
                             ),
                             borderRadius: BorderRadius.circular(14),
                             child: Container(
@@ -507,7 +499,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
               ? const EmptyStateView(
                   icon: Icons.history_rounded,
                   title: 'سجل القراءة فارغ',
-                  subtitle: 'القصائد التي تقرأها ستظهر هنا لتعود إليها بسهولة.',
+                  subtitle: 'القصائد التي تقرأها ستظهر هنا لتعود إليها بيسر.',
                 )
               : Column(
                   children: [
@@ -529,18 +521,17 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                     ),
                     Expanded(
                       child: ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(18, 0, 18, 28),
+                        padding: const EdgeInsets.fromLTRB(18, 0, 18, 110),
                         itemCount: userData.readingHistory.length,
                         separatorBuilder: (_, __) => const SizedBox(height: 8),
                         itemBuilder: (context, i) {
                           final h = userData.readingHistory[i];
                           return InkWell(
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => PoemReaderScreen(
-                                  poemId: h.poemId,
-                                  initialVerseIndex: h.lastVerseIndex,
-                                ),
+                            onTap: () => BaytNav.pushDrop(
+                              context,
+                              PoemReaderScreen(
+                                poemId: h.poemId,
+                                initialVerseIndex: h.lastVerseIndex,
                               ),
                             ),
                             borderRadius: BorderRadius.circular(14),

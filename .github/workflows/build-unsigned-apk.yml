@@ -74,7 +74,7 @@ jobs:
           APK="dist/BaytAlQaseed-release-unsigned.apk"
           ls -lh "$APK"
           echo "=== Verifying bundled DB & native SQLite3 ==="
-          unzip -l "$APK" | grep -E "bayt_al_qaseed\.db\.gz|libsqlite3\.so|libapp\.so|ArefRuqaa|ScheherazadeNew|IBMPlexSansArabic"
+          unzip -l "$APK" | grep -E "bayt_al_qaseed\.db\.gz|libsqlite3\.so|libapp\.so|ArefRuqaa|ScheherazadeNew|Mirza|IBMPlexSansArabic"
           echo "=== Confirming APK is unsigned (no META-INF signatures) ==="
           if unzip -l "$APK" | grep -qE "META-INF/.*\.(RSA|DSA|EC|SF)$"; then
             echo "ERROR: APK unexpectedly contains signature files!"
@@ -93,11 +93,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="v1.0.0-unsigned"
+          TAG="v1.1.0-unsigned"
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" dist/BaytAlQaseed-release-unsigned.apk --clobber
           else
             gh release create "$TAG" dist/BaytAlQaseed-release-unsigned.apk \
-              --title "بيت القصيد v1.0.0 (Unsigned Release APK)" \
-              --notes "إصدار Release غير موقّع لتطبيق **بيت القصيد** جاهز للتوقيع اليدوي عبر \`apksigner\`."
+              --title "بيت القصيد v1.1.0 (Unsigned Release APK)" \
+              --notes "الإصدار **1.1.0** من تطبيق **بيت القصيد** (ملف APK غير موقّع جاهز للتوقيع اليدوي عبر \`apksigner\`)."
           fi

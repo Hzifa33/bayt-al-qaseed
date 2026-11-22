@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/animations/bayt_transitions.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/arabic_normalizer.dart';
+import '../../../data/models/poet.dart';
 import '../../providers/app_providers.dart';
 import '../../providers/database_providers.dart';
 import '../../providers/user_data_providers.dart';
@@ -22,16 +24,26 @@ class _ErasScreenState extends ConsumerState<ErasScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabCtrl;
   String _poetFilter = '';
+  PoetSortBy _poetSort = PoetSortBy.poemsDesc;
+  final TextEditingController _poetSearchCtrl = TextEditingController();
+  final FocusNode _poetSearchFocus = FocusNode();
 
   @override
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: 3, vsync: this);
+    _tabCtrl.addListener(() {
+      if (_tabCtrl.indexIsChanging) {
+        BaytNav.unfocus();
+      }
+    });
   }
 
   @override
   void dispose() {
     _tabCtrl.dispose();
+    _poetSearchCtrl.dispose();
+    _poetSearchFocus.dispose();
     super.dispose();
   }
 
@@ -61,17 +73,16 @@ class _ErasScreenState extends ConsumerState<ErasScreen>
       body: TabBarView(
         controller: _tabCtrl,
         children: [
-          // 1. Eras List
+          // 1. Literary Eras List
           ListView.separated(
-            padding: const EdgeInsets.fromLTRB(18, 16, 18, 28),
+            padding: const EdgeInsets.fromLTRB(18, 16, 18, 110),
             itemCount: eras.length,
             separatorBuilder: (_, __) => const SizedBox(height: 12),
             itemBuilder: (context, i) {
               final era = eras[i];
               return InkWell(
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => PoetsScreen(era: era)),
-                ),
+                onTap: () =>
+                    BaytNav.pushEditorial(context, PoetsScreen(era: era)),
                 borderRadius: BorderRadius.circular(18),
                 child: Container(
                   padding: const EdgeInsets.all(18),
@@ -149,17 +160,46 @@ class _ErasScreenState extends ConsumerState<ErasScreen>
             },
           ),
 
-          // 2. All Poets Directory
+          // 2. All Poets Directory with Sorting Chips
           Column(
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(18, 14, 18, 10),
+                padding: const EdgeInsets.fromLTRB(18, 14, 18, 8),
                 child: TextField(
+                  controller: _poetSearchCtrl,
+                  focusNode: _poetSearchFocus,
                   onChanged: (v) => setState(() => _poetFilter = v),
+                  onTapOutside: (_) => _poetSearchFocus.unfocus(),
                   decoration: InputDecoration(
                     hintText: 'ابحث باسم الشاعر (مثلاً: المتنبي، جرير، عنترة)…',
                     prefixIcon: Icon(Icons.search_rounded, color: p.inkMuted),
+                    suffixIcon: _poetFilter.isNotEmpty
+                        ? IconButton(
+                            onPressed: () {
+                              _poetSearchCtrl.clear();
+                              setState(() => _poetFilter = '');
+                              _poetSearchFocus.requestFocus();
+                            },
+                            icon: Icon(Icons.close_rounded, color: p.inkMuted),
+                          )
+                        : null,
                   ),
+                ),
+              ),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.fromLTRB(18, 0, 18, 8),
+                child: Row(
+                  children: PoetSortBy.values.map((s) {
+                    return Padding(
+                      padding: const EdgeInsets.only(left: 6),
+                      child: ChoiceChip(
+                        selected: _poetSort == s,
+                        label: Text(s.label),
+                        onSelected: (_) => setState(() => _poetSort = s),
+                      ),
+                    );
+                  }).toList(),
                 ),
               ),
               Expanded(
@@ -167,19 +207,18 @@ class _ErasScreenState extends ConsumerState<ErasScreen>
                   builder: (context) {
                     final poets = ref
                         .read(poetryRepositoryProvider)
-                        .getPoets(filterQuery: _poetFilter);
+                        .getPoets(filterQuery: _poetFilter, sortBy: _poetSort);
                     return ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(18, 4, 18, 28),
+                      padding: const EdgeInsets.fromLTRB(18, 4, 18, 110),
                       itemCount: poets.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 8),
                       itemBuilder: (context, i) {
                         final poet = poets[i];
                         final isFav = favPoetIds.contains(poet.id);
                         return InkWell(
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => PoetDetailScreen(poetId: poet.id),
-                            ),
+                          onTap: () => BaytNav.pushEditorial(
+                            context,
+                            PoetDetailScreen(poetId: poet.id),
                           ),
                           borderRadius: BorderRadius.circular(14),
                           child: Container(
@@ -210,7 +249,7 @@ class _ErasScreenState extends ConsumerState<ErasScreen>
                                         ),
                                       ),
                                       Text(
-                                        'العصر ${poet.eraName}  •  ${ArabicNormalizer.toArabicNumber(poet.poemCount)} قصيدة',
+                                        'العصر ${poet.eraName}  •  ${ArabicNormalizer.toArabicNumber(poet.poemCount)} قصيدة  •  ${ArabicNormalizer.toArabicNumber(poet.verseCount)} بيتاً',
                                         style: Theme.of(context)
                                             .textTheme
                                             .labelSmall,
@@ -244,15 +283,14 @@ class _ErasScreenState extends ConsumerState<ErasScreen>
 
           // 3. Poetic Meters Directory
           ListView.separated(
-            padding: const EdgeInsets.fromLTRB(18, 16, 18, 28),
+            padding: const EdgeInsets.fromLTRB(18, 16, 18, 110),
             itemCount: meters.length,
             separatorBuilder: (_, __) => const SizedBox(height: 10),
             itemBuilder: (context, i) {
               final m = meters[i];
               return InkWell(
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => MeterPoemsScreen(meter: m)),
-                ),
+                onTap: () =>
+                    BaytNav.pushEditorial(context, MeterPoemsScreen(meter: m)),
                 borderRadius: BorderRadius.circular(14),
                 child: Container(
                   padding: const EdgeInsets.symmetric(

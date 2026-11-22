@@ -2,8 +2,8 @@ import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_typography.dart';
 
 enum VerseLayoutStyle {
-  sideBySide('شطران متقابلان', 'عرض الديوان الكلاسيكي'),
-  staggered('شطران متدرّجان', 'مثالي للخط الكبير والشاشات الضيقة');
+  staggered('شطران متدرّجان', 'توازن بديع وخطّ واضح'),
+  sideBySide('شطران متقابلان', 'تنسيق الديوان المطبوع');
 
   const VerseLayoutStyle(this.displayName, this.subtitle);
   final String displayName;
@@ -13,7 +13,7 @@ enum VerseLayoutStyle {
     for (final v in values) {
       if (v.name == id) return v;
     }
-    return VerseLayoutStyle.sideBySide;
+    return VerseLayoutStyle.staggered;
   }
 }
 
@@ -21,8 +21,8 @@ class ReaderSettings {
   const ReaderSettings({
     this.themeMode = ReadingThemeMode.parchment,
     this.poetryFont = PoetryFontOption.scheherazade,
-    this.fontSize = 20.0,
-    this.verseLayout = VerseLayoutStyle.sideBySide,
+    this.fontSize = 20.5,
+    this.verseLayout = VerseLayoutStyle.staggered,
     this.showDiacritics = true,
     this.showVerseNumbers = false,
   });

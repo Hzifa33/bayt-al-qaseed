@@ -5,17 +5,18 @@ import '../../data/models/verse.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_typography.dart';
 import '../utils/arabic_normalizer.dart';
+import 'bayt_ornaments.dart';
 
-/// Zero-Defect Precision Arabic Verse Engine.
+/// Symmetrical Equal-Width Precision Arabic Verse Engine.
 ///
-/// Guarantees:
-/// - Clean geometric separation of الصدر (Sadr) and العجز (Ajuz).
-/// - Both Side-by-Side (الشطرين المتقابلين) and Staggered (الشطرين المتدرجين) modes.
-/// - Automatic detection of single-hemistich / free-verse lines (شعر حر / موشح).
-/// - Dynamic Auto-Fit Scaling using exact [TextPainter] measurements so classical
-///   hemistichs NEVER break awkwardly into two lines, while preserving generous
-///   line-height (1.98–2.15) to prevent tashkeel collisions.
-/// - Diacritic-preserving golden highlighting for search matches.
+/// Key typographic guarantees:
+/// 1. Equal bounded column width for both الصدر (Sadr) and العجز (Ajuz) so both
+///    flanks stay aligned like a masterfully typeset Arabic Diwan.
+/// 2. Bi-directional Dynamic Auto-Fit: shrinks smoothly when a hemistich is long
+///    (never breaking into 2 awkward lines) AND gently scales up + balances
+///    word spacing when a hemistich is short so both sides look symmetrical.
+/// 3. Refined staggered-mode verse numbering via delicate marginal medallions.
+/// 4. Warm illuminated parchment-gold card glow for selected verses (no clunky side bars).
 class VerseRowWidget extends StatelessWidget {
   const VerseRowWidget({
     super.key,
@@ -62,76 +63,167 @@ class VerseRowWidget extends StatelessWidget {
     final bgColor = isSelected
         ? p.selectedVerseFill
         : isHighlightedVerse
-        ? p.highlightFill.withValues(alpha: 0.22)
+        ? p.highlightFill.withValues(alpha: 0.25)
         : Colors.transparent;
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        onLongPress: onLongPress,
-        borderRadius: BorderRadius.circular(12),
-        splashColor: p.accentSoft,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-          margin: const EdgeInsets.symmetric(vertical: 2),
-          padding: EdgeInsets.symmetric(
-            horizontal: 10,
-            vertical: layoutStyle == VerseLayoutStyle.staggered ? 8 : 6,
-          ),
-          decoration: BoxDecoration(
-            color: bgColor,
-            borderRadius: BorderRadius.circular(12),
-            border: isSelected
-                ? Border(right: BorderSide(color: p.accent, width: 3))
-                : isHighlightedVerse
-                ? Border.all(color: p.accent.withValues(alpha: 0.45), width: 1)
-                : null,
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              if (showVerseNumber)
-                SizedBox(
-                  width: 30,
-                  child: Text(
-                    ArabicNormalizer.toArabicNumber(verse.index + 1),
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontFamily: AppFonts.ui,
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w500,
-                      color: isSelected
-                          ? p.accent
-                          : p.inkMuted.withValues(alpha: 0.72),
-                    ),
-                  ),
-                ),
-              Expanded(
-                child: !verse.isTwoHemistich
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        vertical: layoutStyle == VerseLayoutStyle.staggered ? 3.5 : 2,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          onLongPress: onLongPress,
+          borderRadius: BorderRadius.circular(16),
+          splashColor: p.accentSoft,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            padding: EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: layoutStyle == VerseLayoutStyle.staggered ? 10 : 7,
+            ),
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isSelected
+                    ? p.accent.withValues(alpha: 0.65)
+                    : isHighlightedVerse
+                    ? p.accent.withValues(alpha: 0.4)
+                    : Colors.transparent,
+                width: isSelected ? 1.15 : 0.9,
+              ),
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: p.accent.withValues(alpha: 0.12),
+                        blurRadius: 12,
+                        offset: const Offset(0, 3),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                !verse.isTwoHemistich
                     ? _buildSingleLine(
                         context,
                         sadr.isNotEmpty ? sadr : ajuz,
                         baseStyle,
                       )
-                    : layoutStyle == VerseLayoutStyle.sideBySide
-                    ? _buildSideBySide(context, sadr, ajuz, baseStyle)
-                    : _buildStaggered(context, sadr, ajuz, baseStyle),
-              ),
-            ],
+                    : layoutStyle == VerseLayoutStyle.staggered
+                    ? _buildStaggeredSymmetrical(context, sadr, ajuz, baseStyle)
+                    : _buildSideBySideSymmetrical(
+                        context,
+                        sadr,
+                        ajuz,
+                        baseStyle,
+                      ),
+
+                // Elegant selection check medallion (top-left in RTL)
+                if (isSelected)
+                  Positioned(
+                    top: -4,
+                    left: -4,
+                    child: Container(
+                      width: 20,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        color: p.accent,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: p.accent.withValues(alpha: 0.35),
+                            blurRadius: 6,
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        Icons.check_rounded,
+                        size: 13,
+                        color: Theme.of(context).colorScheme.onPrimary,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildTextSpanWidget(
+  /// Computes a calibrated TextStyle for a single hemistich inside [boxWidth].
+  ///
+  /// - If the hemistich overflows [boxWidth], shrinks smoothly (down to 0.56x).
+  /// - If the hemistich is significantly shorter than [boxWidth], gently scales up
+  ///   (up to 1.14x) and adds balanced wordSpacing so both flanks look harmoniously
+  ///   filled and symmetrical!
+  TextStyle _calibrateHemistichStyle({
+    required String text,
+    required TextStyle baseStyle,
+    required double boxWidth,
+    required TextScaler textScaler,
+  }) {
+    if (text.isEmpty || boxWidth <= 0) return baseStyle;
+    final baseSize = baseStyle.fontSize ?? 20;
+
+    final tp = TextPainter(
+      text: TextSpan(text: text, style: baseStyle),
+      textDirection: TextDirection.rtl,
+      textScaler: textScaler,
+      maxLines: 1,
+    )..layout();
+    final measured = tp.width;
+    tp.dispose();
+
+    if (measured <= 0) return baseStyle;
+
+    // 1. Too wide -> shrink strictly to fit inside boxWidth with 2px cushion
+    if (measured > boxWidth - 2.0) {
+      final ratio = ((boxWidth - 2.0) / measured).clamp(0.54, 1.0);
+      return baseStyle.copyWith(fontSize: baseSize * ratio);
+    }
+
+    // 2. Shorter than boxWidth -> gently expand font (capped at 1.14x) + distribute subtle wordSpacing
+    final fillRatio = measured / boxWidth;
+    if (fillRatio < 0.88) {
+      final growScale = (0.94 / fillRatio).clamp(1.0, 1.14);
+      final grownSize = baseSize * growScale;
+      final grownStyle = baseStyle.copyWith(fontSize: grownSize);
+
+      final tp2 = TextPainter(
+        text: TextSpan(text: text, style: grownStyle),
+        textDirection: TextDirection.rtl,
+        textScaler: textScaler,
+        maxLines: 1,
+      )..layout();
+      final grownWidth = tp2.width;
+      tp2.dispose();
+
+      final spaces = ' '.allMatches(text.trim()).length;
+      if (spaces >= 2 && grownWidth < boxWidth - 4.0) {
+        final extraPerSpace = ((boxWidth - 4.0 - grownWidth) / spaces).clamp(
+          0.0,
+          10.0,
+        );
+        return grownStyle.copyWith(wordSpacing: extraPerSpace);
+      }
+      return grownStyle;
+    }
+
+    return baseStyle;
+  }
+
+  Widget _renderHemistich(
     BuildContext context,
     String text,
     TextStyle style, {
     required TextAlign textAlign,
-    required bool softWrap,
+    required bool allowWrap,
   }) {
     final p = context.palette;
     final query = searchHighlightQuery;
@@ -146,8 +238,8 @@ class VerseRowWidget extends StatelessWidget {
       return RichText(
         textDirection: TextDirection.rtl,
         textAlign: textAlign,
-        softWrap: softWrap,
-        maxLines: softWrap ? null : 1,
+        softWrap: allowWrap,
+        maxLines: allowWrap ? null : 1,
         overflow: TextOverflow.visible,
         text: TextSpan(children: spans),
       );
@@ -156,92 +248,99 @@ class VerseRowWidget extends StatelessWidget {
       text,
       textDirection: TextDirection.rtl,
       textAlign: textAlign,
-      softWrap: softWrap,
-      maxLines: softWrap ? null : 1,
+      softWrap: allowWrap,
+      maxLines: allowWrap ? null : 1,
       overflow: TextOverflow.visible,
       style: style,
     );
   }
 
-  /// Computes a smooth proportional font size so both hemistichs fit strictly on one line.
-  double _computeFittedFontSize({
-    required List<String> hemistichs,
-    required TextStyle baseStyle,
-    required double maxWidth,
-    required TextScaler textScaler,
-  }) {
-    if (maxWidth <= 0) return baseStyle.fontSize ?? 20;
-    final originalSize = baseStyle.fontSize ?? 20;
-    double maxMeasured = 0;
-
-    for (final h in hemistichs) {
-      if (h.isEmpty) continue;
-      final tp = TextPainter(
-        text: TextSpan(text: h, style: baseStyle),
-        textDirection: TextDirection.rtl,
-        textScaler: textScaler,
-        maxLines: 1,
-      )..layout();
-      if (tp.width > maxMeasured) {
-        maxMeasured = tp.width;
-      }
-      tp.dispose();
-    }
-
-    if (maxMeasured <= maxWidth || maxMeasured == 0) {
-      return originalSize;
-    }
-
-    // Reserve a tiny 2px safety cushion for glyph bearings & tashkeel overhang.
-    final ratio = ((maxWidth - 2.0) / maxMeasured).clamp(0.52, 1.0);
-    return originalSize * ratio;
-  }
-
-  Widget _buildSideBySide(
+  /// Staggered layout where الصدر and العجز occupy EQUAL horizontal bounds (78% width),
+  /// aligned flush right and flush left respectively for true classical symmetry.
+  Widget _buildStaggeredSymmetrical(
     BuildContext context,
     String sadr,
     String ajuz,
     TextStyle baseStyle,
   ) {
     final textScaler = MediaQuery.textScalerOf(context);
-    const centerGap = 18.0;
-
     return LayoutBuilder(
       builder: (context, constraints) {
-        final halfWidth = (constraints.maxWidth - centerGap) / 2.0;
-        final fittedSize = _computeFittedFontSize(
-          hemistichs: [sadr, ajuz],
-          baseStyle: baseStyle,
-          maxWidth: halfWidth,
-          textScaler: textScaler,
-        );
-        final fittedStyle = baseStyle.copyWith(fontSize: fittedSize);
-        // Only wrap extreme prose-like outliers (>68 base chars)
-        final allowWrap =
-            ArabicNormalizer.stripDiacritics(sadr).length > 68 ||
-            ArabicNormalizer.stripDiacritics(ajuz).length > 68;
+        final totalW = constraints.maxWidth;
+        final boxW = (totalW * 0.80).clamp(160.0, 520.0);
+        final indent = totalW - boxW;
 
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.baseline,
-          textBaseline: TextBaseline.alphabetic,
+        final sadrAllowWrap =
+            ArabicNormalizer.stripDiacritics(sadr).length > 72;
+        final ajuzAllowWrap =
+            ArabicNormalizer.stripDiacritics(ajuz).length > 72;
+
+        final sadrStyle = sadrAllowWrap
+            ? baseStyle
+            : _calibrateHemistichStyle(
+                text: sadr,
+                baseStyle: baseStyle,
+                boxWidth: boxW,
+                textScaler: textScaler,
+              );
+        final ajuzStyle = ajuzAllowWrap
+            ? baseStyle
+            : _calibrateHemistichStyle(
+                text: ajuz,
+                baseStyle: baseStyle,
+                boxWidth: boxW,
+                textScaler: textScaler,
+              );
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Expanded(
-              child: _buildTextSpanWidget(
-                context,
-                sadr,
-                fittedStyle,
-                textAlign: TextAlign.start,
-                softWrap: allowWrap,
+            if (showVerseNumber)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  children: [
+                    VerseNumberMedallion(
+                      number: verse.index + 1,
+                      isSelected: isSelected,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Container(
+                        height: 0.6,
+                        color: context.palette.hairline.withValues(alpha: 0.65),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            // الصدر (Right-aligned equal box)
+            Padding(
+              padding: EdgeInsets.only(left: indent),
+              child: SizedBox(
+                width: boxW,
+                child: _renderHemistich(
+                  context,
+                  sadr,
+                  sadrStyle,
+                  textAlign: TextAlign.right,
+                  allowWrap: sadrAllowWrap,
+                ),
               ),
             ),
-            const SizedBox(width: centerGap),
-            Expanded(
-              child: _buildTextSpanWidget(
-                context,
-                ajuz,
-                fittedStyle,
-                textAlign: TextAlign.end,
-                softWrap: allowWrap,
+            const SizedBox(height: 2),
+            // العجز (Left-aligned equal box)
+            Padding(
+              padding: EdgeInsets.only(right: indent),
+              child: SizedBox(
+                width: boxW,
+                child: _renderHemistich(
+                  context,
+                  ajuz,
+                  ajuzStyle,
+                  textAlign: TextAlign.left,
+                  allowWrap: ajuzAllowWrap,
+                ),
               ),
             ),
           ],
@@ -250,50 +349,91 @@ class VerseRowWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildStaggered(
+  /// Side-by-Side layout where الصدر and العجز occupy EQUAL halves with
+  /// synchronized scaling & balanced symmetry.
+  Widget _buildSideBySideSymmetrical(
     BuildContext context,
     String sadr,
     String ajuz,
     TextStyle baseStyle,
   ) {
     final textScaler = MediaQuery.textScalerOf(context);
+    const centerGap = 16.0;
+
     return LayoutBuilder(
       builder: (context, constraints) {
-        final indent = (constraints.maxWidth * 0.14).clamp(24.0, 56.0);
-        final availWidth = constraints.maxWidth - indent;
-        final fittedSize = _computeFittedFontSize(
-          hemistichs: [sadr, ajuz],
-          baseStyle: baseStyle,
-          maxWidth: availWidth,
-          textScaler: textScaler,
-        );
-        final fittedStyle = baseStyle.copyWith(fontSize: fittedSize);
-        final allowWrap =
-            ArabicNormalizer.stripDiacritics(sadr).length > 72 ||
-            ArabicNormalizer.stripDiacritics(ajuz).length > 72;
+        final numReserve = showVerseNumber ? 38.0 : 0.0;
+        final halfWidth =
+            ((constraints.maxWidth - numReserve - centerGap) / 2.0).clamp(
+              80.0,
+              420.0,
+            );
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        final sadrAllowWrap =
+            ArabicNormalizer.stripDiacritics(sadr).length > 68;
+        final ajuzAllowWrap =
+            ArabicNormalizer.stripDiacritics(ajuz).length > 68;
+
+        final sadrStyle = sadrAllowWrap
+            ? baseStyle
+            : _calibrateHemistichStyle(
+                text: sadr,
+                baseStyle: baseStyle,
+                boxWidth: halfWidth,
+                textScaler: textScaler,
+              );
+        final ajuzStyle = ajuzAllowWrap
+            ? baseStyle
+            : _calibrateHemistichStyle(
+                text: ajuz,
+                baseStyle: baseStyle,
+                boxWidth: halfWidth,
+                textScaler: textScaler,
+              );
+
+        // Keep both hemistichs within a gentle font-size band of each other
+        final sSz = sadrStyle.fontSize ?? (baseStyle.fontSize ?? 20);
+        final aSz = ajuzStyle.fontSize ?? (baseStyle.fontSize ?? 20);
+        final minSz = sSz < aSz ? sSz : aSz;
+        final syncedSadr = sSz > minSz * 1.08
+            ? sadrStyle.copyWith(fontSize: minSz * 1.06)
+            : sadrStyle;
+        final syncedAjuz = aSz > minSz * 1.08
+            ? ajuzStyle.copyWith(fontSize: minSz * 1.06)
+            : ajuzStyle;
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Padding(
-              padding: EdgeInsets.only(left: indent),
-              child: _buildTextSpanWidget(
+            if (showVerseNumber) ...[
+              SizedBox(
+                width: 32,
+                child: Center(
+                  child: VerseNumberMedallion(
+                    number: verse.index + 1,
+                    isSelected: isSelected,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+            ],
+            Expanded(
+              child: _renderHemistich(
                 context,
                 sadr,
-                fittedStyle,
-                textAlign: TextAlign.start,
-                softWrap: allowWrap,
+                syncedSadr,
+                textAlign: TextAlign.right,
+                allowWrap: sadrAllowWrap,
               ),
             ),
-            const SizedBox(height: 2),
-            Padding(
-              padding: EdgeInsets.only(right: indent),
-              child: _buildTextSpanWidget(
+            const SizedBox(width: centerGap),
+            Expanded(
+              child: _renderHemistich(
                 context,
                 ajuz,
-                fittedStyle,
-                textAlign: TextAlign.end,
-                softWrap: allowWrap,
+                syncedAjuz,
+                textAlign: TextAlign.left,
+                allowWrap: ajuzAllowWrap,
               ),
             ),
           ],
@@ -307,22 +447,37 @@ class VerseRowWidget extends StatelessWidget {
     String text,
     TextStyle baseStyle,
   ) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 6),
-      child: _buildTextSpanWidget(
-        context,
-        text,
-        baseStyle,
-        textAlign: TextAlign.center,
-        softWrap: true,
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (showVerseNumber)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: VerseNumberMedallion(
+                number: verse.index + 1,
+                isSelected: isSelected,
+              ),
+            ),
+          ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 6),
+          child: _renderHemistich(
+            context,
+            text,
+            baseStyle,
+            textAlign: TextAlign.center,
+            allowWrap: true,
+          ),
+        ),
+      ],
     );
   }
 }
 
-/// Computes a consistent poem-wide harmonious base font size so classical verses
-/// look evenly typeset like a printed anthology, while individual longer verses
-/// still benefit from per-verse Dynamic Auto-Fit Scaling.
+/// Computes a harmonious poem-wide base font size so classical verses share
+/// an even visual cadence while per-hemistich calibration fine-tunes symmetry.
 double computePoemHarmoniousFontSize({
   required List<Verse> verses,
   required PoetryFontOption font,
@@ -335,13 +490,16 @@ double computePoemHarmoniousFontSize({
 }) {
   if (verses.isEmpty || viewportWidth <= 0) return requestedFontSize;
 
-  final horizontalChrome = 40.0 + (showVerseNumbers ? 30.0 : 0.0);
+  final horizontalChrome =
+      48.0 +
+      (showVerseNumbers && layoutStyle == VerseLayoutStyle.sideBySide
+          ? 38.0
+          : 0.0);
   final innerWidth = (viewportWidth - horizontalChrome).clamp(160.0, 900.0);
   final targetHemistichWidth = layoutStyle == VerseLayoutStyle.sideBySide
-      ? (innerWidth - 18.0) / 2.0
-      : innerWidth - (innerWidth * 0.14).clamp(24.0, 56.0);
+      ? (innerWidth - 16.0) / 2.0
+      : (innerWidth * 0.80).clamp(160.0, 520.0);
 
-  // Sample up to 24 classical two-hemistich verses evenly across the poem.
   final step = (verses.length / 24).ceil().clamp(1, verses.length);
   final widths = <double>[];
   final probeStyle = AppTypography.poeticVerse(
@@ -369,12 +527,11 @@ double computePoemHarmoniousFontSize({
 
   if (widths.isEmpty) return requestedFontSize;
   widths.sort();
-  // Use the 85th-percentile width so the entire poem adopts a calm uniform rhythm.
-  final p85 =
-      widths[(widths.length * 0.85).floor().clamp(0, widths.length - 1)];
-  if (p85 <= targetHemistichWidth || p85 == 0) {
+  final p80 =
+      widths[(widths.length * 0.80).floor().clamp(0, widths.length - 1)];
+  if (p80 <= targetHemistichWidth || p80 == 0) {
     return requestedFontSize;
   }
-  final ratio = ((targetHemistichWidth - 2.0) / p85).clamp(0.62, 1.0);
+  final ratio = ((targetHemistichWidth - 2.0) / p80).clamp(0.64, 1.0);
   return requestedFontSize * ratio;
 }

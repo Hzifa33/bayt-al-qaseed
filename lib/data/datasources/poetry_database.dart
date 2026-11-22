@@ -9,11 +9,7 @@ import 'package:sqlite3/sqlite3.dart';
 
 import '../../core/constants/app_constants.dart';
 
-/// Read-only corpus SQLite 3 + FTS5 database manager.
-///
-/// On first launch, streams decompression of `assets/db/bayt_al_qaseed.db.gz`
-/// inside a background isolate with low memory footprint, writing atomically
-/// to application documents storage.
+/// Read-only corpus database manager with low-memory streaming extraction.
 class PoetryDatabase {
   PoetryDatabase._(this._db);
 
@@ -24,22 +20,33 @@ class PoetryDatabase {
     void Function(double progress, String status)? onProgress,
   }) async {
     final docsDir = await getApplicationDocumentsDirectory();
+
+    // Clean up older version DB file if present
+    final legacyFile = File(
+      p.join(docsDir.path, AppConstants.legacyCorpusDbFileName),
+    );
+    if (await legacyFile.exists()) {
+      try {
+        await legacyFile.delete();
+      } catch (_) {}
+    }
+
     final dbPath = p.join(docsDir.path, AppConstants.corpusDbFileName);
     final dbFile = File(dbPath);
 
     if (!await dbFile.exists() || await dbFile.length() < 1024 * 1024) {
-      onProgress?.call(0.10, 'جاري قراءة أرشيف الدواوين…');
+      onProgress?.call(0.12, 'جاري فتح خزانة الدواوين…');
       final byteData = await rootBundle.load(AppConstants.corpusAssetPath);
       final compressedBytes = byteData.buffer.asUint8List(
         byteData.offsetInBytes,
         byteData.lengthInBytes,
       );
 
-      onProgress?.call(0.30, 'جاري فك ضغط وفهرسة مليون ومئة ألف بيت…');
+      onProgress?.call(0.35, 'جاري ترتيب دواوين الشعراء والقصائد…');
       final tmpPath = '$dbPath.tmp';
       await Isolate.run(() => _decompressGzipToFile(compressedBytes, tmpPath));
 
-      onProgress?.call(0.92, 'جاري تهيئة محرك البحث السريع…');
+      onProgress?.call(0.92, 'شارفت المكتبة على الجاهزية…');
       final tmpFile = File(tmpPath);
       if (await dbFile.exists()) {
         await dbFile.delete();
@@ -47,16 +54,16 @@ class PoetryDatabase {
       await tmpFile.rename(dbPath);
     }
 
-    onProgress?.call(0.98, 'فتح مكتبة «بيت القصيد»…');
+    onProgress?.call(0.98, 'أهلاً بك في «بيت القصيد»…');
     return openPath(dbPath);
   }
 
-  /// Opens an already-extracted SQLite corpus database (also used directly in unit tests).
+  /// Opens an already-extracted corpus database (also used directly in unit tests).
   static PoetryDatabase openPath(String path) {
     final db = sqlite3.open(path, mode: OpenMode.readOnly);
-    db.execute('PRAGMA cache_size = -16000;'); // 16 MB page cache
+    db.execute('PRAGMA cache_size = -16000;');
     db.execute('PRAGMA temp_store = MEMORY;');
-    db.execute('PRAGMA mmap_size = 67108864;'); // 64 MB mmap for instant reads
+    db.execute('PRAGMA mmap_size = 67108864;');
     return PoetryDatabase._(db);
   }
 

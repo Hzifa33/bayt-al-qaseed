@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -14,13 +15,14 @@ import '../../../core/utils/arabic_normalizer.dart';
 import '../../../data/models/verse.dart';
 
 enum _CardAspect {
-  square('مربع ١:١', 1.0),
-  post('منشور ٤:٥', 4 / 5),
-  story('ستوري ٩:١٦', 9 / 16);
+  square('مربع ١:١', 1.0, Icons.crop_square_rounded),
+  post('منشور ٤:٥', 4 / 5, Icons.crop_portrait_rounded),
+  story('قصة ٩:١٦', 9 / 16, Icons.smartphone_rounded);
 
-  const _CardAspect(this.label, this.ratio);
+  const _CardAspect(this.label, this.ratio, this.icon);
   final String label;
   final double ratio;
+  final IconData icon;
 }
 
 class _CardTemplate {
@@ -86,13 +88,18 @@ const _templates = [
 
 const _cardFonts = <(String, String)>[
   ('شهرزاد', AppFonts.scheherazade),
+  ('ميرزا', AppFonts.mirza),
   ('رُودو', AppFonts.ruwudu),
   ('جلزار', AppFonts.gulzar),
+  ('كاتِبة', AppFonts.katibeh),
   ('الرقعة', AppFonts.ruqaa),
-  ('نوتو نسخ', AppFonts.notoNaskh),
+  ('المخطوطات', AppFonts.amiriQuran),
 ];
 
-/// High-Resolution Editorial Poetry Card Generator Studio.
+/// Redesigned 4-Tab High-Resolution Poetry Card Designer.
+///
+/// Cleanly separates Template, Font & Size, Aspect & Layout, and Elements into
+/// dedicated tabbed panels for serene, effortless card crafting.
 class PoetryCardStudioScreen extends StatefulWidget {
   const PoetryCardStudioScreen({
     super.key,
@@ -114,6 +121,7 @@ class PoetryCardStudioScreen extends StatefulWidget {
 class _PoetryCardStudioScreenState extends State<PoetryCardStudioScreen> {
   final GlobalKey _repaintKey = GlobalKey();
 
+  int _inspectorTab = 0; // 0: القالب | 1: الخط | 2: المقاس | 3: العناصر
   int _templateIndex = 0;
   _CardAspect _aspect = _CardAspect.post;
   String _fontFamily = AppFonts.scheherazade;
@@ -162,7 +170,7 @@ class _PoetryCardStudioScreenState extends State<PoetryCardStudioScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('استوديو البطاقات الشعرية'),
+        title: const Text('تصميم بطاقة شعرية'),
         actions: [
           Padding(
             padding: const EdgeInsets.only(left: 12),
@@ -209,148 +217,68 @@ class _PoetryCardStudioScreenState extends State<PoetryCardStudioScreen> {
             ),
           ),
 
-          // Studio Controls Drawer
+          // Organized 4-Tab Studio Dock
           Container(
             decoration: BoxDecoration(
               color: p.surfaceElevated,
-              border: Border(top: BorderSide(color: p.hairline)),
+              border: Border(
+                top: BorderSide(color: p.ornament.withValues(alpha: 0.4)),
+              ),
               borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(22),
+                top: Radius.circular(24),
               ),
             ),
             child: SafeArea(
               top: false,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Template Swatches
-                    SizedBox(
-                      height: 44,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: _templates.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 8),
-                        itemBuilder: (_, i) {
-                          final t = _templates[i];
-                          final sel = i == _templateIndex;
-                          return InkWell(
-                            onTap: () => setState(() => _templateIndex = i),
-                            borderRadius: BorderRadius.circular(14),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                              ),
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [t.bgTop, t.bgBottom],
-                                ),
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(
-                                  color: sel ? t.accent : t.border,
-                                  width: sel ? 2.2 : 1,
-                                ),
-                              ),
-                              child: Text(
-                                t.name,
-                                style: TextStyle(
-                                  fontFamily: AppFonts.ui,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: t.ink,
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Aspect Ratio + Font Row
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          ..._CardAspect.values.map(
-                            (a) => Padding(
-                              padding: const EdgeInsets.only(left: 6),
-                              child: ChoiceChip(
-                                selected: _aspect == a,
-                                label: Text(a.label),
-                                onSelected: (_) => setState(() => _aspect = a),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          ..._cardFonts.map(
-                            (f) => Padding(
-                              padding: const EdgeInsets.only(left: 6),
-                              child: ChoiceChip(
-                                selected: _fontFamily == f.$2,
-                                label: Text(
-                                  f.$1,
-                                  style: TextStyle(fontFamily: f.$2),
-                                ),
-                                onSelected: (_) =>
-                                    setState(() => _fontFamily = f.$2),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Font size slider
+                    // Dedicated Tab Selector
                     Row(
                       children: [
-                        Text(
-                          'الحجم',
-                          style: Theme.of(context).textTheme.labelMedium,
+                        _StudioTab(
+                          icon: Icons.palette_outlined,
+                          label: 'القالب',
+                          active: _inspectorTab == 0,
+                          onTap: () => setState(() => _inspectorTab = 0),
                         ),
-                        Expanded(
-                          child: Slider(
-                            value: _fontSize,
-                            min: 14,
-                            max: 30,
-                            activeColor: p.accent,
-                            onChanged: (v) => setState(() => _fontSize = v),
-                          ),
+                        _StudioTab(
+                          icon: Icons.font_download_outlined,
+                          label: 'الخط',
+                          active: _inspectorTab == 1,
+                          onTap: () => setState(() => _inspectorTab = 1),
+                        ),
+                        _StudioTab(
+                          icon: Icons.aspect_ratio_rounded,
+                          label: 'المقاس',
+                          active: _inspectorTab == 2,
+                          onTap: () => setState(() => _inspectorTab = 2),
+                        ),
+                        _StudioTab(
+                          icon: Icons.tune_rounded,
+                          label: 'العناصر',
+                          active: _inspectorTab == 3,
+                          onTap: () => setState(() => _inspectorTab = 3),
                         ),
                       ],
                     ),
+                    const SizedBox(height: 14),
 
-                    // Compact Toggle Pills
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      children: [
-                        FilterChip(
-                          selected: _staggered,
-                          label: Text(_staggered ? 'متدرّج' : 'متقابل'),
-                          onSelected: (v) => setState(() => _staggered = v),
-                        ),
-                        FilterChip(
-                          selected: _showDiacritics,
-                          label: const Text('التشكيل'),
-                          onSelected: (v) =>
-                              setState(() => _showDiacritics = v),
-                        ),
-                        FilterChip(
-                          selected: _showPoet,
-                          label: const Text('توقيع الشاعر'),
-                          onSelected: (v) => setState(() => _showPoet = v),
-                        ),
-                        FilterChip(
-                          selected: _showWatermark,
-                          label: const Text('شعار «بيت القصيد»'),
-                          onSelected: (v) => setState(() => _showWatermark = v),
-                        ),
-                      ],
+                    // Tab Panel Content (Fixed sleek height for zero layout jump)
+                    SizedBox(
+                      height: 98,
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 200),
+                        child: switch (_inspectorTab) {
+                          0 => _buildTemplatesTab(),
+                          1 => _buildFontsTab(context),
+                          2 => _buildAspectTab(context),
+                          _ => _buildElementsTab(),
+                        },
+                      ),
                     ),
                   ],
                 ),
@@ -358,6 +286,282 @@ class _PoetryCardStudioScreenState extends State<PoetryCardStudioScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTemplatesTab() {
+    return ListView.separated(
+      key: const ValueKey('tpl_tab'),
+      scrollDirection: Axis.horizontal,
+      itemCount: _templates.length,
+      separatorBuilder: (_, __) => const SizedBox(width: 10),
+      itemBuilder: (_, i) {
+        final t = _templates[i];
+        final sel = i == _templateIndex;
+        return InkWell(
+          onTap: () {
+            HapticFeedback.selectionClick();
+            setState(() => _templateIndex = i);
+          },
+          borderRadius: BorderRadius.circular(16),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            width: 104,
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topRight,
+                end: Alignment.bottomLeft,
+                colors: [t.bgTop, t.bgBottom],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: sel ? t.accent : t.border,
+                width: sel ? 2.2 : 1,
+              ),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'أبجد',
+                  style: TextStyle(
+                    fontFamily: AppFonts.ruqaa,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: t.accent,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  t.name,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: AppFonts.ui,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                    color: t.ink,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildFontsTab(BuildContext context) {
+    final p = context.palette;
+    return Column(
+      key: const ValueKey('font_tab'),
+      children: [
+        SizedBox(
+          height: 44,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _cardFonts.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (_, i) {
+              final f = _cardFonts[i];
+              final sel = _fontFamily == f.$2;
+              return ChoiceChip(
+                selected: sel,
+                label: Text(
+                  f.$1,
+                  style: TextStyle(fontFamily: f.$2, fontSize: 15),
+                ),
+                onSelected: (_) {
+                  HapticFeedback.selectionClick();
+                  setState(() => _fontFamily = f.$2);
+                },
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            Text('حجم الخط', style: Theme.of(context).textTheme.labelMedium),
+            Expanded(
+              child: Slider(
+                value: _fontSize,
+                min: 14,
+                max: 30,
+                activeColor: p.accent,
+                onChanged: (v) => setState(() => _fontSize = v),
+              ),
+            ),
+            Text(
+              '${_fontSize.round()}',
+              style: TextStyle(
+                fontFamily: AppFonts.ui,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: p.accent,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAspectTab(BuildContext context) {
+    final p = context.palette;
+    return Column(
+      key: const ValueKey('aspect_tab'),
+      children: [
+        Row(
+          children: _CardAspect.values.map((a) {
+            final sel = _aspect == a;
+            return Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: InkWell(
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    setState(() => _aspect = a);
+                  },
+                  borderRadius: BorderRadius.circular(14),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      color: sel ? p.accentSoft : p.surface,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: sel ? p.accent : p.hairline,
+                        width: sel ? 1.5 : 0.9,
+                      ),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          a.icon,
+                          size: 18,
+                          color: sel ? p.accent : p.inkMuted,
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          a.label,
+                          style: TextStyle(
+                            fontFamily: AppFonts.ui,
+                            fontSize: 11.5,
+                            fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                            color: sel ? p.accent : p.ink,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            ChoiceChip(
+              selected: _staggered,
+              label: const Text('شطران متدرّجان'),
+              onSelected: (_) => setState(() => _staggered = true),
+            ),
+            const SizedBox(width: 8),
+            ChoiceChip(
+              selected: !_staggered,
+              label: const Text('شطران متقابلان'),
+              onSelected: (_) => setState(() => _staggered = false),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildElementsTab() {
+    return Center(
+      key: const ValueKey('elem_tab'),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        alignment: WrapAlignment.center,
+        children: [
+          FilterChip(
+            selected: _showDiacritics,
+            label: const Text('إظهار التشكيل'),
+            onSelected: (v) => setState(() => _showDiacritics = v),
+          ),
+          FilterChip(
+            selected: _showPoet,
+            label: const Text('توقيع الشاعر'),
+            onSelected: (v) => setState(() => _showPoet = v),
+          ),
+          FilterChip(
+            selected: _showWatermark,
+            label: const Text('شعار «بيت القصيد»'),
+            onSelected: (v) => setState(() => _showWatermark = v),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StudioTab extends StatelessWidget {
+  const _StudioTab({
+    required this.icon,
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          margin: const EdgeInsets.symmetric(horizontal: 2),
+          padding: const EdgeInsets.symmetric(vertical: 7),
+          decoration: BoxDecoration(
+            color: active ? p.accentSoft : Colors.transparent,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: active ? p.accent.withValues(alpha: 0.35) : p.hairline,
+              width: 0.9,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 15, color: active ? p.accent : p.inkMuted),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontFamily: AppFonts.ui,
+                  fontSize: 11.5,
+                  fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                  color: active ? p.accent : p.inkMuted,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -430,7 +634,6 @@ class _CardCanvas extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Subtle Top Ornament
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -451,8 +654,6 @@ class _CardCanvas extends StatelessWidget {
                   Container(width: 28, height: 0.8, color: template.accent),
                 ],
               ),
-
-              // Verses Body (auto-scaled neatly inside card bounds)
               Expanded(
                 child: Center(
                   child: FittedBox(
@@ -526,8 +727,6 @@ class _CardCanvas extends StatelessWidget {
                   ),
                 ),
               ),
-
-              // Footer Signature & Watermark
               Column(
                 children: [
                   if (showPoet) ...[

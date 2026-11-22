@@ -28,6 +28,10 @@ final verseOfTheDayProvider = Provider<FeaturedVerse?>((ref) {
   return ref.watch(poetryRepositoryProvider).getVerseOfTheDay();
 });
 
+final masterpiecesProvider = Provider<List<FeaturedVerse>>((ref) {
+  return ref.watch(poetryRepositoryProvider).getFeaturedMasterpieces(limit: 20);
+});
+
 final favoritePoemsListProvider = Provider<List<PoemSummary>>((ref) {
   ref.watch(userDataProvider);
   final userRepo = ref.watch(userRepositoryProvider);
