@@ -5,8 +5,11 @@ import '../theme/app_theme.dart';
 import '../theme/app_typography.dart';
 import '../utils/arabic_normalizer.dart';
 
-/// Compact, horizontally balanced Poet card shared across Eras, Poets directory,
-/// and Favorite Poets lists.
+/// Compact, zero-truncation horizontally balanced Poet card.
+///
+/// Gives generous width to the poet's full name (with smooth FittedBox fallback
+/// for exceptionally long names so no ugly `...` ever cuts off a poet's name!)
+/// and pairs crisp expressive icons beside era, dates, and Diwan counts.
 class PoetCard extends StatelessWidget {
   const PoetCard({
     super.key,
@@ -23,21 +26,9 @@ class PoetCard extends StatelessWidget {
   final VoidCallback onToggleFavorite;
   final bool showEra;
 
-  String _monogram(String namePlain) {
-    final cleaned = namePlain
-        .replaceFirst(RegExp(r'^(أبو|ابو|ابن|أم|ام|الإمام|الشيخ)\s+'), '')
-        .replaceFirst(RegExp(r'^ال'), '')
-        .trim();
-    if (cleaned.isEmpty) return 'ش';
-    return cleaned.substring(0, 1);
-  }
-
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    final subParts = <String>[];
-    if (showEra) subParts.add('العصر ${poet.eraName}');
-    if (poet.datesHijri.isNotEmpty) subParts.add(poet.datesHijri);
 
     return Material(
       color: Colors.transparent,
@@ -45,7 +36,7 @@ class PoetCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(15),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
           decoration: BoxDecoration(
             color: p.surfaceElevated,
             borderRadius: BorderRadius.circular(15),
@@ -53,103 +44,134 @@ class PoetCard extends StatelessWidget {
           ),
           child: Row(
             children: [
-              // Calligraphic Monogram Medallion
+              // Poet Person Icon Medallion
               Container(
-                width: 40,
-                height: 40,
+                width: 38,
+                height: 38,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: p.accentSoft,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(11),
                   border: Border.all(
                     color: p.ornament.withValues(alpha: 0.35),
                     width: 0.9,
                   ),
                 ),
-                child: Text(
-                  _monogram(poet.namePlain),
-                  style: TextStyle(
-                    fontFamily: AppFonts.ruqaa,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: p.accent,
-                    height: 1.2,
-                  ),
-                ),
+                child: Icon(Icons.person_rounded, size: 21, color: p.accent),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
 
-              // Poet Name + Single Compact Meta Line
+              // Poet Name (auto-scaled gently so it NEVER clips with "...") + Clean Meta Row
               Expanded(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      poet.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontFamily: AppFonts.scheherazade,
-                        fontSize: 20.5,
-                        fontWeight: FontWeight.w700,
-                        color: p.ink,
-                        height: 1.32,
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          poet.name,
+                          maxLines: 1,
+                          style: TextStyle(
+                            fontFamily: AppFonts.scheherazade,
+                            fontSize: 19,
+                            fontWeight: FontWeight.w700,
+                            color: p.ink,
+                            height: 1.32,
+                          ),
+                        ),
                       ),
                     ),
-                    if (subParts.isNotEmpty)
-                      Text(
-                        subParts.join('  •  '),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.labelSmall,
-                      ),
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        if (showEra) ...[
+                          Icon(
+                            Icons.hourglass_bottom_rounded,
+                            size: 11,
+                            color: p.accent,
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            poet.eraName,
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(fontSize: 10.5),
+                          ),
+                          const SizedBox(width: 8),
+                        ] else if (poet.datesHijri.isNotEmpty) ...[
+                          Icon(
+                            Icons.calendar_today_outlined,
+                            size: 10.5,
+                            color: p.accent,
+                          ),
+                          const SizedBox(width: 3),
+                          Flexible(
+                            child: Text(
+                              poet.datesHijri,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(fontSize: 10.5),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        Icon(
+                          Icons.format_quote_rounded,
+                          size: 11,
+                          color: p.inkMuted,
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          '${ArabicNormalizer.toArabicNumber(poet.verseCount)} بيت',
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(fontSize: 10.5),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
 
-              // Right-aligned Compact Metrics Pill (Horizontal distribution!)
+              // Ultra-Compact Poem Count Badge
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
                 decoration: BoxDecoration(
                   color: p.surface,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(9),
                   border: Border.all(color: p.hairline, width: 0.8),
                 ),
-                child: Column(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
+                    Icon(
+                      Icons.auto_stories_outlined,
+                      size: 11.5,
+                      color: p.accent,
+                    ),
+                    const SizedBox(width: 3),
                     Text(
-                      '${ArabicNormalizer.toArabicNumber(poet.poemCount)} قصيدة',
+                      ArabicNormalizer.toArabicNumber(poet.poemCount),
                       style: TextStyle(
                         fontFamily: AppFonts.ui,
-                        fontSize: 11,
+                        fontSize: 11.5,
                         fontWeight: FontWeight.w700,
                         color: p.accent,
-                        height: 1.2,
-                      ),
-                    ),
-                    Text(
-                      '${ArabicNormalizer.toArabicNumber(poet.verseCount)} بيت',
-                      style: TextStyle(
-                        fontFamily: AppFonts.ui,
-                        fontSize: 9.8,
-                        color: p.inkMuted,
-                        height: 1.2,
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 2),
 
               // Compact Favorite Toggle
               IconButton(
                 visualDensity: VisualDensity.compact,
                 padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                 tooltip: isFavorite ? 'إزالة من المفضلة' : 'إضافة للمفضلة',
                 onPressed: onToggleFavorite,
                 icon: Icon(
@@ -157,7 +179,7 @@ class PoetCard extends StatelessWidget {
                       ? Icons.favorite_rounded
                       : Icons.favorite_border_rounded,
                   color: isFavorite ? p.accent : p.inkMuted,
-                  size: 19,
+                  size: 18.5,
                 ),
               ),
             ],

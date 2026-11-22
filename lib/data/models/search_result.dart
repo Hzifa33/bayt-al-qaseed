@@ -41,46 +41,67 @@ class PoemSearchHit {
 
 class SearchFilter {
   const SearchFilter({
-    this.eraId,
+    this.eraIds = const {},
     this.poetId,
-    this.meterId,
-    this.rhymeId,
-    this.matchMode = SearchMatchMode.sameVerse,
+    this.meterIds = const {},
+    this.rhymeIds = const {},
+    this.matchMode = SearchMatchMode.exactSequence,
     this.matchPartialWords = true,
   });
 
-  final int? eraId;
+  final Set<int> eraIds;
   final int? poetId;
-  final int? meterId;
-  final int? rhymeId;
-
-  /// Whether words may appear anywhere inside the same verse or strictly consecutively.
+  final Set<int> meterIds;
+  final Set<int> rhymeIds;
   final SearchMatchMode matchMode;
 
-  /// When true, a query like «قل» matches «قلب» & «قليل» (prefix/partial match).
-  /// When false, enforces strict word boundaries (with space separation).
+  /// When true, «قل» matches «قلب» & «قليل».
+  /// When false, enforces whole-word boundaries.
   final bool matchPartialWords;
 
-  bool get hasActiveFilters =>
-      eraId != null || poetId != null || meterId != null || rhymeId != null;
+  int get activeFilterCount =>
+      eraIds.length +
+      meterIds.length +
+      rhymeIds.length +
+      (poetId != null ? 1 : 0);
+
+  bool get hasActiveFilters => activeFilterCount > 0;
+
+  SearchFilter withToggledEra(int id) {
+    final next = Set<int>.of(eraIds);
+    if (!next.add(id)) next.remove(id);
+    return copyWith(eraIds: Set<int>.unmodifiable(next));
+  }
+
+  SearchFilter withToggledMeter(int id) {
+    final next = Set<int>.of(meterIds);
+    if (!next.add(id)) next.remove(id);
+    return copyWith(meterIds: Set<int>.unmodifiable(next));
+  }
+
+  SearchFilter withToggledRhyme(int id) {
+    final next = Set<int>.of(rhymeIds);
+    if (!next.add(id)) next.remove(id);
+    return copyWith(rhymeIds: Set<int>.unmodifiable(next));
+  }
 
   SearchFilter copyWith({
-    int? eraId,
-    bool clearEra = false,
+    Set<int>? eraIds,
+    bool clearEras = false,
     int? poetId,
     bool clearPoet = false,
-    int? meterId,
-    bool clearMeter = false,
-    int? rhymeId,
-    bool clearRhyme = false,
+    Set<int>? meterIds,
+    bool clearMeters = false,
+    Set<int>? rhymeIds,
+    bool clearRhymes = false,
     SearchMatchMode? matchMode,
     bool? matchPartialWords,
   }) {
     return SearchFilter(
-      eraId: clearEra ? null : (eraId ?? this.eraId),
+      eraIds: clearEras ? const {} : (eraIds ?? this.eraIds),
       poetId: clearPoet ? null : (poetId ?? this.poetId),
-      meterId: clearMeter ? null : (meterId ?? this.meterId),
-      rhymeId: clearRhyme ? null : (rhymeId ?? this.rhymeId),
+      meterIds: clearMeters ? const {} : (meterIds ?? this.meterIds),
+      rhymeIds: clearRhymes ? const {} : (rhymeIds ?? this.rhymeIds),
       matchMode: matchMode ?? this.matchMode,
       matchPartialWords: matchPartialWords ?? this.matchPartialWords,
     );

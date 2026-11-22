@@ -11,9 +11,10 @@ import '../../core/constants/app_constants.dart';
 
 /// Read-only corpus database manager with low-memory streaming extraction.
 class PoetryDatabase {
-  PoetryDatabase._(this._db);
+  PoetryDatabase._(this._db, this.dbPath);
 
   final Database _db;
+  final String? dbPath;
   Database get db => _db;
 
   static Future<PoetryDatabase> openBundled({
@@ -61,10 +62,11 @@ class PoetryDatabase {
   /// Opens an already-extracted corpus database (also used directly in unit tests).
   static PoetryDatabase openPath(String path) {
     final db = sqlite3.open(path, mode: OpenMode.readOnly);
-    db.execute('PRAGMA cache_size = -16000;');
+    db.execute('PRAGMA query_only = ON;');
+    db.execute('PRAGMA cache_size = -24000;');
     db.execute('PRAGMA temp_store = MEMORY;');
-    db.execute('PRAGMA mmap_size = 67108864;');
-    return PoetryDatabase._(db);
+    db.execute('PRAGMA mmap_size = 134217728;');
+    return PoetryDatabase._(db, path);
   }
 
   static Future<void> _decompressGzipToFile(

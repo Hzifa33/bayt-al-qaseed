@@ -88,6 +88,7 @@ const _templates = [
 
 const _cardFonts = <(String, String)>[
   ('شهرزاد', AppFonts.scheherazade),
+  ('الأميري', AppFonts.amiri),
   ('ميرزا', AppFonts.mirza),
   ('رُودو', AppFonts.ruwudu),
   ('جلزار', AppFonts.gulzar),

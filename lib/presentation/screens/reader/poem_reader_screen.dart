@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -44,10 +46,16 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
   int? _nextPoemId;
   final Set<int> _selectedIndices = {};
   final ScrollController _scrollCtrl = ScrollController();
+  final GlobalKey _targetVerseKey = GlobalKey();
+  final ValueNotifier<double> _readProgress = ValueNotifier<double>(0.0);
   bool _chromeVisible = true;
   bool _typographyPanelOpen = false;
-  double _readProgress = 0.0;
+  int? _targetScrollIndex;
   int? _transientHighlightIndex;
+  int _lastBuiltVerse = 0;
+  Timer? _highlightTimer;
+  String? _cachedHarmoniousKey;
+  double? _cachedHarmoniousSize;
 
   @override
   void initState() {
@@ -65,12 +73,13 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
     int? initialIndex,
     bool pulseTargetVerse = false,
   }) {
+    _highlightTimer?.cancel();
     final repo = ref.read(poetryRepositoryProvider);
     final poem = repo.getPoemById(poemId);
     _poem = poem;
-    _transientHighlightIndex = (pulseTargetVerse && initialIndex != null)
-        ? initialIndex
-        : null;
+    _targetScrollIndex = initialIndex;
+    _transientHighlightIndex = null;
+    _lastBuiltVerse = 0;
 
     if (poem != null) {
       final adj = repo.getAdjacentPoemIds(poem.poetId, poem.id);
@@ -81,34 +90,88 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
         ref
             .read(userDataProvider.notifier)
             .recordReading(poem, lastVerseIndex: initialIndex ?? 0);
-        if (initialIndex != null &&
-            initialIndex > 1 &&
-            _scrollCtrl.hasClients) {
-          final isStaggered =
-              ref.read(readerSettingsProvider).verseLayout ==
-              VerseLayoutStyle.staggered;
-          final rowHeight = isStaggered ? 104.0 : 58.0;
-          final targetOffset = (150.0 + initialIndex * rowHeight - 130.0).clamp(
-            0.0,
-            _scrollCtrl.position.maxScrollExtent,
+        if (initialIndex != null && initialIndex >= 0) {
+          _scrollToExactVerseCenter(
+            targetIndex: initialIndex,
+            pulseAfterCenter: pulseTargetVerse,
           );
-          _scrollCtrl.animateTo(
-            targetOffset,
-            duration: const Duration(milliseconds: 420),
-            curve: Curves.easeOutCubic,
-          );
-        }
-        // Gently highlight ONLY the target verse for ~1.3s, then clear completely
-        // so the reader reads peacefully without any lingering highlights.
-        if (_transientHighlightIndex != null) {
-          Future.delayed(const Duration(milliseconds: 1300), () {
-            if (mounted) {
-              setState(() => _transientHighlightIndex = null);
-            }
-          });
         }
       });
     }
+  }
+
+  void _startTransientPulse(int targetIndex) {
+    _highlightTimer?.cancel();
+    if (!mounted) return;
+    setState(() => _transientHighlightIndex = targetIndex);
+    _highlightTimer = Timer(const Duration(milliseconds: 1450), () {
+      if (mounted) {
+        setState(() => _transientHighlightIndex = null);
+      }
+    });
+  }
+
+  /// Deterministically scrolls [targetIndex] into the exact vertical middle of
+  /// the reading viewport, even in 300+ verse poems with variable row heights.
+  void _scrollToExactVerseCenter({
+    required int targetIndex,
+    required bool pulseAfterCenter,
+    int attempt = 0,
+  }) {
+    if (!mounted || !_scrollCtrl.hasClients || _poem == null) return;
+
+    final targetCtx = _targetVerseKey.currentContext;
+    if (targetCtx != null) {
+      Scrollable.ensureVisible(
+        targetCtx,
+        alignment: 0.5,
+        duration: Duration(milliseconds: attempt == 0 ? 320 : 220),
+        curve: Curves.easeOutCubic,
+      ).then((_) {
+        if (mounted && pulseAfterCenter) {
+          _startTransientPulse(targetIndex);
+        }
+      });
+      return;
+    }
+
+    if (attempt >= 12) {
+      if (pulseAfterCenter) _startTransientPulse(targetIndex);
+      return;
+    }
+
+    final settings = ref.read(readerSettingsProvider);
+    final isStaggered = settings.verseLayout == VerseLayoutStyle.staggered;
+    final scaledLine =
+        settings.fontSize *
+        settings.poetryFont.scaleMultiplier *
+        settings.poetryFont.baseHeight;
+    final estRowHeight = isStaggered
+        ? (scaledLine * 2.0 + 28.0)
+        : (scaledLine + 20.0);
+    final viewport = _scrollCtrl.position.viewportDimension;
+    final maxExtent = _scrollCtrl.position.maxScrollExtent;
+
+    double nextOffset;
+    if (attempt == 0) {
+      nextOffset = (110.0 + targetIndex * estRowHeight - viewport * 0.45).clamp(
+        0.0,
+        maxExtent,
+      );
+    } else {
+      final deltaVerses = targetIndex - _lastBuiltVerse;
+      final step = deltaVerses == 0 ? 0.0 : deltaVerses * estRowHeight * 0.85;
+      nextOffset = (_scrollCtrl.offset + step).clamp(0.0, maxExtent);
+    }
+
+    _scrollCtrl.jumpTo(nextOffset);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToExactVerseCenter(
+        targetIndex: targetIndex,
+        pulseAfterCenter: pulseAfterCenter,
+        attempt: attempt + 1,
+      );
+    });
   }
 
   void _switchToAdjacentPoem(int targetPoemId) {
@@ -116,7 +179,8 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
     setState(() {
       _selectedIndices.clear();
       _typographyPanelOpen = false;
-      _readProgress = 0;
+      _cachedHarmoniousKey = null;
+      _readProgress.value = 0.0;
       _loadPoem(targetPoemId);
     });
     if (_scrollCtrl.hasClients) {
@@ -126,8 +190,10 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
 
   @override
   void dispose() {
+    _highlightTimer?.cancel();
     _scrollCtrl.removeListener(_onScroll);
     _scrollCtrl.dispose();
+    _readProgress.dispose();
     super.dispose();
   }
 
@@ -137,8 +203,8 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
       final nextProgress = max > 0
           ? (_scrollCtrl.offset / max).clamp(0.0, 1.0)
           : 0.0;
-      if ((nextProgress - _readProgress).abs() > 0.01) {
-        setState(() => _readProgress = nextProgress);
+      if ((nextProgress - _readProgress.value).abs() > 0.008) {
+        _readProgress.value = nextProgress;
       }
     }
     if (_selectedIndices.isNotEmpty || _typographyPanelOpen) return;
@@ -473,16 +539,28 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
 
     final viewportWidth = MediaQuery.sizeOf(context).width;
     final textScaler = MediaQuery.textScalerOf(context);
-    final harmoniousSize = computePoemHarmoniousFontSize(
-      verses: poem.verses,
-      font: settings.poetryFont,
-      requestedFontSize: settings.fontSize,
-      layoutStyle: settings.verseLayout,
-      showDiacritics: settings.showDiacritics,
-      showVerseNumbers: settings.showVerseNumbers,
-      viewportWidth: viewportWidth,
-      textScaler: textScaler,
-    );
+    final hKey =
+        '${poem.id}|${settings.poetryFont.id}|${settings.fontSize}|'
+        '${settings.verseLayout.index}|${settings.showDiacritics}|'
+        '${settings.showVerseNumbers}|${viewportWidth.round()}|'
+        '${textScaler.scale(16).toStringAsFixed(2)}';
+    final double harmoniousSize;
+    if (_cachedHarmoniousKey == hKey && _cachedHarmoniousSize != null) {
+      harmoniousSize = _cachedHarmoniousSize!;
+    } else {
+      harmoniousSize = computePoemHarmoniousFontSize(
+        verses: poem.verses,
+        font: settings.poetryFont,
+        requestedFontSize: settings.fontSize,
+        layoutStyle: settings.verseLayout,
+        showDiacritics: settings.showDiacritics,
+        showVerseNumbers: settings.showVerseNumbers,
+        viewportWidth: viewportWidth,
+        textScaler: textScaler,
+      );
+      _cachedHarmoniousKey = hKey;
+      _cachedHarmoniousSize = harmoniousSize;
+    }
 
     final interceptBack = inSelection || _typographyPanelOpen;
 
@@ -513,9 +591,10 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
                 bottom: false,
                 child: ListView.builder(
                   controller: _scrollCtrl,
+                  cacheExtent: 900,
                   padding: EdgeInsets.fromLTRB(
                     12,
-                    70,
+                    66,
                     12,
                     _typographyPanelOpen
                         ? 230
@@ -525,77 +604,131 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
                   ),
                   itemCount: poem.verses.length + 2,
                   itemBuilder: (context, idx) {
-                    // Editorial Poem Header with Expressive Icons
+                    // Compact Horizontal Editorial Poem Header
                     if (idx == 0) {
                       return Padding(
-                        padding: const EdgeInsets.fromLTRB(10, 6, 10, 12),
+                        padding: const EdgeInsets.fromLTRB(4, 2, 4, 8),
                         child: Column(
                           children: [
-                            InkWell(
-                              onTap: () => BaytNav.pushEditorial(
-                                context,
-                                PoetDetailScreen(poetId: poem.poetId),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 11,
+                                vertical: 8,
                               ),
-                              borderRadius: BorderRadius.circular(14),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 4,
+                              decoration: BoxDecoration(
+                                color: p.surface.withValues(alpha: 0.72),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: p.hairline,
+                                  width: 0.85,
                                 ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.history_edu_rounded,
-                                      size: 20,
-                                      color: p.accent,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  // Row 1: Compact Poet Name (with Person icon) + Era on the side
+                                  InkWell(
+                                    onTap: () => BaytNav.pushEditorial(
+                                      context,
+                                      PoetDetailScreen(poetId: poem.poetId),
                                     ),
-                                    const SizedBox(width: 8),
-                                    Flexible(
-                                      child: Text(
-                                        poem.poetName,
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          fontFamily: AppFonts.ruqaa,
-                                          fontSize: 30,
-                                          fontWeight: FontWeight.w700,
-                                          color: p.accent,
-                                          height: 1.38,
+                                    borderRadius: BorderRadius.circular(10),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 28,
+                                          height: 28,
+                                          alignment: Alignment.center,
+                                          decoration: BoxDecoration(
+                                            color: p.accentSoft,
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                          ),
+                                          child: Icon(
+                                            Icons.person_rounded,
+                                            size: 16.5,
+                                            color: p.accent,
+                                          ),
                                         ),
-                                      ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Align(
+                                            alignment: Alignment.centerRight,
+                                            child: FittedBox(
+                                              fit: BoxFit.scaleDown,
+                                              alignment: Alignment.centerRight,
+                                              child: Text(
+                                                poem.poetName,
+                                                maxLines: 1,
+                                                style: TextStyle(
+                                                  fontFamily: AppFonts.ruqaa,
+                                                  fontSize: 19,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: p.accent,
+                                                  height: 1.25,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        _InlineMetaTag(
+                                          icon: Icons.hourglass_bottom_rounded,
+                                          label: poem.eraName,
+                                          accented: true,
+                                        ),
+                                        const SizedBox(width: 2),
+                                        Icon(
+                                          Icons.chevron_left_rounded,
+                                          size: 16,
+                                          color: p.inkMuted,
+                                        ),
+                                      ],
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 6,
+                                    ),
+                                    child: Divider(
+                                      height: 0.7,
+                                      thickness: 0.7,
+                                      color: p.hairline.withValues(alpha: 0.8),
+                                    ),
+                                  ),
+                                  // Row 2: Compact Side-by-Side Quick Metadata Strip with Icons
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerRight,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        _InlineMetaTag(
+                                          icon: Icons.waves_rounded,
+                                          label: 'بحر ${poem.meterName}',
+                                        ),
+                                        _MetaDot(color: p.ornament),
+                                        _InlineMetaTag(
+                                          icon: Icons.music_note_outlined,
+                                          label: 'الرويّ (${poem.rhymeName})',
+                                        ),
+                                        _MetaDot(color: p.ornament),
+                                        _InlineMetaTag(
+                                          icon: Icons
+                                              .format_list_numbered_rtl_rounded,
+                                          label:
+                                              '${ArabicNormalizer.toArabicNumber(poem.verseCount)} بيتاً',
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            Wrap(
-                              alignment: WrapAlignment.center,
-                              spacing: 7,
-                              runSpacing: 6,
-                              children: [
-                                _HeaderPill(
-                                  icon: Icons.hourglass_bottom_rounded,
-                                  label: 'العصر ${poem.eraName}',
-                                ),
-                                _HeaderPill(
-                                  icon: Icons.waves_rounded,
-                                  label: 'بحر ${poem.meterName}',
-                                ),
-                                _HeaderPill(
-                                  icon: Icons.music_note_outlined,
-                                  label: 'الرويّ (${poem.rhymeName})',
-                                ),
-                                _HeaderPill(
-                                  icon: Icons.format_list_numbered_rtl_rounded,
-                                  label:
-                                      '${ArabicNormalizer.toArabicNumber(poem.verseCount)} بيتاً',
-                                ),
-                              ],
                             ),
                             const EditorialDivider(
-                              verticalPadding: 16,
-                              horizontalPadding: 32,
+                              verticalPadding: 9,
+                              horizontalPadding: 44,
                             ),
                           ],
                         ),
@@ -694,11 +827,14 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
                     }
 
                     final verse = poem.verses[idx - 1];
+                    _lastBuiltVerse = verse.index;
                     final selected = _selectedIndices.contains(verse.index);
                     final isTransientPulse =
                         _transientHighlightIndex == verse.index;
+                    final isTargetVerse = _targetScrollIndex == verse.index;
 
                     return VerseRowWidget(
+                      key: isTargetVerse ? _targetVerseKey : null,
                       verse: verse,
                       font: settings.poetryFont,
                       fontSize: harmoniousSize,
@@ -725,19 +861,22 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
               ),
             ),
 
-            // Whisper-Thin Top Reading Progress Hairline
+            // Whisper-Thin Top Reading Progress Hairline (zero-rebuild ValueListenable)
             Positioned(
               top: 0,
               left: 0,
               right: 0,
               child: SafeArea(
                 bottom: false,
-                child: LinearProgressIndicator(
-                  value: _readProgress,
-                  minHeight: 2.2,
-                  backgroundColor: Colors.transparent,
-                  valueColor: AlwaysStoppedAnimation(
-                    p.accent.withValues(alpha: 0.72),
+                child: ValueListenableBuilder<double>(
+                  valueListenable: _readProgress,
+                  builder: (_, progress, __) => LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 2.2,
+                    backgroundColor: Colors.transparent,
+                    valueColor: AlwaysStoppedAnimation(
+                      p.accent.withValues(alpha: 0.72),
+                    ),
                   ),
                 ),
               ),
@@ -811,7 +950,7 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
                                 icon: const Icon(Icons.east_rounded),
                               ),
                               Icon(
-                                Icons.history_edu_rounded,
+                                Icons.person_rounded,
                                 size: 17,
                                 color: p.accent,
                               ),
@@ -932,32 +1071,55 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
   }
 }
 
-class _HeaderPill extends StatelessWidget {
-  const _HeaderPill({required this.icon, required this.label});
+class _InlineMetaTag extends StatelessWidget {
+  const _InlineMetaTag({
+    required this.icon,
+    required this.label,
+    this.accented = false,
+  });
+
   final IconData icon;
   final String label;
+  final bool accented;
 
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-      decoration: BoxDecoration(
-        color: p.surface,
-        borderRadius: BorderRadius.circular(11),
-        border: Border.all(color: p.hairline),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12.5, color: p.accent),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelSmall
-                ?.copyWith(color: p.inkMuted),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 11.5, color: accented ? p.accent : p.accent),
+        const SizedBox(width: 3),
+        Text(
+          label,
+          style: TextStyle(
+            fontFamily: AppFonts.ui,
+            fontSize: 10.5,
+            fontWeight: accented ? FontWeight.w600 : FontWeight.w500,
+            color: accented ? p.accent : p.inkMuted,
+            height: 1.25,
           ),
-        ],
+        ),
+      ],
+    );
+  }
+}
+
+class _MetaDot extends StatelessWidget {
+  const _MetaDot({required this.color});
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      child: Text(
+        '•',
+        style: TextStyle(
+          fontSize: 10,
+          color: color.withValues(alpha: 0.7),
+          height: 1.0,
+        ),
       ),
     );
   }

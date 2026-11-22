@@ -13,6 +13,7 @@ class AppFonts {
   static const String kufi = 'ReemKufi';
 
   static const String scheherazade = 'ScheherazadeNew';
+  static const String amiri = 'Amiri';
   static const String ruwudu = 'Ruwudu';
   static const String mirza = 'Mirza';
   static const String amiriQuran = 'AmiriQuran';
@@ -29,6 +30,14 @@ enum PoetryFontOption {
     subtitle: 'نسخ مطبعي رفيع متقن التشكيل',
     baseHeight: 2.02,
     scaleMultiplier: 1.12,
+  ),
+  amiri(
+    id: 'amiri',
+    family: AppFonts.amiri,
+    displayName: 'الأميري النسخي',
+    subtitle: 'خطّ مطبعي عريق مستلهم من مطبعة بولاق',
+    baseHeight: 2.04,
+    scaleMultiplier: 1.06,
   ),
   mirza(
     id: 'mirza',

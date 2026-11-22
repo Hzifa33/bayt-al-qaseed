@@ -17,7 +17,6 @@ import '../../providers/settings_provider.dart';
 import '../../providers/user_data_providers.dart';
 import '../about/about_screen.dart';
 import '../eras/meter_poems_screen.dart';
-import '../eras/poets_screen.dart';
 import '../reader/poem_reader_screen.dart';
 import '../studio/poetry_card_studio_screen.dart';
 
@@ -36,13 +35,13 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  static const _masterpieceCategories = [
-    'الكل',
-    'المعلّقات',
-    'خالدات',
-    'الغزل',
-    'الرثاء',
-    'الحكمة',
+  static const _masterpieceCategories = <(String, IconData)>[
+    ('الكل', Icons.auto_awesome_rounded),
+    ('المعلّقات', Icons.workspace_premium_outlined),
+    ('خالدات', Icons.menu_book_outlined),
+    ('الغزل', Icons.favorite_outline_rounded),
+    ('الرثاء', Icons.water_drop_outlined),
+    ('الحكمة', Icons.lightbulb_outline_rounded),
   ];
 
   FeaturedVerse? _customFeatured;
@@ -62,7 +61,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _openRandomPoem() {
     HapticFeedback.lightImpact();
-    // Instant O(log N) PK lookup (< 0.1 ms!)
     final poem = ref.read(poetryRepositoryProvider).getRandomPoem();
     if (poem == null) return;
     BaytNav.pushDrop(context, PoemReaderScreen(poemId: poem.id));
@@ -73,7 +71,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final p = context.palette;
     final settings = ref.watch(readerSettingsProvider);
     final stats = ref.watch(libraryStatsProvider);
-    final eras = ref.watch(erasProvider);
     final meters = ref.watch(metersProvider);
     final allMasterpieces = ref.watch(masterpiecesProvider);
     final userData = ref.watch(userDataProvider);
@@ -181,6 +178,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       PoemReaderScreen(
                         poemId: featured.poemId,
                         initialVerseIndex: featured.verseIndex,
+                        highlightMatchedVerseOnce: featured.verseIndex > 0,
                       ),
                     ),
                     onDesignCard: () => BaytNav.pushDrop(
@@ -205,7 +203,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   title: userData.lastRead!.poemTitle,
                   poetName: userData.lastRead!.poetName,
                   meterName: userData.lastRead!.meterName,
-                  verseCount: userData.lastRead!.verseCount,
                   onTap: () => BaytNav.pushDrop(
                     context,
                     PoemReaderScreen(
@@ -217,7 +214,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
 
-          // 3. Compact Dual Quick-Action Strip («قصيدة عشوائية» + «شاهدٌ آخر»)
+          // 3. Zero-Truncation Quick Action Strip («قصيدة عشوائية» + «شاهدٌ آخر»)
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 10, 16, 2),
@@ -227,7 +224,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     child: _QuickActionTile(
                       icon: Icons.shuffle_rounded,
                       title: 'قصيدة عشوائية',
-                      subtitle: 'افتح قصيدة من الديوان',
+                      subtitle: 'اختر قصيدة الآن',
                       onTap: _openRandomPoem,
                     ),
                   ),
@@ -236,7 +233,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     child: _QuickActionTile(
                       icon: Icons.format_quote_rounded,
                       title: 'شاهدٌ آخر',
-                      subtitle: 'بيتٌ من عيون الشعر',
+                      subtitle: 'تبديل بيت اليوم',
                       onTap: _shuffleFeaturedVerse,
                     ),
                   ),
@@ -245,7 +242,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
 
-          // 4. Expanded Majestic Curated Masterpieces («عيونُ القصيد الخالدة» with Categories)
+          // 4. Refined Compact Curated Masterpieces («عيونُ القصيد الخالدة»)
           if (allMasterpieces.isNotEmpty) ...[
             SliverToBoxAdapter(
               child: Padding(
@@ -258,7 +255,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       children: [
                         Icon(
                           Icons.auto_awesome_rounded,
-                          size: 19,
+                          size: 18,
                           color: p.accent,
                         ),
                         const SizedBox(width: 7),
@@ -279,7 +276,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
             ),
-            // Category filter pills (المعلّقات، خالدات، الغزل، الرثاء، الحكمة)
             SliverToBoxAdapter(
               child: SizedBox(
                 height: 36,
@@ -289,11 +285,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   itemCount: _masterpieceCategories.length,
                   separatorBuilder: (_, __) => const SizedBox(width: 6),
                   itemBuilder: (_, i) {
-                    final cat = _masterpieceCategories[i];
+                    final (cat, icon) = _masterpieceCategories[i];
                     final sel = cat == _selectedCategory;
                     return ChoiceChip(
                       selected: sel,
                       visualDensity: VisualDensity.compact,
+                      avatar: Icon(
+                        icon,
+                        size: 14.5,
+                        color: sel ? p.accent : p.inkMuted,
+                      ),
                       label: Text(cat),
                       onSelected: (_) {
                         HapticFeedback.selectionClick();
@@ -305,15 +306,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
             const SliverToBoxAdapter(child: SizedBox(height: 10)),
-            // Larger, Majestic Masterpiece Cards
             SliverToBoxAdapter(
               child: SizedBox(
-                height: 196,
+                height: 156,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   itemCount: filteredMasterpieces.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 12),
+                  separatorBuilder: (_, __) => const SizedBox(width: 10),
                   itemBuilder: (context, i) {
                     final m = filteredMasterpieces[i];
                     return _MasterpieceCard(
@@ -323,6 +323,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         PoemReaderScreen(
                           poemId: m.poemId,
                           initialVerseIndex: m.verseIndex,
+                          highlightMatchedVerseOnce: m.verseIndex > 0,
                         ),
                       ),
                     );
@@ -332,144 +333,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ],
 
-          const SliverToBoxAdapter(
-            child: EditorialDivider(verticalPadding: 16),
-          ),
-
-          // 5. Literary Eras Rail (Well-Proportioned Compact Height)
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(18, 0, 18, 10),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.hourglass_bottom_rounded,
-                        size: 18,
-                        color: p.accent,
-                      ),
-                      const SizedBox(width: 7),
-                      Text(
-                        'العصور الأدبية',
-                        style: Theme.of(context).textTheme.headlineMedium,
-                      ),
-                    ],
-                  ),
-                  TextButton(
-                    onPressed: widget.onOpenErasTab,
-                    style: TextButton.styleFrom(
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    child: Text(
-                      'الديوان كاملاً',
-                      style: TextStyle(
-                        color: p.accent,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          SliverToBoxAdapter(
-            child: SizedBox(
-              height: 128,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: eras.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 10),
-                itemBuilder: (context, index) {
-                  final era = eras[index];
-                  return InkWell(
-                    onTap: () =>
-                        BaytNav.pushEditorial(context, PoetsScreen(era: era)),
-                    borderRadius: BorderRadius.circular(16),
-                    child: Container(
-                      width: 150,
-                      padding: const EdgeInsets.all(13),
-                      decoration: BoxDecoration(
-                        color: p.surfaceElevated,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: p.hairline),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 7,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: p.accentSoft,
-                                  borderRadius: BorderRadius.circular(7),
-                                ),
-                                child: Text(
-                                  era.periodHint,
-                                  style: TextStyle(
-                                    fontFamily: AppFonts.ui,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                    color: p.accent,
-                                  ),
-                                ),
-                              ),
-                              Icon(
-                                Icons.arrow_back_ios_new_rounded,
-                                size: 11,
-                                color: p.inkMuted,
-                              ),
-                            ],
-                          ),
-                          const Spacer(),
-                          Text(
-                            'العصر ${era.name}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontFamily: AppFonts.ruqaa,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: p.ink,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            era.subtitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.labelSmall
-                                ?.copyWith(fontSize: 10.5),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            '${ArabicNormalizer.toArabicNumber(era.poetCount)} شاعراً',
-                            style: TextStyle(
-                              fontFamily: AppFonts.ui,
-                              fontSize: 10.5,
-                              color: p.accent,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-
-          // 6. Compact Horizontal Poetic Meters Ribbon (No overly tall wall of chips!)
+          // 5. Compact 2-Row Poetic Meters Ribbon (Clean, Uncluttered Home!)
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(18, 20, 18, 10),
@@ -487,13 +351,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                     ],
                   ),
-                  TextButton(
+                  TextButton.icon(
                     onPressed: widget.onOpenErasTab,
                     style: TextButton.styleFrom(
                       visualDensity: VisualDensity.compact,
                     ),
-                    child: Text(
-                      'كل البحور',
+                    icon: Icon(
+                      Icons.auto_stories_outlined,
+                      size: 15,
+                      color: p.accent,
+                    ),
+                    label: Text(
+                      'كل الدواوين',
                       style: TextStyle(
                         color: p.accent,
                         fontWeight: FontWeight.w600,
@@ -513,14 +382,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
 
-          // 7. Compact Editorial Library Stats Footer
+          // 6. Clean Editorial Library Stats Footer with Expressive Icons
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 20, 16, 102),
               child: Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 16,
+                  horizontal: 16,
+                  vertical: 15,
                 ),
                 decoration: BoxDecoration(
                   color: p.surface,
@@ -533,7 +402,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     Row(
                       children: [
                         Icon(
-                          Icons.auto_stories_outlined,
+                          Icons.library_books_outlined,
                           size: 16,
                           color: p.accent,
                         ),
@@ -549,18 +418,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     Row(
                       children: [
                         _StatCell(
+                          icon: Icons.format_quote_rounded,
                           value: ArabicNormalizer.toArabicNumber(
                             stats.verseCount,
                           ),
                           label: 'بيت شعري',
                         ),
                         _StatCell(
+                          icon: Icons.auto_stories_outlined,
                           value: ArabicNormalizer.toArabicNumber(
                             stats.poemCount,
                           ),
                           label: 'قصيدة',
                         ),
                         _StatCell(
+                          icon: Icons.history_edu_rounded,
                           value: ArabicNormalizer.toArabicNumber(
                             stats.poetCount,
                           ),
@@ -579,7 +451,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 }
 
-/// Compact 2-row horizontally scrollable Poetic Meters ribbon (~86px total height).
 class _CompactMetersRibbon extends StatelessWidget {
   const _CompactMetersRibbon({required this.meters, required this.onTapMeter});
 
@@ -603,7 +474,7 @@ class _CompactMetersRibbon extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               child: Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
+                  horizontal: 11,
                   vertical: 7,
                 ),
                 decoration: BoxDecoration(
@@ -614,6 +485,8 @@ class _CompactMetersRibbon extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    Icon(Icons.waves_rounded, size: 13, color: p.accent),
+                    const SizedBox(width: 5),
                     Text(
                       m.name,
                       style: TextStyle(
@@ -653,7 +526,7 @@ class _CompactMetersRibbon extends StatelessWidget {
   }
 }
 
-/// Large, stately editorial card for «عيونُ القصيد الخالدة» with zero-wrap auto-fit hemistichs.
+/// Compact, refined editorial card for «عيونُ القصيد الخالدة» (height 156, width 256).
 class _MasterpieceCard extends StatelessWidget {
   const _MasterpieceCard({required this.verse, required this.onTap});
 
@@ -665,20 +538,20 @@ class _MasterpieceCard extends StatelessWidget {
     final p = context.palette;
     final verseStyle = TextStyle(
       fontFamily: AppFonts.scheherazade,
-      fontSize: 20.5,
-      height: 1.85,
+      fontSize: 18.5,
+      height: 1.72,
       color: p.ink,
     );
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(18),
       child: Container(
-        width: 292,
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        width: 256,
+        padding: const EdgeInsets.fromLTRB(14, 11, 14, 11),
         decoration: BoxDecoration(
           color: p.surfaceElevated,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(color: p.ornament.withValues(alpha: 0.4)),
         ),
         child: Column(
@@ -688,41 +561,46 @@ class _MasterpieceCard extends StatelessWidget {
               children: [
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 9,
-                    vertical: 3,
+                    horizontal: 7,
+                    vertical: 2,
                   ),
                   decoration: BoxDecoration(
                     color: p.accentSoft,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(7),
                   ),
                   child: Text(
                     verse.category,
                     style: TextStyle(
                       fontFamily: AppFonts.ui,
-                      fontSize: 10.5,
+                      fontSize: 10,
                       fontWeight: FontWeight.w700,
                       color: p.accent,
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 7),
                 Expanded(
-                  child: Text(
-                    verse.tag,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontFamily: AppFonts.ruqaa,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: p.ink,
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                        verse.tag,
+                        maxLines: 1,
+                        style: TextStyle(
+                          fontFamily: AppFonts.ruqaa,
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.w700,
+                          color: p.ink,
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ],
             ),
             const Spacer(),
-            // Auto-fit single-line hemistichs so they NEVER break awkwardly
             Align(
               alignment: Alignment.centerRight,
               child: FittedBox(
@@ -733,7 +611,7 @@ class _MasterpieceCard extends StatelessWidget {
             ),
             if (verse.ajuz.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.only(right: 18),
+                padding: const EdgeInsets.only(right: 16),
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: FittedBox(
@@ -744,27 +622,36 @@ class _MasterpieceCard extends StatelessWidget {
                 ),
               ),
             const Spacer(),
-            Divider(color: p.hairline.withValues(alpha: 0.7), height: 14),
+            Divider(color: p.hairline.withValues(alpha: 0.7), height: 10),
             Row(
               children: [
-                Icon(Icons.history_edu_rounded, size: 13.5, color: p.accent),
-                const SizedBox(width: 5),
+                Icon(Icons.history_edu_rounded, size: 12.5, color: p.accent),
+                const SizedBox(width: 4),
                 Expanded(
                   child: Text(
-                    '${verse.poetName}  •  ${verse.eraName}',
+                    verse.poetName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       color: p.accent,
                       fontWeight: FontWeight.w600,
+                      fontSize: 11,
                     ),
                   ),
                 ),
-                if (verse.verseCount > 0)
-                  Text(
-                    '${ArabicNormalizer.toArabicNumber(verse.verseCount)} بيتاً',
-                    style: Theme.of(context).textTheme.labelSmall,
+                if (verse.verseCount > 0) ...[
+                  Icon(
+                    Icons.format_list_numbered_rtl_rounded,
+                    size: 11,
+                    color: p.inkMuted,
                   ),
+                  const SizedBox(width: 2),
+                  Text(
+                    '${ArabicNormalizer.toArabicNumber(verse.verseCount)} بيت',
+                    style: Theme.of(context).textTheme.labelSmall
+                        ?.copyWith(fontSize: 10.5),
+                  ),
+                ],
               ],
             ),
           ],
@@ -881,8 +768,6 @@ class _TriadButton extends StatelessWidget {
   }
 }
 
-/// Zero-Wrap Verse of the Day card: scales each hemistich cleanly inside a single
-/// balanced line so long verses NEVER break onto a second line.
 class _VerseOfTheDayCard extends StatelessWidget {
   const _VerseOfTheDayCard({
     super.key,
@@ -922,7 +807,7 @@ class _VerseOfTheDayCard extends StatelessWidget {
         onTap: onOpenPoem,
         borderRadius: BorderRadius.circular(22),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(18, 14, 18, 13),
+          padding: const EdgeInsets.fromLTRB(18, 13, 18, 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -938,16 +823,31 @@ class _VerseOfTheDayCard extends StatelessWidget {
                         color: p.accentSoft,
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: Text(
-                        isShuffled ? verse.tag : 'بيتُ اليوم  •  ${verse.tag}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontFamily: AppFonts.ui,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: p.accent,
-                        ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.auto_awesome_rounded,
+                            size: 12.5,
+                            color: p.accent,
+                          ),
+                          const SizedBox(width: 5),
+                          Flexible(
+                            child: Text(
+                              isShuffled
+                                  ? verse.tag
+                                  : 'بيتُ اليوم  •  ${verse.tag}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontFamily: AppFonts.ui,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: p.accent,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -970,7 +870,6 @@ class _VerseOfTheDayCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 10),
-              // Strict single-line auto-fit Sadr & Ajuz
               LayoutBuilder(
                 builder: (context, constraints) {
                   final boxW = constraints.maxWidth * 0.86;
@@ -1013,7 +912,7 @@ class _VerseOfTheDayCard extends StatelessWidget {
                 },
               ),
               const EditorialDivider(
-                verticalPadding: 11,
+                verticalPadding: 10,
                 horizontalPadding: 12,
               ),
               Row(
@@ -1031,15 +930,21 @@ class _VerseOfTheDayCard extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                verse.poetName,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontFamily: AppFonts.ruqaa,
-                                  fontSize: 17.5,
-                                  fontWeight: FontWeight.w700,
-                                  color: p.accent,
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerRight,
+                                  child: Text(
+                                    verse.poetName,
+                                    maxLines: 1,
+                                    style: TextStyle(
+                                      fontFamily: AppFonts.ruqaa,
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.w700,
+                                      color: p.accent,
+                                    ),
+                                  ),
                                 ),
                               ),
                               Text(
@@ -1100,14 +1005,12 @@ class _ContinueReadingCard extends StatelessWidget {
     required this.title,
     required this.poetName,
     required this.meterName,
-    required this.verseCount,
     required this.onTap,
   });
 
   final String title;
   final String poetName;
   final String meterName;
-  final int verseCount;
   final VoidCallback onTap;
 
   @override
@@ -1150,12 +1053,24 @@ class _ContinueReadingCard extends StatelessWidget {
                       height: 1.4,
                     ),
                   ),
-                  Text(
-                    'مواصلة القراءة  •  $poetName  •  بحر $meterName',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelSmall
-                        ?.copyWith(fontSize: 10.5),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.history_edu_rounded,
+                        size: 11.5,
+                        color: p.accent,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          '$poetName  •  بحر $meterName',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(fontSize: 10.5),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -1168,6 +1083,7 @@ class _ContinueReadingCard extends StatelessWidget {
   }
 }
 
+/// Zero-truncation compact Quick Action Tile (fits cleanly on every screen width!).
 class _QuickActionTile extends StatelessWidget {
   const _QuickActionTile({
     required this.icon,
@@ -1188,7 +1104,7 @@ class _QuickActionTile extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(15),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
         decoration: BoxDecoration(
           color: p.surfaceElevated,
           borderRadius: BorderRadius.circular(15),
@@ -1197,32 +1113,44 @@ class _QuickActionTile extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              width: 34,
-              height: 34,
+              width: 32,
+              height: 32,
               decoration: BoxDecoration(
                 color: p.accentSoft,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(icon, size: 18, color: p.accent),
+              child: Icon(icon, size: 17, color: p.accent),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleSmall
-                        ?.copyWith(fontSize: 13),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        style: Theme.of(context).textTheme.titleSmall
+                            ?.copyWith(fontSize: 13),
+                      ),
+                    ),
                   ),
-                  Text(
-                    subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelSmall
-                        ?.copyWith(fontSize: 10.5),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                        subtitle,
+                        maxLines: 1,
+                        style: Theme.of(context).textTheme.labelSmall
+                            ?.copyWith(fontSize: 10.5),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -1235,7 +1163,12 @@ class _QuickActionTile extends StatelessWidget {
 }
 
 class _StatCell extends StatelessWidget {
-  const _StatCell({required this.value, required this.label});
+  const _StatCell({
+    required this.icon,
+    required this.value,
+    required this.label,
+  });
+  final IconData icon;
   final String value;
   final String label;
 
@@ -1246,14 +1179,26 @@ class _StatCell extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            value,
-            style: TextStyle(
-              fontFamily: AppFonts.ui,
-              fontSize: 17.5,
-              fontWeight: FontWeight.w700,
-              color: p.ink,
-            ),
+          Row(
+            children: [
+              Icon(icon, size: 13.5, color: p.accent),
+              const SizedBox(width: 4),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    value,
+                    style: TextStyle(
+                      fontFamily: AppFonts.ui,
+                      fontSize: 16.5,
+                      fontWeight: FontWeight.w700,
+                      color: p.ink,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
           Text(label, style: Theme.of(context).textTheme.labelSmall),
         ],

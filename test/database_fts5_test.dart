@@ -249,17 +249,41 @@ void main() {
       expect(wholeWord.poems.first.matchingVersesCount, equals(1));
     });
 
-    test('supports meter filter and poet search with normalized hamzas', () {
-      final filteredOut = poetryRepo.search(
-        rawQuery: 'العزم',
-        filter: const SearchFilter(meterId: 2),
-      );
-      expect(filteredOut.poems, isEmpty);
+    test(
+      'supports multi-select meter/rhyme/era filters and async isolate search',
+      () async {
+        final filteredOut = poetryRepo.search(
+          rawQuery: 'العزم',
+          filter: const SearchFilter(meterIds: {2}),
+        );
+        expect(filteredOut.poems, isEmpty);
 
-      final poetRes = poetryRepo.search(rawQuery: 'ابو الطيب');
-      expect(poetRes.poets.length, equals(1));
-      expect(poetRes.poets.first.id, equals(4));
-    });
+        // Multi-select meters {1, 2} matches poem 1 (meter 1)
+        final multiMeterHit = poetryRepo.search(
+          rawQuery: 'العزم',
+          filter: const SearchFilter(meterIds: {1, 2}),
+        );
+        expect(multiMeterHit.poems.length, equals(1));
+        expect(multiMeterHit.poems.first.poemId, equals(1));
+
+        // Combined multi-select era + meter + rhyme filters
+        final combinedHit = await poetryRepo.searchAsync(
+          rawQuery: 'على قدر اهل',
+          filter: const SearchFilter(
+            eraIds: {5, 99},
+            meterIds: {1, 2},
+            rhymeIds: {1, 2},
+            matchPartialWords: true,
+          ),
+        );
+        expect(combinedHit.poems.length, equals(1));
+        expect(combinedHit.poems.first.poemId, equals(1));
+
+        final poetRes = poetryRepo.search(rawQuery: 'ابو الطيب');
+        expect(poetRes.poets.length, equals(1));
+        expect(poetRes.poets.first.id, equals(4));
+      },
+    );
 
     test('loads poem detail, sorting, and adjacent poems cleanly', () {
       final sorted = poetryRepo.getPoemsForPoet(4, sortBy: PoemSortBy.rhyme);
