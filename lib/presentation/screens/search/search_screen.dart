@@ -155,11 +155,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 Expanded(
                   child: SegmentedButton<SearchMatchMode>(
                     showSelectedIcon: false,
-                    style: ButtonStyle(
+                    style: const ButtonStyle(
                       visualDensity: VisualDensity.compact,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       textStyle: WidgetStatePropertyAll(
-                        const TextStyle(
+                        TextStyle(
                           fontFamily: AppFonts.ui,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
