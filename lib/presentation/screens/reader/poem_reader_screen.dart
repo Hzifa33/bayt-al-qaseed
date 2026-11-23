@@ -12,6 +12,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/arabic_normalizer.dart';
 import '../../../core/utils/share_formatter.dart';
+import '../../../core/widgets/bayt_ornaments.dart';
 import '../../../core/widgets/editorial_divider.dart';
 import '../../../core/widgets/empty_state_view.dart';
 import '../../../core/widgets/verse_renderer.dart';
@@ -683,8 +684,9 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
                                           width: 0.9,
                                         ),
                                       ),
-                                      child: Icon(
-                                        Icons.person_rounded,
+                                      child: PoetAvatarIcon(
+                                        poetId: poem.poetId,
+                                        poetName: poem.poetName,
                                         size: 20,
                                         color: p.accent,
                                       ),
@@ -994,8 +996,9 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
                                 onPressed: () => Navigator.of(context).pop(),
                                 icon: const Icon(Icons.east_rounded),
                               ),
-                              Icon(
-                                Icons.person_rounded,
+                              PoetAvatarIcon(
+                                poetId: poem.poetId,
+                                poetName: poem.poetName,
                                 size: 17,
                                 color: p.accent,
                               ),

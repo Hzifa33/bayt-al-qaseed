@@ -250,4 +250,224 @@ class UserRepository {
     );
     return true;
   }
+
+  // --- Full Backup Export & Restore (تصدير واستيراد المفضلات والسجل والمجموعات) ---
+  Map<String, dynamic> exportAllUserData() {
+    final favPoems = _db
+        .select(
+          'SELECT poem_id, created_at FROM favorite_poems ORDER BY created_at ASC',
+        )
+        .map((r) => {'poem_id': r['poem_id'], 'created_at': r['created_at']})
+        .toList();
+
+    final favPoets = _db
+        .select(
+          'SELECT poet_id, created_at FROM favorite_poets ORDER BY created_at ASC',
+        )
+        .map((r) => {'poet_id': r['poet_id'], 'created_at': r['created_at']})
+        .toList();
+
+    final favVerses = _db
+        .select(
+          'SELECT poem_id, poet_id, verse_index, sadr, ajuz, poet_name, poem_title, created_at FROM favorite_verses ORDER BY created_at ASC',
+        )
+        .map(
+          (r) => {
+            'poem_id': r['poem_id'],
+            'poet_id': r['poet_id'],
+            'verse_index': r['verse_index'],
+            'sadr': r['sadr'],
+            'ajuz': r['ajuz'],
+            'poet_name': r['poet_name'],
+            'poem_title': r['poem_title'],
+            'created_at': r['created_at'],
+          },
+        )
+        .toList();
+
+    final colRows = _db.select(
+      'SELECT id, name, description, created_at FROM collections ORDER BY created_at ASC',
+    );
+    final collections = <Map<String, dynamic>>[];
+    for (final c in colRows) {
+      final cid = c['id'] as int;
+      final cpRows = _db.select(
+        'SELECT poem_id, added_at FROM collection_poems WHERE collection_id = ? ORDER BY added_at ASC',
+        [cid],
+      );
+      collections.add({
+        'name': c['name'],
+        'description': c['description'],
+        'created_at': c['created_at'],
+        'poems': cpRows
+            .map((p) => {'poem_id': p['poem_id'], 'added_at': p['added_at']})
+            .toList(),
+      });
+    }
+
+    final history = _db
+        .select(
+          'SELECT poem_id, poet_id, poet_name, poem_title, meter_name, verse_count, last_verse_index, updated_at FROM reading_history ORDER BY updated_at ASC',
+        )
+        .map(
+          (r) => {
+            'poem_id': r['poem_id'],
+            'poet_id': r['poet_id'],
+            'poet_name': r['poet_name'],
+            'poem_title': r['poem_title'],
+            'meter_name': r['meter_name'],
+            'verse_count': r['verse_count'],
+            'last_verse_index': r['last_verse_index'],
+            'updated_at': r['updated_at'],
+          },
+        )
+        .toList();
+
+    return {
+      'favorite_poems': favPoems,
+      'favorite_poets': favPoets,
+      'favorite_verses': favVerses,
+      'collections': collections,
+      'reading_history': history,
+    };
+  }
+
+  int importUserData(Map<String, dynamic> data) {
+    var count = 0;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    _db.execute('BEGIN TRANSACTION');
+    try {
+      final favPoems = data['favorite_poems'];
+      if (favPoems is List) {
+        for (final item in favPoems) {
+          if (item is Map && item['poem_id'] is int) {
+            _db.execute(
+              'INSERT OR REPLACE INTO favorite_poems (poem_id, created_at) VALUES (?, ?)',
+              [item['poem_id'], (item['created_at'] as int?) ?? now],
+            );
+            count++;
+          } else if (item is int) {
+            _db.execute(
+              'INSERT OR REPLACE INTO favorite_poems (poem_id, created_at) VALUES (?, ?)',
+              [item, now],
+            );
+            count++;
+          }
+        }
+      }
+
+      final favPoets = data['favorite_poets'];
+      if (favPoets is List) {
+        for (final item in favPoets) {
+          if (item is Map && item['poet_id'] is int) {
+            _db.execute(
+              'INSERT OR REPLACE INTO favorite_poets (poet_id, created_at) VALUES (?, ?)',
+              [item['poet_id'], (item['created_at'] as int?) ?? now],
+            );
+            count++;
+          } else if (item is int) {
+            _db.execute(
+              'INSERT OR REPLACE INTO favorite_poets (poet_id, created_at) VALUES (?, ?)',
+              [item, now],
+            );
+            count++;
+          }
+        }
+      }
+
+      final favVerses = data['favorite_verses'];
+      if (favVerses is List) {
+        for (final item in favVerses) {
+          if (item is Map && item['poem_id'] is int) {
+            _db.execute(
+              '''
+              INSERT OR REPLACE INTO favorite_verses
+                (poem_id, poet_id, verse_index, sadr, ajuz, poet_name, poem_title, created_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+              ''',
+              [
+                item['poem_id'],
+                (item['poet_id'] as int?) ?? 0,
+                (item['verse_index'] as int?) ?? 0,
+                (item['sadr'] as String?) ?? '',
+                (item['ajuz'] as String?) ?? '',
+                (item['poet_name'] as String?) ?? '',
+                (item['poem_title'] as String?) ?? '',
+                (item['created_at'] as int?) ?? now,
+              ],
+            );
+            count++;
+          }
+        }
+      }
+
+      final collections = data['collections'];
+      if (collections is List) {
+        for (final col in collections) {
+          if (col is Map && col['name'] is String) {
+            final name = (col['name'] as String).trim();
+            if (name.isEmpty) continue;
+            _db.execute(
+              'INSERT OR IGNORE INTO collections (name, description, created_at) VALUES (?, ?, ?)',
+              [
+                name,
+                (col['description'] as String?) ?? '',
+                (col['created_at'] as int?) ?? now,
+              ],
+            );
+            final row = _db.select(
+              'SELECT id FROM collections WHERE name = ? LIMIT 1',
+              [name],
+            );
+            if (row.isNotEmpty) {
+              final cid = row.first['id'] as int;
+              final poems = col['poems'];
+              if (poems is List) {
+                for (final p in poems) {
+                  if (p is Map && p['poem_id'] is int) {
+                    _db.execute(
+                      'INSERT OR REPLACE INTO collection_poems (collection_id, poem_id, added_at) VALUES (?, ?, ?)',
+                      [cid, p['poem_id'], (p['added_at'] as int?) ?? now],
+                    );
+                  }
+                }
+              }
+              count++;
+            }
+          }
+        }
+      }
+
+      final history = data['reading_history'];
+      if (history is List) {
+        for (final h in history) {
+          if (h is Map && h['poem_id'] is int) {
+            _db.execute(
+              '''
+              INSERT OR REPLACE INTO reading_history
+                (poem_id, poet_id, poet_name, poem_title, meter_name, verse_count, last_verse_index, updated_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+              ''',
+              [
+                h['poem_id'],
+                (h['poet_id'] as int?) ?? 0,
+                (h['poet_name'] as String?) ?? '',
+                (h['poem_title'] as String?) ?? '',
+                (h['meter_name'] as String?) ?? '',
+                (h['verse_count'] as int?) ?? 0,
+                (h['last_verse_index'] as int?) ?? 0,
+                (h['updated_at'] as int?) ?? now,
+              ],
+            );
+          }
+        }
+      }
+
+      _db.execute('COMMIT');
+    } catch (_) {
+      _db.execute('ROLLBACK');
+      rethrow;
+    }
+    return count;
+  }
 }

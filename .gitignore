@@ -43,3 +43,9 @@ tool/*.db
 
 # Raw unoptimized source images in repo root (optimized WebP assets live in assets/images/)
 /images/
+
+# Never track local signing keys or certificates
+/sign-key/
+*.pk8
+*.pem
+*.p12

@@ -192,6 +192,149 @@ class _MaterialYouIconPainter extends CustomPainter {
       old.color != color || old.filled != filled;
 }
 
+/// Identifies female Arab poets (الشاعرات) across the 542-poet corpus and
+/// renders a custom veiled woman (امرأة محجبة) icon for poetesses or a classic
+/// person icon for male poets.
+class PoetGender {
+  PoetGender._();
+
+  static const Set<int> femalePoetIds = {
+    16, // الخنساء
+    149, // جليلة بنت مرة
+    165, // ليلى العفيفة
+    859, // ليلى الأخيلية
+    1024, // عائشة التيمورية
+    1544, // رابعة العدوية
+    10035, // صفية بنت ثعلبة
+    10048, // صفية بنت عبد المطلب
+  };
+
+  static const Set<String> _maleExceptions = {
+    'مجنون ليلى',
+    'زهير بن أبي سلمى',
+    'العباس بن مرداس',
+    'مروان بن أبي حفصة',
+    'ابن سارة الأندلسي',
+    'صخر بن عمرو السلمي',
+    'البراق بن روحان',
+    'عبد الله بن الزبعرى',
+    'عميرة بن جعل التغلبي',
+  };
+
+  static bool isFemale({int? poetId, String? poetName}) {
+    if (poetId != null && femalePoetIds.contains(poetId)) return true;
+    if (poetName == null || poetName.isEmpty) return false;
+    final clean = ArabicNormalizer.stripDiacritics(poetName).trim();
+    if (_maleExceptions.contains(clean)) return false;
+    if (clean.contains(' بن ') ||
+        clean.startsWith('أبو ') ||
+        clean.startsWith('ابو ') ||
+        clean.startsWith('ابن ')) {
+      return false;
+    }
+    return clean.contains('بنت ') ||
+        clean.contains('الخنساء') ||
+        clean.contains('ليلى الأخيلية') ||
+        clean.contains('ليلى العفيفة') ||
+        clean.contains('عائشة التيمورية') ||
+        clean.contains('رابعة العدوية') ||
+        clean.contains('ولادة') ||
+        clean.contains('نازك الملائكة') ||
+        clean.contains('فدوى طوقان') ||
+        clean.contains('الشاعرة');
+  }
+}
+
+/// Gender-aware Poet Avatar Icon: renders a graceful veiled woman (امرأة محجبة)
+/// silhouette for female poets and a classic person icon for male poets.
+class PoetAvatarIcon extends StatelessWidget {
+  const PoetAvatarIcon({
+    super.key,
+    this.poetId,
+    this.poetName,
+    this.size = 20,
+    required this.color,
+  });
+
+  final int? poetId;
+  final String? poetName;
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    if (PoetGender.isFemale(poetId: poetId, poetName: poetName)) {
+      return SizedBox(
+        width: size,
+        height: size,
+        child: CustomPaint(painter: _HijabiPoetessIconPainter(color: color)),
+      );
+    }
+    return Icon(Icons.person_rounded, size: size, color: color);
+  }
+}
+
+class _HijabiPoetessIconPainter extends CustomPainter {
+  const _HijabiPoetessIconPainter({required this.color});
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final cx = w * 0.5;
+
+    final fillPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true;
+
+    // 1. Outer Hijab Hood & Flowing Modest Shoulder Drape
+    final hijabPath = Path()
+      ..moveTo(cx, h * 0.08)
+      ..cubicTo(w * 0.78, h * 0.08, w * 0.86, h * 0.34, w * 0.84, h * 0.56)
+      ..cubicTo(w * 0.89, h * 0.68, w * 0.92, h * 0.82, w * 0.90, h * 0.91)
+      ..quadraticBezierTo(cx, h * 0.96, w * 0.10, h * 0.91)
+      ..cubicTo(w * 0.08, h * 0.82, w * 0.11, h * 0.68, w * 0.16, h * 0.56)
+      ..cubicTo(w * 0.14, h * 0.34, w * 0.22, h * 0.08, cx, h * 0.08)
+      ..close();
+
+    // 2. Inner Serene Face Oval & Graceful Hijab Wrap Fold (subtracted via evenOdd)
+    final faceCutout = Path()
+      ..addOval(
+        Rect.fromCenter(
+          center: Offset(cx, h * 0.37),
+          width: w * 0.34,
+          height: h * 0.33,
+        ),
+      );
+
+    // Subtle V-fold of the scarf drape below the chin for unmistakable hijab silhouette
+    final foldCutout = Path()
+      ..moveTo(cx - w * 0.17, h * 0.60)
+      ..quadraticBezierTo(cx, h * 0.73, cx + w * 0.17, h * 0.60)
+      ..quadraticBezierTo(cx, h * 0.67, cx - w * 0.17, h * 0.60)
+      ..close();
+
+    final combined = Path.combine(
+      PathOperation.difference,
+      hijabPath,
+      faceCutout,
+    );
+    final finalPath = Path.combine(
+      PathOperation.difference,
+      combined,
+      foldCutout,
+    );
+
+    canvas.drawPath(finalPath, fillPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _HijabiPoetessIconPainter oldDelegate) =>
+      oldDelegate.color != color;
+}
+
 /// Delicate classical medallion for verse numbering (`١`, `٢`, ...).
 class VerseNumberMedallion extends StatelessWidget {
   const VerseNumberMedallion({

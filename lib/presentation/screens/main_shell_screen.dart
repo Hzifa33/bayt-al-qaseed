@@ -47,7 +47,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
         }
       },
       child: Scaffold(
-        extendBody: true,
+        extendBody: false,
         body: Stack(
           fit: StackFit.expand,
           children: List.generate(pages.length, (i) {
@@ -131,84 +131,95 @@ class _SculptedFloatingNavBar extends StatelessWidget {
     final p = context.palette;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
-        child: Container(
-          height: 58,
-          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
-          decoration: BoxDecoration(
-            color: p.surfaceElevated.withValues(alpha: isDark ? 0.95 : 0.97),
-            borderRadius: BorderRadius.circular(30),
-            border: Border.all(
-              color: p.ornament.withValues(alpha: isDark ? 0.42 : 0.36),
-              width: 1.0,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.09),
-                blurRadius: 22,
-                spreadRadius: -4,
-                offset: const Offset(0, 10),
-              ),
-            ],
+    return Container(
+      decoration: BoxDecoration(
+        color: p.canvas,
+        border: Border(
+          top: BorderSide(
+            color: p.hairline.withValues(alpha: 0.55),
+            width: 0.7,
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: List.generate(_navItems.length, (i) {
-              final item = _navItems[i];
-              final active = i == selectedIndex;
-              return GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => onSelect(i),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 280),
-                  curve: Curves.easeOutCubic,
-                  padding: EdgeInsets.symmetric(
-                    horizontal: active ? 16 : 14,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: active ? p.accent : Colors.transparent,
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        active ? item.activeIcon : item.icon,
-                        size: 21,
-                        color: active
-                            ? Theme.of(context).colorScheme.onPrimary
-                            : p.inkMuted,
-                      ),
-                      AnimatedSize(
-                        duration: const Duration(milliseconds: 260),
-                        curve: Curves.easeOutCubic,
-                        child: active
-                            ? Padding(
-                                padding: const EdgeInsets.only(right: 7),
-                                child: Text(
-                                  item.label,
-                                  maxLines: 1,
-                                  style: TextStyle(
-                                    fontFamily: AppFonts.ui,
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.w700,
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onPrimary,
-                                  ),
-                                ),
-                              )
-                            : const SizedBox.shrink(),
-                      ),
-                    ],
-                  ),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 6, 20, 10),
+          child: Container(
+            height: 54,
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+            decoration: BoxDecoration(
+              color: p.surfaceElevated.withValues(alpha: isDark ? 0.95 : 0.97),
+              borderRadius: BorderRadius.circular(30),
+              border: Border.all(
+                color: p.ornament.withValues(alpha: isDark ? 0.42 : 0.36),
+                width: 1.0,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.09),
+                  blurRadius: 22,
+                  spreadRadius: -4,
+                  offset: const Offset(0, 10),
                 ),
-              );
-            }),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: List.generate(_navItems.length, (i) {
+                final item = _navItems[i];
+                final active = i == selectedIndex;
+                return GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => onSelect(i),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 280),
+                    curve: Curves.easeOutCubic,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: active ? 16 : 14,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: active ? p.accent : Colors.transparent,
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          active ? item.activeIcon : item.icon,
+                          size: 21,
+                          color: active
+                              ? Theme.of(context).colorScheme.onPrimary
+                              : p.inkMuted,
+                        ),
+                        AnimatedSize(
+                          duration: const Duration(milliseconds: 260),
+                          curve: Curves.easeOutCubic,
+                          child: active
+                              ? Padding(
+                                  padding: const EdgeInsets.only(right: 7),
+                                  child: Text(
+                                    item.label,
+                                    maxLines: 1,
+                                    style: TextStyle(
+                                      fontFamily: AppFonts.ui,
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onPrimary,
+                                    ),
+                                  ),
+                                )
+                              : const SizedBox.shrink(),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+            ),
           ),
         ),
       ),

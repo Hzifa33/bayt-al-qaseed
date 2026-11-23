@@ -360,6 +360,22 @@ void main() {
         final colId = userRepo.createCollection('عيون الحكمة');
         expect(userRepo.togglePoemInCollection(colId, 1), isTrue);
         expect(userRepo.getCollectionPoemIds(colId), equals([1]));
+
+        // Full backup export & restore into a fresh UserDatabase
+        userRepo.toggleFavoritePoem(2);
+        final exported = userRepo.exportAllUserData();
+        final freshDb = UserDatabase.openInMemory();
+        final freshRepo = UserRepository(freshDb);
+        try {
+          final restoredCount = freshRepo.importUserData(exported);
+          expect(restoredCount, greaterThanOrEqualTo(4));
+          expect(freshRepo.getFavoritePoemIdsSet(), contains(2));
+          expect(freshRepo.getFavoritePoetIdsSet(), contains(4));
+          expect(freshRepo.getFavoriteVerses().length, equals(1));
+          expect(freshRepo.getCollections().first.name, equals('عيون الحكمة'));
+        } finally {
+          freshDb.dispose();
+        }
       },
     );
   });

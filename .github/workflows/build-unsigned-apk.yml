@@ -1,4 +1,4 @@
-name: Build Unsigned Release APK
+name: Build & Sign Release APK
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build-unsigned-apk:
-    name: Analyze, Test & Build Unsigned Release APK
+    name: Analyze, Test, Build & Sign Release APK
     runs-on: ubuntu-latest
 
     steps:
@@ -55,49 +55,76 @@ jobs:
       - name: Run unit & FTS5 database tests
         run: flutter test
 
-      - name: Build Unsigned Release APK
+      - name: Build & Sign Release APK with Encrypted Key
+        env:
+          SIGN_KEY_PK8_B64: ${{ secrets.SIGN_KEY_PK8_B64 }}
+          SIGN_CERT_PEM_B64: ${{ secrets.SIGN_CERT_PEM_B64 }}
         run: |
           flutter build apk --release --target-platform android-arm64,android-arm || true
           mkdir -p dist
           if [ -f build/app/outputs/apk/release/app-release-unsigned.apk ]; then
-            cp build/app/outputs/apk/release/app-release-unsigned.apk dist/BaytAlQaseed-release-unsigned.apk
+            RAW_APK="build/app/outputs/apk/release/app-release-unsigned.apk"
           elif [ -f build/app/outputs/flutter-apk/app-release.apk ]; then
-            cp build/app/outputs/flutter-apk/app-release.apk dist/BaytAlQaseed-release-unsigned.apk
+            RAW_APK="build/app/outputs/flutter-apk/app-release.apk"
           else
             echo "ERROR: No release APK was produced!"
             find build/app/outputs -maxdepth 4 -ls || true
             exit 1
           fi
+          cp "$RAW_APK" dist/BaytAlQaseed-release-unsigned.apk
 
-      - name: Verify APK integrity & confirm unsigned status
+          # Locate Android build-tools zipalign & apksigner
+          BUILD_TOOLS_DIR=$(ls -d "$ANDROID_HOME/build-tools/"* | sort -V | tail -n 1)
+          ZIPALIGN="$BUILD_TOOLS_DIR/zipalign"
+          APKSIGNER="$BUILD_TOOLS_DIR/apksigner"
+
+          "$ZIPALIGN" -p -f -v 4 "$RAW_APK" dist/aligned.apk > /dev/null
+
+          KEY_DIR=$(mktemp -d)
+          trap 'rm -rf "$KEY_DIR"' EXIT
+          echo "$SIGN_KEY_PK8_B64" | base64 -d > "$KEY_DIR/key.pk8"
+          echo "$SIGN_CERT_PEM_B64" | base64 -d > "$KEY_DIR/cert.x509.pem"
+
+          "$APKSIGNER" sign \
+            --key "$KEY_DIR/key.pk8" \
+            --cert "$KEY_DIR/cert.x509.pem" \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --out dist/BaytAlQaseed-v1.0.0.apk \
+            dist/aligned.apk
+
+          rm -f dist/aligned.apk
+          rm -rf "$KEY_DIR"
+
+          echo "=== Verifying APK Signature (v1/v2/v3) ==="
+          "$APKSIGNER" verify --verbose --print-certs dist/BaytAlQaseed-v1.0.0.apk
+
+      - name: Verify APK integrity & bundled assets
         run: |
-          APK="dist/BaytAlQaseed-release-unsigned.apk"
-          ls -lh "$APK"
-          echo "=== Verifying bundled DB & native SQLite3 ==="
+          APK="dist/BaytAlQaseed-v1.0.0.apk"
+          ls -lh "$APK" dist/BaytAlQaseed-release-unsigned.apk
+          echo "=== Verifying bundled DB, native SQLite3, fonts & WebP artwork ==="
           unzip -l "$APK" | grep -E "bayt_al_qaseed\.db\.gz|libsqlite3\.so|libapp\.so|ArefRuqaa|ReemKufi|Amiri|ScheherazadeNew|Mirza|IBMPlexSansArabic|parchment_texture\.webp|calligraphy_bg\.webp"
-          echo "=== Confirming APK is unsigned (no META-INF signatures) ==="
-          if unzip -l "$APK" | grep -qE "META-INF/.*\.(RSA|DSA|EC|SF)$"; then
-            echo "ERROR: APK unexpectedly contains signature files!"
-            exit 1
-          fi
-          echo "Verified: APK is cleanly built and genuinely unsigned."
 
-      - name: Upload Unsigned APK Artifact
+      - name: Upload Signed & Unsigned APK Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: BaytAlQaseed-release-unsigned
-          path: dist/BaytAlQaseed-release-unsigned.apk
+          name: BaytAlQaseed-v1.0.0-release
+          path: |
+            dist/BaytAlQaseed-v1.0.0.apk
+            dist/BaytAlQaseed-release-unsigned.apk
           retention-days: 90
 
-      - name: Publish Unsigned APK to GitHub Release
+      - name: Publish Signed & Unsigned APKs to GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="v1.0.0-unsigned"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" dist/BaytAlQaseed-release-unsigned.apk --clobber
+            gh release upload "$TAG" dist/BaytAlQaseed-v1.0.0.apk dist/BaytAlQaseed-release-unsigned.apk --clobber
           else
-            gh release create "$TAG" dist/BaytAlQaseed-release-unsigned.apk \
-              --title "بيت القصيد v1.0.0 (Unsigned Release APK)" \
-              --notes "الإصدار **1.0.0** من تطبيق **بيت القصيد** (ملف APK غير موقّع جاهز للتوقيع اليدوي عبر \`apksigner\`)."
+            gh release create "$TAG" dist/BaytAlQaseed-v1.0.0.apk dist/BaytAlQaseed-release-unsigned.apk \
+              --title "بيت القصيد v1.0.0 (Signed & Unsigned Release APK)" \
+              --notes "الإصدار **1.0.0** من تطبيق **بيت القصيد** (يتضمن النسخة الموقّعة الجاهزة للتثبيت المباشر \`BaytAlQaseed-v1.0.0.apk\` والنسخة غير الموقّعة)."
           fi

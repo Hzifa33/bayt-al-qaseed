@@ -71,6 +71,40 @@ class ReaderSettingsNotifier extends StateNotifier<ReaderSettings> {
     state = state.copyWith(showVerseNumbers: next);
     _prefs?.setBool(_kNumbers, next);
   }
+
+  Map<String, dynamic> toMap() => {
+    'theme': state.themeMode.id,
+    'font': state.poetryFont.id,
+    'font_size': state.fontSize,
+    'layout': state.verseLayout.name,
+    'show_diacritics': state.showDiacritics,
+    'show_verse_numbers': state.showVerseNumbers,
+  };
+
+  void importFromMap(Map<String, dynamic> map) {
+    if (map['theme'] is String) {
+      setThemeMode(ReadingThemeMode.fromId(map['theme'] as String));
+    }
+    if (map['font'] is String) {
+      setPoetryFont(PoetryFontOption.fromId(map['font'] as String));
+    }
+    if (map['font_size'] is num) {
+      setFontSize((map['font_size'] as num).toDouble());
+    }
+    if (map['layout'] is String) {
+      setVerseLayout(VerseLayoutStyle.fromId(map['layout'] as String));
+    }
+    if (map['show_diacritics'] is bool) {
+      final v = map['show_diacritics'] as bool;
+      state = state.copyWith(showDiacritics: v);
+      _prefs?.setBool(_kDiacritics, v);
+    }
+    if (map['show_verse_numbers'] is bool) {
+      final v = map['show_verse_numbers'] as bool;
+      state = state.copyWith(showVerseNumbers: v);
+      _prefs?.setBool(_kNumbers, v);
+    }
+  }
 }
 
 final readerSettingsProvider =

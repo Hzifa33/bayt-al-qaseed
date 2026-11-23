@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -54,6 +56,7 @@ class _PoetDetailScreenState extends ConsumerState<PoetDetailScreen> {
   final TextEditingController _searchCtrl = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
   final ScrollController _scrollCtrl = ScrollController();
+  Timer? _debounce;
 
   Poet? _poet;
   List<Meter> _meters = const [];
@@ -113,7 +116,7 @@ class _PoetDetailScreenState extends ConsumerState<PoetDetailScreen> {
     }
   }
 
-  /// Searches across ALL verses of ALL poems of this poet using contiguous character matching.
+  /// Live instant search across ALL verses of ALL poems of this poet without any 200-poem cap.
   Future<void> _executePoetVerseSearch() async {
     final poet = _poet;
     if (poet == null) return;
@@ -126,7 +129,6 @@ class _PoetDetailScreenState extends ConsumerState<PoetDetailScreen> {
       });
       return;
     }
-    _searchFocus.unfocus();
     final seq = ++_searchSeq;
     setState(() => _searchingVerses = true);
 
@@ -141,7 +143,7 @@ class _PoetDetailScreenState extends ConsumerState<PoetDetailScreen> {
             matchMode: SearchMatchMode.exactSequence,
             matchPartialWords: true,
           ),
-          poemLimit: 200,
+          poemLimit: 5000,
           poetLimit: 0,
         );
     if (!mounted || seq != _searchSeq) return;
@@ -149,21 +151,23 @@ class _PoetDetailScreenState extends ConsumerState<PoetDetailScreen> {
       _verseSearchBundle = res;
       _searchingVerses = false;
     });
-    if (res.hasMore && mounted) {
-      final p = context.palette;
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            duration: const Duration(seconds: 4),
-            backgroundColor: p.surfaceElevated,
-            content: Text(
-              'تجاوزت النتائج ٢٠٠ قصيدة في ديوان ${poet.namePlain}؛ ضيّق بحثك بحروف إضافية.',
-              style: TextStyle(fontFamily: AppFonts.ui, color: p.ink),
-            ),
-          ),
-        );
+  }
+
+  void _onSearchQueryChanged(String v) {
+    _debounce?.cancel();
+    if (v.trim().isEmpty) {
+      _searchSeq++;
+      setState(() {
+        _searchingVerses = false;
+        _verseSearchBundle = null;
+      });
+      return;
     }
+    setState(() => _searchingVerses = true);
+    _debounce = Timer(
+      const Duration(milliseconds: 90),
+      _executePoetVerseSearch,
+    );
   }
 
   void _openSearch() {
@@ -175,6 +179,7 @@ class _PoetDetailScreenState extends ConsumerState<PoetDetailScreen> {
   }
 
   void _closeSearch() {
+    _debounce?.cancel();
     _searchFocus.unfocus();
     _searchSeq++;
     _searchCtrl.clear();
@@ -187,6 +192,7 @@ class _PoetDetailScreenState extends ConsumerState<PoetDetailScreen> {
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchCtrl.dispose();
     _searchFocus.dispose();
     _scrollCtrl.dispose();
@@ -328,22 +334,15 @@ class _PoetDetailScreenState extends ConsumerState<PoetDetailScreen> {
                     controller: _searchCtrl,
                     focusNode: _searchFocus,
                     textInputAction: TextInputAction.search,
-                    onChanged: (v) {
-                      if (v.trim().isEmpty) {
-                        _searchSeq++;
-                        setState(() {
-                          _searchingVerses = false;
-                          _verseSearchBundle = null;
-                        });
-                      } else {
-                        setState(() {});
-                      }
+                    onChanged: _onSearchQueryChanged,
+                    onSubmitted: (_) {
+                      _debounce?.cancel();
+                      _searchFocus.unfocus();
+                      _executePoetVerseSearch();
                     },
-                    onSubmitted: (_) => _executePoetVerseSearch(),
                     style: Theme.of(context).textTheme.bodyMedium,
                     decoration: InputDecoration(
-                      hintText:
-                          'ابحث في جميع أبيات ${poet.namePlain} ثم اضغط إدخال…',
+                      hintText: 'بحث لحظي في جميع أبيات ${poet.namePlain}…',
                       isDense: true,
                       filled: false,
                       border: InputBorder.none,

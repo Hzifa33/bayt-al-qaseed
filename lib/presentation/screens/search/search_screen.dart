@@ -100,6 +100,19 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   void _showExceededCapToast() {
     if (!mounted) return;
     final p = context.palette;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // Ultra-high contrast in BOTH Dark & Light mode so it stands out unmistakably!
+    final bgColor = isDark ? p.accent : const Color(0xFF231A11);
+    final titleColor = isDark
+        ? const Color(0xFF14110C)
+        : const Color(0xFFE8C885);
+    final bodyColor = isDark
+        ? const Color(0xFF1E1912)
+        : const Color(0xFFFAF6EE);
+    final badgeBg = isDark
+        ? const Color(0xFF18140E).withValues(alpha: 0.16)
+        : const Color(0xFFE8C885).withValues(alpha: 0.18);
+
     final messenger = ScaffoldMessenger.of(context);
     messenger.hideCurrentSnackBar();
     messenger.showSnackBar(
@@ -108,35 +121,39 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         behavior: SnackBarBehavior.floating,
-        margin: const EdgeInsets.fromLTRB(18, 0, 18, 78),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
         content: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
-            color: p.surfaceElevated,
+            color: bgColor,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: p.accent.withValues(alpha: 0.65),
-              width: 1.2,
+              color: isDark ? Colors.white.withValues(alpha: 0.35) : p.accent,
+              width: 1.3,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.18),
-                blurRadius: 18,
-                offset: const Offset(0, 6),
+                color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.25),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
               ),
             ],
           ),
           child: Row(
             children: [
               Container(
-                width: 32,
-                height: 32,
+                width: 34,
+                height: 34,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: p.accentSoft,
+                  color: badgeBg,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.tune_rounded, size: 16.5, color: p.accent),
+                child: Icon(
+                  Icons.warning_amber_rounded,
+                  size: 19,
+                  color: titleColor,
+                ),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -148,9 +165,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       'تجاوزت النتائج ٢٠٠ قصيدة',
                       style: TextStyle(
                         fontFamily: AppFonts.ui,
-                        fontSize: 12.5,
+                        fontSize: 13,
                         fontWeight: FontWeight.w700,
-                        color: p.accent,
+                        color: titleColor,
                       ),
                     ),
                     Text(
@@ -158,7 +175,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       style: TextStyle(
                         fontFamily: AppFonts.ui,
                         fontSize: 11.5,
-                        color: p.ink,
+                        fontWeight: FontWeight.w500,
+                        color: bodyColor,
                       ),
                     ),
                   ],
@@ -536,26 +554,71 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       slivers: [
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(18, 6, 18, 10),
-            child: Row(
-              children: [
-                Icon(Icons.auto_stories_outlined, size: 15, color: p.accent),
-                const SizedBox(width: 6),
-                Text(
-                  bundle.hasMore
-                      ? 'عُثر على أكثر من ٢٠٠ قصيدة (تُعرض أول ٢٠٠ — ضيّق بحثك)'
-                      : 'عُثر على ${ArabicNormalizer.toArabicNumber(bundle.poems.length)} قصيدة',
-                  style: Theme.of(context).textTheme.labelSmall
-                      ?.copyWith(color: p.accent, fontWeight: FontWeight.w600),
-                ),
-              ],
-            ),
+            padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
+            child: bundle.hasMore
+                ? Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 13,
+                      vertical: 9,
+                    ),
+                    decoration: BoxDecoration(
+                      color: p.accent.withValues(
+                        alpha: Theme.of(context).brightness == Brightness.dark
+                            ? 0.22
+                            : 0.13,
+                      ),
+                      borderRadius: BorderRadius.circular(13),
+                      border: Border.all(
+                        color: p.accent.withValues(alpha: 0.72),
+                        width: 1.15,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.warning_amber_rounded,
+                          size: 18,
+                          color: p.accent,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'تجاوزت النتائج ٢٠٠ قصيدة • عُرضت أول ٢٠٠ قصيدة، أضف حروفاً أخرى أو استخدم التصفية لتضييق البحث.',
+                            style: TextStyle(
+                              fontFamily: AppFonts.ui,
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w700,
+                              color: p.ink,
+                              height: 1.45,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : Row(
+                    children: [
+                      Icon(
+                        Icons.auto_stories_outlined,
+                        size: 15,
+                        color: p.accent,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'عُثر على ${ArabicNormalizer.toArabicNumber(bundle.poems.length)} قصيدة',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: p.accent,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
           ),
         ),
 
         // Clean Verse-Only Search Result Cards with Return-Origin Highlight
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 106),
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
           sliver: SliverList.separated(
             itemCount: bundle.poems.length,
             separatorBuilder: (_, __) => const SizedBox(height: 9),

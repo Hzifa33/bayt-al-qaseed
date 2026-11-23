@@ -96,6 +96,14 @@ class UserDataNotifier extends StateNotifier<UserDataState> {
 
   Set<int> getCollectionIdsForPoem(int poemId) =>
       _repo.getCollectionIdsForPoem(poemId);
+
+  Map<String, dynamic> exportAllUserData() => _repo.exportAllUserData();
+
+  int importUserData(Map<String, dynamic> data) {
+    final count = _repo.importUserData(data);
+    refresh();
+    return count;
+  }
 }
 
 final userDataProvider = StateNotifierProvider<UserDataNotifier, UserDataState>(

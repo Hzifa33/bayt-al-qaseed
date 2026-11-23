@@ -5,6 +5,7 @@ import '../animations/bayt_motion.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_typography.dart';
 import '../utils/arabic_normalizer.dart';
+import 'bayt_ornaments.dart';
 
 /// Compact, zero-truncation horizontally balanced Poet card.
 ///
@@ -58,7 +59,12 @@ class PoetCard extends StatelessWidget {
                       width: 0.9,
                     ),
                   ),
-                  child: Icon(Icons.person_rounded, size: 20, color: p.accent),
+                  child: PoetAvatarIcon(
+                    poetId: poet.id,
+                    poetName: poet.namePlain,
+                    size: 20,
+                    color: p.accent,
+                  ),
                 ),
                 const SizedBox(width: 10),
 

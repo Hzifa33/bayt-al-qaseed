@@ -19,6 +19,7 @@ import '../about/about_screen.dart';
 import '../eras/meter_poems_screen.dart';
 import '../reader/poem_reader_screen.dart';
 import '../studio/poetry_card_studio_screen.dart';
+import 'masterpieces_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({
@@ -265,11 +266,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         ),
                       ],
                     ),
-                    Text(
-                      '${ArabicNormalizer.toArabicNumber(filteredMasterpieces.length)} قصيدة',
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    TextButton.icon(
+                      onPressed: () => BaytNav.pushEditorial(
+                        context,
+                        MasterpiecesScreen(initialCategory: _selectedCategory),
+                      ),
+                      style: TextButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      icon: Icon(
+                        Icons.menu_book_rounded,
+                        size: 15,
                         color: p.accent,
-                        fontWeight: FontWeight.w600,
+                      ),
+                      label: Text(
+                        'عرض الكل (${ArabicNormalizer.toArabicNumber(allMasterpieces.length)})',
+                        style: TextStyle(
+                          color: p.accent,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
                   ],

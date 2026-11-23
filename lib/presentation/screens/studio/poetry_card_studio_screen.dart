@@ -12,6 +12,7 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/arabic_normalizer.dart';
+import '../../../core/widgets/bayt_ornaments.dart';
 import '../../../data/models/verse.dart';
 
 enum _CardAspect {
@@ -139,31 +140,72 @@ class _PoetryCardStudioScreenState extends State<PoetryCardStudioScreen> {
   _CardAspect _aspect = _CardAspect.post;
   String _fontFamily = AppFonts.scheherazade;
   double _fontSize = 21;
+  static const MethodChannel _mediaChannel = MethodChannel(
+    'com.baytalqaseed.app/media',
+  );
+
   bool _staggered = true;
   bool _showDiacritics = true;
   bool _showPoet = true;
   bool _showEra = true;
-  bool _showWatermark = true;
   bool _showParchment = true;
   bool _exporting = false;
+  bool _savingGallery = false;
+
+  Future<Uint8List?> _captureCardPngBytes() async {
+    final boundary =
+        _repaintKey.currentContext?.findRenderObject()
+            as RenderRepaintBoundary?;
+    if (boundary == null) return null;
+    final image = await boundary.toImage(pixelRatio: 3.2);
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+    if (byteData == null) return null;
+    return byteData.buffer.asUint8List();
+  }
+
+  Future<void> _saveToGallery() async {
+    if (_savingGallery || _exporting) return;
+    setState(() => _savingGallery = true);
+    try {
+      final pngBytes = await _captureCardPngBytes();
+      if (pngBytes == null) return;
+      final filename =
+          'bayt_al_qaseed_${DateTime.now().millisecondsSinceEpoch}.png';
+      await _mediaChannel.invokeMethod<String>('saveImageToGallery', {
+        'bytes': pngBytes,
+        'filename': filename,
+      });
+      if (mounted) {
+        HapticFeedback.lightImpact();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('حُفظت البطاقة الشعرية في معرض الصور بنجاح'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('تعذّر حفظ البطاقة في المعرض: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _savingGallery = false);
+    }
+  }
 
   Future<void> _exportAndShare() async {
-    if (_exporting) return;
+    if (_exporting || _savingGallery) return;
     setState(() => _exporting = true);
     try {
-      final boundary =
-          _repaintKey.currentContext?.findRenderObject()
-              as RenderRepaintBoundary?;
-      if (boundary == null) return;
-      final image = await boundary.toImage(pixelRatio: 3.2);
-      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      if (byteData == null) return;
+      final pngBytes = await _captureCardPngBytes();
+      if (pngBytes == null) return;
 
       final tmpDir = await getTemporaryDirectory();
       final filename =
           'bayt_al_qaseed_${DateTime.now().millisecondsSinceEpoch}.png';
       final file = File(path.join(tmpDir.path, filename));
-      await file.writeAsBytes(byteData.buffer.asUint8List());
+      await file.writeAsBytes(pngBytes);
 
       await Share.shareXFiles([
         XFile(file.path, mimeType: 'image/png'),
@@ -187,10 +229,26 @@ class _PoetryCardStudioScreenState extends State<PoetryCardStudioScreen> {
       appBar: AppBar(
         title: const Text('تصميم بطاقة شعرية'),
         actions: [
+          IconButton(
+            tooltip: 'حفظ في المعرض',
+            onPressed: (_savingGallery || _exporting) ? null : _saveToGallery,
+            icon: _savingGallery
+                ? SizedBox(
+                    width: 17,
+                    height: 17,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: p.accent,
+                    ),
+                  )
+                : Icon(Icons.download_rounded, color: p.accent),
+          ),
           Padding(
-            padding: const EdgeInsets.only(left: 12),
+            padding: const EdgeInsets.only(left: 10),
             child: FilledButton.icon(
-              onPressed: _exporting ? null : _exportAndShare,
+              onPressed: (_exporting || _savingGallery)
+                  ? null
+                  : _exportAndShare,
               icon: _exporting
                   ? const SizedBox(
                       width: 16,
@@ -198,7 +256,7 @@ class _PoetryCardStudioScreenState extends State<PoetryCardStudioScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.ios_share_rounded, size: 17),
-              label: const Text('تصدير'),
+              label: const Text('مشاركة'),
             ),
           ),
         ],
@@ -225,7 +283,6 @@ class _PoetryCardStudioScreenState extends State<PoetryCardStudioScreen> {
                       showDiacritics: _showDiacritics,
                       showPoet: _showPoet,
                       showEra: _showEra,
-                      showWatermark: _showWatermark,
                       showParchment: _showParchment,
                     ),
                   ),
@@ -537,13 +594,6 @@ class _PoetryCardStudioScreenState extends State<PoetryCardStudioScreen> {
             label: const Text('العصر'),
             onSelected: (v) => setState(() => _showEra = v),
           ),
-          FilterChip(
-            visualDensity: VisualDensity.compact,
-            showCheckmark: true,
-            selected: _showWatermark,
-            label: const Text('شعار التطبيق'),
-            onSelected: (v) => setState(() => _showWatermark = v),
-          ),
         ],
       ),
     );
@@ -616,7 +666,6 @@ class _CardCanvas extends StatelessWidget {
     required this.showDiacritics,
     required this.showPoet,
     required this.showEra,
-    required this.showWatermark,
     required this.showParchment,
   });
 
@@ -630,7 +679,6 @@ class _CardCanvas extends StatelessWidget {
   final bool showDiacritics;
   final bool showPoet;
   final bool showEra;
-  final bool showWatermark;
   final bool showParchment;
 
   String _clean(String s) =>
@@ -863,18 +911,35 @@ class _CardCanvas extends StatelessWidget {
                               color: template.ink.withValues(alpha: 0.65),
                             ),
                           ),
-                        if (showWatermark) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            AppConstants.appName,
-                            style: TextStyle(
-                              fontFamily: AppFonts.kufi,
-                              fontSize: 11,
-                              letterSpacing: 0.4,
-                              color: template.ink.withValues(alpha: 0.45),
+                        const SizedBox(height: 8),
+                        // Permanent Non-Removable Brand Signature (BaytEmblem matching text height)
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            BaytEmblem(
+                              size: 16,
+                              backgroundColor: template.bgTop.withValues(
+                                alpha: 0.7,
+                              ),
+                              goldColor: template.accent.withValues(
+                                alpha: 0.85,
+                              ),
+                              nibColor: template.ink.withValues(alpha: 0.75),
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 5),
+                            Text(
+                              AppConstants.appName,
+                              style: TextStyle(
+                                fontFamily: AppFonts.kufi,
+                                fontSize: 11.5,
+                                height: 1.15,
+                                letterSpacing: 0.3,
+                                color: template.ink.withValues(alpha: 0.58),
+                              ),
+                            ),
+                          ],
+                        ),
                       ],
                     ),
                   ],

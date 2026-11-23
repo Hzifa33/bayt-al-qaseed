@@ -1,8 +1,15 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../core/animations/bayt_transitions.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/arabic_normalizer.dart';
@@ -11,6 +18,7 @@ import '../../../core/widgets/empty_state_view.dart';
 import '../../../core/widgets/poet_card.dart';
 import '../../../data/models/verse.dart';
 import '../../providers/app_providers.dart';
+import '../../providers/settings_provider.dart';
 import '../../providers/user_data_providers.dart';
 import '../eras/poet_detail_screen.dart';
 import '../reader/poem_reader_screen.dart';
@@ -94,6 +102,242 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
     }
   }
 
+  String _buildBackupJson() {
+    final userDataMap = ref.read(userDataProvider.notifier).exportAllUserData();
+    final settingsMap = ref.read(readerSettingsProvider.notifier).toMap();
+    final payload = {
+      'app': AppConstants.appName,
+      'version': AppConstants.appVersion,
+      'exported_at': DateTime.now().toIso8601String(),
+      'settings': settingsMap,
+      'user_data': userDataMap,
+    };
+    return const JsonEncoder.withIndent('  ').convert(payload);
+  }
+
+  Future<void> _exportBackupFile() async {
+    try {
+      final jsonStr = _buildBackupJson();
+      final tmpDir = await getTemporaryDirectory();
+      final file = File(path.join(tmpDir.path, 'bayt_al_qaseed_backup.json'));
+      await file.writeAsString(jsonStr);
+      await Share.shareXFiles(
+        [XFile(file.path, mimeType: 'application/json')],
+        text:
+            'نسخة احتياطية للمفضلة والإعدادات — تطبيق «${AppConstants.appName}»',
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('تعذّر تصدير الملف: $e')));
+      }
+    }
+  }
+
+  Future<void> _exportFormattedTextAnthology() async {
+    final userData = ref.read(userDataProvider);
+    final favPoems = ref.read(favoritePoemsListProvider);
+    final favPoets = ref.read(favoritePoetsListProvider);
+    final buf = StringBuffer()
+      ..writeln('مختاراتي من «${AppConstants.appName}»')
+      ..writeln('══════════════════════════');
+
+    if (favPoems.isNotEmpty) {
+      buf.writeln('\n• القصائد المفضلة (${favPoems.length}):');
+      for (final p in favPoems) {
+        buf.writeln('  - ${p.title} (${p.poetName})');
+      }
+    }
+    if (userData.favoriteVerses.isNotEmpty) {
+      buf.writeln('\n• الأبيات المحفوظة (${userData.favoriteVerses.length}):');
+      for (final v in userData.favoriteVerses) {
+        buf.writeln('  «${v.sadr}${v.ajuz.isNotEmpty ? ' — ${v.ajuz}' : ''}»');
+        buf.writeln('    — ${v.poetName}');
+      }
+    }
+    if (favPoets.isNotEmpty) {
+      buf.writeln('\n• الشعراء المفضلون (${favPoets.length}):');
+      for (final pt in favPoets) {
+        buf.writeln('  - ${pt.namePlain} (العصر ${pt.eraName})');
+      }
+    }
+    await Share.share(buf.toString());
+  }
+
+  Future<void> _restoreFromJsonString(String rawJson) async {
+    try {
+      final decoded = jsonDecode(rawJson);
+      if (decoded is! Map<String, dynamic>) {
+        throw const FormatException('صيغة غير صالحة');
+      }
+      final settingsMap = decoded['settings'];
+      if (settingsMap is Map<String, dynamic>) {
+        ref.read(readerSettingsProvider.notifier).importFromMap(settingsMap);
+      }
+      final userDataMap = decoded['user_data'];
+      var restored = 0;
+      if (userDataMap is Map<String, dynamic>) {
+        restored = ref
+            .read(userDataProvider.notifier)
+            .importUserData(userDataMap);
+      }
+      if (mounted) {
+        HapticFeedback.lightImpact();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'تمت استعادة الإعدادات و${ArabicNormalizer.toArabicNumber(restored)} عنصر من المفضلة بنجاح',
+            ),
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'لم نتمكّن من قراءة النسخة الاحتياطية؛ تأكّد من صحة النص المنسوخ.',
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  void _openBackupExportSheet() {
+    final p = context.palette;
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 22),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 38,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: p.hairline,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Icon(Icons.import_export_rounded, size: 22, color: p.accent),
+                  const SizedBox(width: 8),
+                  Text(
+                    'تصدير واستيراد المفضلة والإعدادات',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'احفظ نسخةً احتياطية شاملة لقصائدك وأبياتك وشعرائك ومجموعاتك وإعدادات القراءة والخطوط، أو استعدها في أيّ وقت.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 14),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: CircleAvatar(
+                  backgroundColor: p.accentSoft,
+                  child: Icon(
+                    Icons.ios_share_rounded,
+                    color: p.accent,
+                    size: 19,
+                  ),
+                ),
+                title: const Text('تصدير ملف المفضلة والإعدادات (JSON)'),
+                subtitle: const Text(
+                  'حفظ أو مشاركة ملف النسخة الاحتياطية الشامل',
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _exportBackupFile();
+                },
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: CircleAvatar(
+                  backgroundColor: p.accentSoft,
+                  child: Icon(
+                    Icons.article_outlined,
+                    color: p.accent,
+                    size: 19,
+                  ),
+                ),
+                title: const Text('تصدير المفضلة كنصٍّ أدبي منسّق'),
+                subtitle: const Text(
+                  'مشاركة قائمة القصائد والأبيات والشعراء المفضلين كنص',
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _exportFormattedTextAnthology();
+                },
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: CircleAvatar(
+                  backgroundColor: p.accentSoft,
+                  child: Icon(Icons.copy_rounded, color: p.accent, size: 19),
+                ),
+                title: const Text('نسخ النسخة الاحتياطية إلى الحافظة'),
+                subtitle: const Text(
+                  'نسخ بيانات المفضلة والإعدادات لاستعادتها لاحقاً',
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  Clipboard.setData(ClipboardData(text: _buildBackupJson()));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'نُسخت بيانات المفضلة والإعدادات إلى الحافظة',
+                      ),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: CircleAvatar(
+                  backgroundColor: p.accentSoft,
+                  child: Icon(
+                    Icons.settings_backup_restore_rounded,
+                    color: p.accent,
+                    size: 20,
+                  ),
+                ),
+                title: const Text('استيراد نسخة احتياطية من الحافظة'),
+                subtitle: const Text(
+                  'استعادة المفضلة والمجموعات وخيارات التطبيق المنسوخة',
+                ),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  final data = await Clipboard.getData(Clipboard.kTextPlain);
+                  final txt = data?.text?.trim() ?? '';
+                  if (txt.isEmpty) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('الحافظة فارغة')),
+                      );
+                    }
+                    return;
+                  }
+                  await _restoreFromJsonString(txt);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
@@ -104,6 +348,14 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('مكتبتي الأدبية'),
+        actions: [
+          IconButton(
+            tooltip: 'تصدير واستيراد المفضلة والإعدادات',
+            onPressed: _openBackupExportSheet,
+            icon: Icon(Icons.import_export_rounded, color: p.accent),
+          ),
+          const SizedBox(width: 4),
+        ],
         bottom: TabBar(
           controller: _tabCtrl,
           isScrollable: true,
