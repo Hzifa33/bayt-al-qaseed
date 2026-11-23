@@ -48,6 +48,42 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
     super.dispose();
   }
 
+  Future<bool> _confirmDelete({
+    required String title,
+    required String message,
+    String confirmLabel = 'حذف',
+  }) async {
+    final p = context.palette;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.delete_outline_rounded, color: p.accent, size: 22),
+            const SizedBox(width: 8),
+            Expanded(child: Text(title)),
+          ],
+        ),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+              foregroundColor: Theme.of(ctx).colorScheme.onError,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(confirmLabel),
+          ),
+        ],
+      ),
+    );
+    return ok == true;
+  }
+
   Future<void> _createCollectionDialog() async {
     final nameCtrl = TextEditingController();
     final descCtrl = TextEditingController();
@@ -102,6 +138,10 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
     }
   }
 
+  static const MethodChannel _fileChannel = MethodChannel(
+    'com.baytalqaseed.app/media',
+  );
+
   String _buildBackupJson() {
     final userDataMap = ref.read(userDataProvider.notifier).exportAllUserData();
     final settingsMap = ref.read(readerSettingsProvider.notifier).toMap();
@@ -115,7 +155,30 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
     return const JsonEncoder.withIndent('  ').convert(payload);
   }
 
-  Future<void> _exportBackupFile() async {
+  Future<void> _saveJsonBackupFile() async {
+    try {
+      final jsonStr = _buildBackupJson();
+      final saved = await _fileChannel.invokeMethod<bool>('exportJsonFile', {
+        'content': jsonStr,
+        'filename': 'bayt_al_qaseed_backup.json',
+      });
+      if (saved == true && mounted) {
+        HapticFeedback.lightImpact();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('حُفظ ملف النسخة الاحتياطية (JSON) بنجاح'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('تعذّر حفظ الملف: $e')));
+      }
+    }
+  }
+
+  Future<void> _shareJsonBackupFile() async {
     try {
       final jsonStr = _buildBackupJson();
       final tmpDir = await getTemporaryDirectory();
@@ -129,39 +192,22 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('تعذّر تصدير الملف: $e')));
+            .showSnackBar(SnackBar(content: Text('تعذّر مشاركة الملف: $e')));
       }
     }
   }
 
-  Future<void> _exportFormattedTextAnthology() async {
-    final userData = ref.read(userDataProvider);
-    final favPoems = ref.read(favoritePoemsListProvider);
-    final favPoets = ref.read(favoritePoetsListProvider);
-    final buf = StringBuffer()
-      ..writeln('مختاراتي من «${AppConstants.appName}»')
-      ..writeln('══════════════════════════');
-
-    if (favPoems.isNotEmpty) {
-      buf.writeln('\n• القصائد المفضلة (${favPoems.length}):');
-      for (final p in favPoems) {
-        buf.writeln('  - ${p.title} (${p.poetName})');
+  Future<void> _pickAndImportJsonFile() async {
+    try {
+      final rawJson = await _fileChannel.invokeMethod<String>('importJsonFile');
+      if (rawJson == null || rawJson.trim().isEmpty) return;
+      await _restoreFromJsonString(rawJson);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('تعذّرت قراءة ملف JSON: $e')));
       }
     }
-    if (userData.favoriteVerses.isNotEmpty) {
-      buf.writeln('\n• الأبيات المحفوظة (${userData.favoriteVerses.length}):');
-      for (final v in userData.favoriteVerses) {
-        buf.writeln('  «${v.sadr}${v.ajuz.isNotEmpty ? ' — ${v.ajuz}' : ''}»');
-        buf.writeln('    — ${v.poetName}');
-      }
-    }
-    if (favPoets.isNotEmpty) {
-      buf.writeln('\n• الشعراء المفضلون (${favPoets.length}):');
-      for (final pt in favPoets) {
-        buf.writeln('  - ${pt.namePlain} (العصر ${pt.eraName})');
-      }
-    }
-    await Share.share(buf.toString());
   }
 
   Future<void> _restoreFromJsonString(String rawJson) async {
@@ -186,7 +232,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'تمت استعادة الإعدادات و${ArabicNormalizer.toArabicNumber(restored)} عنصر من المفضلة بنجاح',
+              'تمت استعادة الإعدادات و${ArabicNormalizer.toArabicNumber(restored)} عنصر من ملف JSON بنجاح',
             ),
           ),
         );
@@ -196,7 +242,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'لم نتمكّن من قراءة النسخة الاحتياطية؛ تأكّد من صحة النص المنسوخ.',
+              'لم نتمكّن من قراءة ملف النسخة الاحتياطية؛ تأكّد من اختيار ملف JSON صالح.',
             ),
           ),
         );
@@ -230,18 +276,39 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                 children: [
                   Icon(Icons.import_export_rounded, size: 22, color: p.accent),
                   const SizedBox(width: 8),
-                  Text(
-                    'تصدير واستيراد المفضلة والإعدادات',
-                    style: Theme.of(context).textTheme.titleLarge,
+                  Expanded(
+                    child: Text(
+                      'تصدير واستيراد ملف JSON',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
                   ),
                 ],
               ),
               const SizedBox(height: 6),
               Text(
-                'احفظ نسخةً احتياطية شاملة لقصائدك وأبياتك وشعرائك ومجموعاتك وإعدادات القراءة والخطوط، أو استعدها في أيّ وقت.',
+                'صدّر مفضلاتك (القصائد، الأبيات، الشعراء، المجموعات) وخيارات التطبيق إلى ملف JSON، أو استعدها في أيّ وقت من ملف JSON محفوظ.',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 14),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: CircleAvatar(
+                  backgroundColor: p.accentSoft,
+                  child: Icon(
+                    Icons.save_alt_rounded,
+                    color: p.accent,
+                    size: 20,
+                  ),
+                ),
+                title: const Text('حفظ ملف النسخة الاحتياطية (JSON)'),
+                subtitle: const Text(
+                  'حفظ المفضلة وإعدادات التطبيق مباشرة في ملف على الجهاز',
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _saveJsonBackupFile();
+                },
+              ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: CircleAvatar(
@@ -252,13 +319,11 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                     size: 19,
                   ),
                 ),
-                title: const Text('تصدير ملف المفضلة والإعدادات (JSON)'),
-                subtitle: const Text(
-                  'حفظ أو مشاركة ملف النسخة الاحتياطية الشامل',
-                ),
+                title: const Text('مشاركة ملف النسخة الاحتياطية (JSON)'),
+                subtitle: const Text('إرسال ملف JSON إلى تطبيق آخر أو سحابة'),
                 onTap: () {
                   Navigator.pop(ctx);
-                  _exportBackupFile();
+                  _shareJsonBackupFile();
                 },
               ),
               ListTile(
@@ -266,74 +331,51 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                 leading: CircleAvatar(
                   backgroundColor: p.accentSoft,
                   child: Icon(
-                    Icons.article_outlined,
-                    color: p.accent,
-                    size: 19,
-                  ),
-                ),
-                title: const Text('تصدير المفضلة كنصٍّ أدبي منسّق'),
-                subtitle: const Text(
-                  'مشاركة قائمة القصائد والأبيات والشعراء المفضلين كنص',
-                ),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _exportFormattedTextAnthology();
-                },
-              ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: CircleAvatar(
-                  backgroundColor: p.accentSoft,
-                  child: Icon(Icons.copy_rounded, color: p.accent, size: 19),
-                ),
-                title: const Text('نسخ النسخة الاحتياطية إلى الحافظة'),
-                subtitle: const Text(
-                  'نسخ بيانات المفضلة والإعدادات لاستعادتها لاحقاً',
-                ),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  Clipboard.setData(ClipboardData(text: _buildBackupJson()));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'نُسخت بيانات المفضلة والإعدادات إلى الحافظة',
-                      ),
-                    ),
-                  );
-                },
-              ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: CircleAvatar(
-                  backgroundColor: p.accentSoft,
-                  child: Icon(
-                    Icons.settings_backup_restore_rounded,
+                    Icons.folder_open_rounded,
                     color: p.accent,
                     size: 20,
                   ),
                 ),
-                title: const Text('استيراد نسخة احتياطية من الحافظة'),
+                title: const Text('استيراد من ملف JSON'),
                 subtitle: const Text(
-                  'استعادة المفضلة والمجموعات وخيارات التطبيق المنسوخة',
+                  'اختيار ملف JSON محفوظ لاستعادة المفضلة وخيارات التطبيق',
                 ),
-                onTap: () async {
+                onTap: () {
                   Navigator.pop(ctx);
-                  final data = await Clipboard.getData(Clipboard.kTextPlain);
-                  final txt = data?.text?.trim() ?? '';
-                  if (txt.isEmpty) {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('الحافظة فارغة')),
-                      );
-                    }
-                    return;
-                  }
-                  await _restoreFromJsonString(txt);
+                  _pickAndImportJsonFile();
                 },
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildClearAllBar({
+    required String label,
+    required VoidCallback onClear,
+  }) {
+    final p = context.palette;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          TextButton.icon(
+            onPressed: onClear,
+            style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+            icon: Icon(
+              Icons.delete_sweep_outlined,
+              size: 17,
+              color: p.inkMuted,
+            ),
+            label: Text(
+              label,
+              style: TextStyle(color: p.inkMuted, fontSize: 12),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -388,254 +430,380 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
       body: TabBarView(
         controller: _tabCtrl,
         children: [
-          // 1. Favorite Poems
+          // 1. Favorite Poems (with individual + clear-all delete confirmation)
           favPoems.isEmpty
               ? const EmptyStateView(
                   icon: Icons.bookmark_border_rounded,
                   title: 'لا توجد قصائد محفوظة بعد',
                   subtitle: 'اضغط على أيقونة الحفظ داخل أيّ قصيدةٍ لتجدها هنا في متناول يدك.',
                 )
-              : ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(18, 14, 18, 110),
-                  itemCount: favPoems.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
-                  itemBuilder: (context, i) {
-                    final poem = favPoems[i];
-                    return InkWell(
-                      onTap: () => BaytNav.pushDrop(
-                        context,
-                        PoemReaderScreen(poemId: poem.id),
-                      ),
-                      borderRadius: BorderRadius.circular(14),
-                      child: Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: p.surfaceElevated,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: p.hairline),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+              : Column(
+                  children: [
+                    _buildClearAllBar(
+                      label: 'حذف جميع القصائد',
+                      onClear: () async {
+                        final ok = await _confirmDelete(
+                          title: 'حذف القصائد المفضلة',
+                          message:
+                              'هل تريد إزالة جميع القصائد المفضلة (${ArabicNormalizer.toArabicNumber(favPoems.length)} قصيدة)؟',
+                          confirmLabel: 'حذف الكل',
+                        );
+                        if (ok) {
+                          ref
+                              .read(userDataProvider.notifier)
+                              .clearFavoritePoems();
+                        }
+                      },
+                    ),
+                    Expanded(
+                      child: ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 102),
+                        itemCount: favPoems.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        itemBuilder: (context, i) {
+                          final poem = favPoems[i];
+                          return InkWell(
+                            onTap: () => BaytNav.pushDrop(
+                              context,
+                              PoemReaderScreen(poemId: poem.id),
+                            ),
+                            borderRadius: BorderRadius.circular(14),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 11,
+                              ),
+                              decoration: BoxDecoration(
+                                color: p.surfaceElevated,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: p.hairline),
+                              ),
+                              child: Row(
                                 children: [
-                                  Text(
-                                    poem.title,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontFamily: AppFonts.scheherazade,
-                                      fontSize: 20,
-                                      color: p.ink,
-                                      height: 1.5,
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          poem.title,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontFamily: AppFonts.scheherazade,
+                                            fontSize: 18,
+                                            color: p.ink,
+                                            height: 1.42,
+                                          ),
+                                        ),
+                                        Text(
+                                          '${poem.poetName}  •  بحر ${poem.meterName}  •  ${ArabicNormalizer.toArabicNumber(poem.verseCount)} بيتاً',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .labelSmall,
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  Text(
-                                    '${poem.poetName}  •  بحر ${poem.meterName}  •  ${ArabicNormalizer.toArabicNumber(poem.verseCount)} بيتاً',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .labelSmall,
+                                  IconButton(
+                                    tooltip: 'إزالة من المفضلة',
+                                    onPressed: () async {
+                                      final ok = await _confirmDelete(
+                                        title: 'إزالة القصيدة',
+                                        message: 'هل تريد إزالة هذه القصيدة من قائمة المفضلة؟',
+                                        confirmLabel: 'إزالة',
+                                      );
+                                      if (ok) {
+                                        ref
+                                            .read(userDataProvider.notifier)
+                                            .toggleFavoritePoem(poem.id);
+                                      }
+                                    },
+                                    icon: Icon(
+                                      Icons.delete_outline_rounded,
+                                      color: p.inkMuted,
+                                      size: 20,
+                                    ),
                                   ),
                                 ],
                               ),
                             ),
-                            IconButton(
-                              tooltip: 'إزالة',
-                              onPressed: () => ref
-                                  .read(userDataProvider.notifier)
-                                  .toggleFavoritePoem(poem.id),
-                              icon: Icon(
-                                Icons.bookmark_remove_outlined,
-                                color: p.inkMuted,
-                                size: 20,
-                              ),
-                            ),
-                          ],
-                        ),
+                          );
+                        },
                       ),
-                    );
-                  },
+                    ),
+                  ],
                 ),
 
-          // 2. Favorite Individual Verses
+          // 2. Favorite Individual Verses (with individual + clear-all delete confirmation)
           userData.favoriteVerses.isEmpty
               ? const EmptyStateView(
                   icon: Icons.format_quote_rounded,
                   title: 'لا توجد أبيات محفوظة بعد',
                   subtitle: 'اضغط مطوّلاً على أيّ بيتٍ داخل القصيدة لحفظه هنا أو تحويله إلى بطاقة.',
                 )
-              : ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(18, 14, 18, 110),
-                  itemCount: userData.favoriteVerses.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (context, i) {
-                    final item = userData.favoriteVerses[i];
-                    final v = Verse(
-                      index: item.verseIndex,
-                      sadr: item.sadr,
-                      ajuz: item.ajuz,
-                    );
-                    return Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: p.surfaceElevated,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: p.hairline),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Text(
-                            item.sadr,
-                            style: TextStyle(
-                              fontFamily: AppFonts.scheherazade,
-                              fontSize: 21,
-                              color: p.ink,
-                              height: 1.9,
+              : Column(
+                  children: [
+                    _buildClearAllBar(
+                      label: 'حذف جميع الأبيات',
+                      onClear: () async {
+                        final ok = await _confirmDelete(
+                          title: 'حذف الأبيات المحفوظة',
+                          message:
+                              'هل تريد حذف جميع الأبيات المحفوظة (${ArabicNormalizer.toArabicNumber(userData.favoriteVerses.length)} بيتاً)؟',
+                          confirmLabel: 'حذف الكل',
+                        );
+                        if (ok) {
+                          ref
+                              .read(userDataProvider.notifier)
+                              .clearFavoriteVerses();
+                        }
+                      },
+                    ),
+                    Expanded(
+                      child: ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 102),
+                        itemCount: userData.favoriteVerses.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 10),
+                        itemBuilder: (context, i) {
+                          final item = userData.favoriteVerses[i];
+                          final v = Verse(
+                            index: item.verseIndex,
+                            sadr: item.sadr,
+                            ajuz: item.ajuz,
+                          );
+                          return Container(
+                            padding: const EdgeInsets.all(15),
+                            decoration: BoxDecoration(
+                              color: p.surfaceElevated,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: p.hairline),
                             ),
-                          ),
-                          if (item.ajuz.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.only(right: 20),
-                              child: Text(
-                                item.ajuz,
-                                textAlign: TextAlign.left,
-                                style: TextStyle(
-                                  fontFamily: AppFonts.scheherazade,
-                                  fontSize: 21,
-                                  color: p.ink,
-                                  height: 1.9,
-                                ),
-                              ),
-                            ),
-                          const SizedBox(height: 10),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: InkWell(
-                                  onTap: () => BaytNav.pushDrop(
-                                    context,
-                                    PoemReaderScreen(
-                                      poemId: item.poemId,
-                                      initialVerseIndex: item.verseIndex,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    '— ${item.poetName}',
-                                    style: TextStyle(
-                                      fontFamily: AppFonts.ui,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: p.accent,
-                                    ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Text(
+                                  item.sadr,
+                                  style: TextStyle(
+                                    fontFamily: AppFonts.scheherazade,
+                                    fontSize: 20,
+                                    color: p.ink,
+                                    height: 1.85,
                                   ),
                                 ),
-                              ),
-                              IconButton(
-                                tooltip: 'نسخ البيت',
-                                visualDensity: VisualDensity.compact,
-                                onPressed: () {
-                                  Clipboard.setData(
-                                    ClipboardData(
-                                      text: ShareFormatter.formatVerses(
-                                        verses: [v],
-                                        poetName: item.poetName,
+                                if (item.ajuz.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(right: 20),
+                                    child: Text(
+                                      item.ajuz,
+                                      textAlign: TextAlign.left,
+                                      style: TextStyle(
+                                        fontFamily: AppFonts.scheherazade,
+                                        fontSize: 20,
+                                        color: p.ink,
+                                        height: 1.85,
                                       ),
                                     ),
-                                  );
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('نُسخ البيت')),
-                                  );
-                                },
-                                icon: Icon(
-                                  Icons.copy_rounded,
-                                  size: 18,
-                                  color: p.inkMuted,
-                                ),
-                              ),
-                              IconButton(
-                                tooltip: 'تصميم بطاقة',
-                                visualDensity: VisualDensity.compact,
-                                onPressed: () => BaytNav.pushDrop(
-                                  context,
-                                  PoetryCardStudioScreen(
-                                    verses: [v],
-                                    poetName: item.poetName,
                                   ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: InkWell(
+                                        onTap: () => BaytNav.pushDrop(
+                                          context,
+                                          PoemReaderScreen(
+                                            poemId: item.poemId,
+                                            initialVerseIndex: item.verseIndex,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          '— ${item.poetName}',
+                                          style: TextStyle(
+                                            fontFamily: AppFonts.ui,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                            color: p.accent,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    IconButton(
+                                      tooltip: 'نسخ البيت',
+                                      visualDensity: VisualDensity.compact,
+                                      onPressed: () {
+                                        Clipboard.setData(
+                                          ClipboardData(
+                                            text: ShareFormatter.formatVerses(
+                                              verses: [v],
+                                              poetName: item.poetName,
+                                            ),
+                                          ),
+                                        );
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                              const SnackBar(
+                                                content: Text('نُسخ البيت'),
+                                              ),
+                                            );
+                                      },
+                                      icon: Icon(
+                                        Icons.copy_rounded,
+                                        size: 18,
+                                        color: p.inkMuted,
+                                      ),
+                                    ),
+                                    IconButton(
+                                      tooltip: 'تصميم بطاقة',
+                                      visualDensity: VisualDensity.compact,
+                                      onPressed: () => BaytNav.pushDrop(
+                                        context,
+                                        PoetryCardStudioScreen(
+                                          verses: [v],
+                                          poetName: item.poetName,
+                                        ),
+                                      ),
+                                      icon: Icon(
+                                        Icons.brush_outlined,
+                                        size: 18,
+                                        color: p.accent,
+                                      ),
+                                    ),
+                                    IconButton(
+                                      tooltip: 'حذف البيت',
+                                      visualDensity: VisualDensity.compact,
+                                      onPressed: () async {
+                                        final ok = await _confirmDelete(
+                                          title: 'حذف البيت المحفوظ',
+                                          message: 'هل تريد حذف هذا البيت من مكتبتك؟',
+                                        );
+                                        if (ok) {
+                                          ref
+                                              .read(userDataProvider.notifier)
+                                              .removeFavoriteVerse(item.id);
+                                        }
+                                      },
+                                      icon: Icon(
+                                        Icons.delete_outline_rounded,
+                                        size: 18,
+                                        color: p.inkMuted,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                icon: Icon(
-                                  Icons.brush_outlined,
-                                  size: 18,
-                                  color: p.accent,
-                                ),
-                              ),
-                              IconButton(
-                                tooltip: 'حذف',
-                                visualDensity: VisualDensity.compact,
-                                onPressed: () => ref
-                                    .read(userDataProvider.notifier)
-                                    .removeFavoriteVerse(item.id),
-                                icon: Icon(
-                                  Icons.delete_outline_rounded,
-                                  size: 18,
-                                  color: p.inkMuted,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                              ],
+                            ),
+                          );
+                        },
                       ),
-                    );
-                  },
+                    ),
+                  ],
                 ),
 
-          // 3. Favorite Poets
+          // 3. Favorite Poets (with individual + clear-all delete confirmation)
           favPoets.isEmpty
               ? const EmptyStateView(
                   icon: Icons.favorite_border_rounded,
                   title: 'لا يوجد شعراء مفضلون بعد',
                   subtitle: 'أضف شعراءك الأثيرين للوصول السريع إلى دواوينهم.',
                 )
-              : ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 102),
-                  itemCount: favPoets.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 8),
-                  itemBuilder: (context, i) {
-                    final poet = favPoets[i];
-                    return PoetCard(
-                      poet: poet,
-                      showEra: true,
-                      isFavorite: true,
-                      onTap: () => BaytNav.pushEditorial(
-                        context,
-                        PoetDetailScreen(poetId: poet.id),
+              : Column(
+                  children: [
+                    _buildClearAllBar(
+                      label: 'حذف جميع الشعراء',
+                      onClear: () async {
+                        final ok = await _confirmDelete(
+                          title: 'حذف الشعراء المفضلين',
+                          message:
+                              'هل تريد إزالة جميع الشعراء المفضلين (${ArabicNormalizer.toArabicNumber(favPoets.length)} شاعراً)؟',
+                          confirmLabel: 'حذف الكل',
+                        );
+                        if (ok) {
+                          ref
+                              .read(userDataProvider.notifier)
+                              .clearFavoritePoets();
+                        }
+                      },
+                    ),
+                    Expanded(
+                      child: ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 102),
+                        itemCount: favPoets.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        itemBuilder: (context, i) {
+                          final poet = favPoets[i];
+                          return PoetCard(
+                            poet: poet,
+                            showEra: true,
+                            isFavorite: true,
+                            onTap: () => BaytNav.pushEditorial(
+                              context,
+                              PoetDetailScreen(poetId: poet.id),
+                            ),
+                            onToggleFavorite: () async {
+                              final ok = await _confirmDelete(
+                                title: 'إزالة الشاعر',
+                                message:
+                                    'هل تريد إزالة «${poet.namePlain}» من الشعراء المفضلين؟',
+                                confirmLabel: 'إزالة',
+                              );
+                              if (ok) {
+                                ref
+                                    .read(userDataProvider.notifier)
+                                    .toggleFavoritePoet(poet.id);
+                              }
+                            },
+                          );
+                        },
                       ),
-                      onToggleFavorite: () => ref
-                          .read(userDataProvider.notifier)
-                          .toggleFavoritePoet(poet.id),
-                    );
-                  },
+                    ),
+                  ],
                 ),
 
-          // 4. Custom Collections
+          // 4. Custom Collections (with individual + clear-all delete confirmation)
           Column(
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(18, 12, 18, 4),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: _createCollectionDialog,
-                    icon: Icon(
-                      Icons.create_new_folder_outlined,
-                      color: p.accent,
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _createCollectionDialog,
+                        icon: Icon(
+                          Icons.create_new_folder_outlined,
+                          color: p.accent,
+                        ),
+                        label: Text(
+                          'إنشاء مجموعة قراءة جديدة',
+                          style: TextStyle(color: p.accent),
+                        ),
+                      ),
                     ),
-                    label: Text(
-                      'إنشاء مجموعة قراءة جديدة',
-                      style: TextStyle(color: p.accent),
-                    ),
-                  ),
+                    if (userData.collections.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      IconButton(
+                        tooltip: 'حذف جميع المجموعات',
+                        onPressed: () async {
+                          final ok = await _confirmDelete(
+                            title: 'حذف جميع المجموعات',
+                            message:
+                                'هل تريد حذف جميع مجموعات القراءة (${ArabicNormalizer.toArabicNumber(userData.collections.length)} مجموعة)؟',
+                            confirmLabel: 'حذف الكل',
+                          );
+                          if (ok) {
+                            ref
+                                .read(userDataProvider.notifier)
+                                .clearAllCollections();
+                          }
+                        },
+                        icon: Icon(
+                          Icons.delete_sweep_outlined,
+                          color: p.inkMuted,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
               Expanded(
@@ -646,7 +814,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                         subtitle: 'نظّم القصائد حسب الموضوع أو المعنى (مثل: الحكمة، الرثاء، الأندلسيات).',
                       )
                     : ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(18, 10, 18, 110),
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 102),
                         itemCount: userData.collections.length,
                         separatorBuilder: (_, __) => const SizedBox(height: 10),
                         itemBuilder: (context, i) {
@@ -658,7 +826,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                             ),
                             borderRadius: BorderRadius.circular(14),
                             child: Container(
-                              padding: const EdgeInsets.all(15),
+                              padding: const EdgeInsets.all(14),
                               decoration: BoxDecoration(
                                 color: p.surfaceElevated,
                                 borderRadius: BorderRadius.circular(14),
@@ -702,9 +870,19 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                                     ),
                                   ),
                                   IconButton(
-                                    onPressed: () => ref
-                                        .read(userDataProvider.notifier)
-                                        .deleteCollection(col.id),
+                                    tooltip: 'حذف المجموعة',
+                                    onPressed: () async {
+                                      final ok = await _confirmDelete(
+                                        title: 'حذف المجموعة',
+                                        message:
+                                            'هل تريد حذف مجموعة «${col.name}»؟',
+                                      );
+                                      if (ok) {
+                                        ref
+                                            .read(userDataProvider.notifier)
+                                            .deleteCollection(col.id);
+                                      }
+                                    },
                                     icon: Icon(
                                       Icons.delete_outline_rounded,
                                       color: p.inkMuted,
@@ -721,7 +899,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
             ],
           ),
 
-          // 5. Reading History
+          // 5. Reading History (with individual + clear-all delete confirmation)
           userData.readingHistory.isEmpty
               ? const EmptyStateView(
                   icon: Icons.history_rounded,
@@ -730,25 +908,22 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                 )
               : Column(
                   children: [
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: TextButton.icon(
-                        onPressed: () =>
-                            ref.read(userDataProvider.notifier).clearHistory(),
-                        icon: Icon(
-                          Icons.delete_sweep_outlined,
-                          size: 18,
-                          color: p.inkMuted,
-                        ),
-                        label: Text(
-                          'مسح السجل',
-                          style: TextStyle(color: p.inkMuted),
-                        ),
-                      ),
+                    _buildClearAllBar(
+                      label: 'مسح السجل بالكامل',
+                      onClear: () async {
+                        final ok = await _confirmDelete(
+                          title: 'مسح سجل القراءة',
+                          message: 'هل تريد مسح جميع القصائد في سجل القراءة؟',
+                          confirmLabel: 'مسح الكل',
+                        );
+                        if (ok) {
+                          ref.read(userDataProvider.notifier).clearHistory();
+                        }
+                      },
                     ),
                     Expanded(
                       child: ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(18, 0, 18, 110),
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 102),
                         itemCount: userData.readingHistory.length,
                         separatorBuilder: (_, __) => const SizedBox(height: 8),
                         itemBuilder: (context, i) {
@@ -763,31 +938,60 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                             ),
                             borderRadius: BorderRadius.circular(14),
                             child: Container(
-                              padding: const EdgeInsets.all(14),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 11,
+                              ),
                               decoration: BoxDecoration(
                                 color: p.surfaceElevated,
                                 borderRadius: BorderRadius.circular(14),
                                 border: Border.all(color: p.hairline),
                               ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                              child: Row(
                                 children: [
-                                  Text(
-                                    h.poemTitle,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontFamily: AppFonts.scheherazade,
-                                      fontSize: 20,
-                                      color: p.ink,
-                                      height: 1.5,
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          h.poemTitle,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontFamily: AppFonts.scheherazade,
+                                            fontSize: 18,
+                                            color: p.ink,
+                                            height: 1.42,
+                                          ),
+                                        ),
+                                        Text(
+                                          '${h.poetName}  •  بحر ${h.meterName}  •  ${ArabicNormalizer.toArabicNumber(h.verseCount)} بيتاً',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .labelSmall,
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  Text(
-                                    '${h.poetName}  •  بحر ${h.meterName}  •  ${ArabicNormalizer.toArabicNumber(h.verseCount)} بيتاً',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .labelSmall,
+                                  IconButton(
+                                    tooltip: 'حذف من السجل',
+                                    onPressed: () async {
+                                      final ok = await _confirmDelete(
+                                        title: 'حذف من السجل',
+                                        message: 'هل تريد حذف هذه القصيدة من سجل القراءة؟',
+                                      );
+                                      if (ok) {
+                                        ref
+                                            .read(userDataProvider.notifier)
+                                            .removeHistoryItem(h.poemId);
+                                      }
+                                    },
+                                    icon: Icon(
+                                      Icons.delete_outline_rounded,
+                                      color: p.inkMuted,
+                                      size: 20,
+                                    ),
                                   ),
                                 ],
                               ),

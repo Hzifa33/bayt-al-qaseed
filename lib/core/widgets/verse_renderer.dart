@@ -362,7 +362,9 @@ class VerseRowWidget extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final numReserve = showVerseNumber ? 38.0 : 0.0;
+        const numColWidth = 34.0;
+        const numGap = 8.0;
+        final numReserve = showVerseNumber ? (numColWidth + numGap) : 0.0;
         final halfWidth =
             ((constraints.maxWidth - numReserve - centerGap) / 2.0).clamp(
               80.0,
@@ -405,35 +407,65 @@ class VerseRowWidget extends StatelessWidget {
         return Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
+            // Strictly parallel fixed-width vertical column for verse numbers
             if (showVerseNumber) ...[
               SizedBox(
-                width: 32,
-                child: Center(
-                  child: VerseNumberMedallion(
-                    number: verse.index + 1,
-                    isSelected: isSelected,
-                  ),
+                width: numColWidth,
+                child: VerseNumberMedallion(
+                  number: verse.index + 1,
+                  isSelected: isSelected,
+                  fixedWidth: numColWidth,
                 ),
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: numGap),
             ],
             Expanded(
-              child: _renderHemistich(
-                context,
-                sadr,
-                syncedSadr,
-                textAlign: TextAlign.right,
-                allowWrap: sadrAllowWrap,
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: sadrAllowWrap
+                    ? _renderHemistich(
+                        context,
+                        sadr,
+                        syncedSadr,
+                        textAlign: TextAlign.right,
+                        allowWrap: true,
+                      )
+                    : FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerRight,
+                        child: _renderHemistich(
+                          context,
+                          sadr,
+                          syncedSadr,
+                          textAlign: TextAlign.right,
+                          allowWrap: false,
+                        ),
+                      ),
               ),
             ),
             const SizedBox(width: centerGap),
             Expanded(
-              child: _renderHemistich(
-                context,
-                ajuz,
-                syncedAjuz,
-                textAlign: TextAlign.left,
-                allowWrap: ajuzAllowWrap,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: ajuzAllowWrap
+                    ? _renderHemistich(
+                        context,
+                        ajuz,
+                        syncedAjuz,
+                        textAlign: TextAlign.left,
+                        allowWrap: true,
+                      )
+                    : FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: _renderHemistich(
+                          context,
+                          ajuz,
+                          syncedAjuz,
+                          textAlign: TextAlign.left,
+                          allowWrap: false,
+                        ),
+                      ),
               ),
             ),
           ],
@@ -447,6 +479,37 @@ class VerseRowWidget extends StatelessWidget {
     String text,
     TextStyle baseStyle,
   ) {
+    if (layoutStyle == VerseLayoutStyle.sideBySide) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          if (showVerseNumber) ...[
+            SizedBox(
+              width: 34,
+              child: VerseNumberMedallion(
+                number: verse.index + 1,
+                isSelected: isSelected,
+                fixedWidth: 34,
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+              child: _renderHemistich(
+                context,
+                text,
+                baseStyle,
+                textAlign: TextAlign.center,
+                allowWrap: true,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [

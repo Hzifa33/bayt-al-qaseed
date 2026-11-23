@@ -341,17 +341,24 @@ class VerseNumberMedallion extends StatelessWidget {
     super.key,
     required this.number,
     required this.isSelected,
+    this.fixedWidth,
   });
 
   final int number;
   final bool isSelected;
+  final double? fixedWidth;
 
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
     final fg = isSelected ? p.accent : p.inkMuted.withValues(alpha: 0.78);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      width: fixedWidth,
+      alignment: Alignment.center,
+      padding: EdgeInsets.symmetric(
+        horizontal: fixedWidth != null ? 3 : 7,
+        vertical: 2,
+      ),
       decoration: BoxDecoration(
         color: isSelected ? p.accentSoft : p.surface.withValues(alpha: 0.7),
         borderRadius: BorderRadius.circular(10),
@@ -362,14 +369,19 @@ class VerseNumberMedallion extends StatelessWidget {
           width: 0.85,
         ),
       ),
-      child: Text(
-        ArabicNormalizer.toArabicNumber(number),
-        style: TextStyle(
-          fontFamily: AppFonts.ui,
-          fontSize: 10.5,
-          fontWeight: FontWeight.w600,
-          color: fg,
-          height: 1.2,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          ArabicNormalizer.toArabicNumber(number),
+          maxLines: 1,
+          style: TextStyle(
+            fontFamily: AppFonts.ui,
+            fontSize: 10.5,
+            fontWeight: FontWeight.w600,
+            color: fg,
+            height: 1.2,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
         ),
       ),
     );

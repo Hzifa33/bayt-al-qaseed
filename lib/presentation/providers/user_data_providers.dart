@@ -77,6 +77,31 @@ class UserDataNotifier extends StateNotifier<UserDataState> {
     refresh();
   }
 
+  void removeHistoryItem(int poemId) {
+    _repo.removeReadingHistoryItem(poemId);
+    refresh();
+  }
+
+  void clearFavoritePoems() {
+    _repo.clearFavoritePoems();
+    refresh();
+  }
+
+  void clearFavoriteVerses() {
+    _repo.clearFavoriteVerses();
+    refresh();
+  }
+
+  void clearFavoritePoets() {
+    _repo.clearFavoritePoets();
+    refresh();
+  }
+
+  void clearAllCollections() {
+    _repo.clearAllCollections();
+    refresh();
+  }
+
   int createCollection(String name, {String description = ''}) {
     final id = _repo.createCollection(name, description: description);
     refresh();

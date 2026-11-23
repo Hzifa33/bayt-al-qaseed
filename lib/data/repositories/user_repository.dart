@@ -181,6 +181,27 @@ class UserRepository {
     _db.execute('DELETE FROM reading_history');
   }
 
+  void removeReadingHistoryItem(int poemId) {
+    _db.execute('DELETE FROM reading_history WHERE poem_id = ?', [poemId]);
+  }
+
+  void clearFavoritePoems() {
+    _db.execute('DELETE FROM favorite_poems');
+  }
+
+  void clearFavoriteVerses() {
+    _db.execute('DELETE FROM favorite_verses');
+  }
+
+  void clearFavoritePoets() {
+    _db.execute('DELETE FROM favorite_poets');
+  }
+
+  void clearAllCollections() {
+    _db.execute('DELETE FROM collection_poems');
+    _db.execute('DELETE FROM collections');
+  }
+
   // --- Custom Collections (مجموعات القارئ) ---
   List<UserCollection> getCollections() {
     final rows = _db.select('''

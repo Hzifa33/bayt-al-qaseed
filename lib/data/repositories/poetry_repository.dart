@@ -125,7 +125,7 @@ class PoetryRepository {
     return _mapFeaturedVerse(rows.first);
   }
 
-  List<FeaturedVerse> getFeaturedMasterpieces({int limit = 80}) {
+  List<FeaturedVerse> getFeaturedMasterpieces({int limit = 500}) {
     final rows = _db.select(
       'SELECT * FROM featured_verses ORDER BY id ASC LIMIT ?',
       [limit],

@@ -1,4 +1,4 @@
-name: Build & Sign Release APK
+name: Build & Sign Release APKs
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build-unsigned-apk:
-    name: Analyze, Test, Build & Sign Release APK
+    name: Analyze, Test, Build & Sign Release APKs (Universal + ARM8 + ARM7)
     runs-on: ubuntu-latest
 
     steps:
@@ -55,76 +55,113 @@ jobs:
       - name: Run unit & FTS5 database tests
         run: flutter test
 
-      - name: Build & Sign Release APK with Encrypted Key
+      - name: Build & Sign Universal, ARM64 (arm8) & ARMv7 (arm7) Release APKs
         env:
           SIGN_KEY_PK8_B64: ${{ secrets.SIGN_KEY_PK8_B64 }}
           SIGN_CERT_PEM_B64: ${{ secrets.SIGN_CERT_PEM_B64 }}
         run: |
-          flutter build apk --release --target-platform android-arm64,android-arm || true
           mkdir -p dist
+
+          # 1. Build Universal Release APK (arm64-v8a + armeabi-v7a)
+          flutter build apk --release --target-platform android-arm64,android-arm || true
           if [ -f build/app/outputs/apk/release/app-release-unsigned.apk ]; then
-            RAW_APK="build/app/outputs/apk/release/app-release-unsigned.apk"
+            cp build/app/outputs/apk/release/app-release-unsigned.apk dist/raw-universal.apk
           elif [ -f build/app/outputs/flutter-apk/app-release.apk ]; then
-            RAW_APK="build/app/outputs/flutter-apk/app-release.apk"
+            cp build/app/outputs/flutter-apk/app-release.apk dist/raw-universal.apk
           else
-            echo "ERROR: No release APK was produced!"
+            echo "ERROR: No universal release APK was produced!"
             find build/app/outputs -maxdepth 4 -ls || true
             exit 1
           fi
-          cp "$RAW_APK" dist/BaytAlQaseed-release-unsigned.apk
+
+          # 2. Build Split-per-ABI Release APKs (arm64-v8a & armeabi-v7a)
+          flutter build apk --release --split-per-abi --target-platform android-arm64,android-arm || true
+          find build/app/outputs -name "*.apk" -ls
+          ARM64_RAW=$(find build/app/outputs -name "*arm64-v8a*release*.apk" | head -n 1)
+          ARM7_RAW=$(find build/app/outputs -name "*armeabi-v7a*release*.apk" | head -n 1)
+          if [ -z "$ARM64_RAW" ] || [ -z "$ARM7_RAW" ]; then
+            echo "ERROR: Missing split ABI APKs (ARM64=$ARM64_RAW, ARM7=$ARM7_RAW)!"
+            exit 1
+          fi
+          cp "$ARM64_RAW" dist/raw-arm64-v8a.apk
+          cp "$ARM7_RAW" dist/raw-armeabi-v7a.apk
 
           # Locate Android build-tools zipalign & apksigner
           BUILD_TOOLS_DIR=$(ls -d "$ANDROID_HOME/build-tools/"* | sort -V | tail -n 1)
           ZIPALIGN="$BUILD_TOOLS_DIR/zipalign"
           APKSIGNER="$BUILD_TOOLS_DIR/apksigner"
 
-          "$ZIPALIGN" -p -f -v 4 "$RAW_APK" dist/aligned.apk > /dev/null
-
           KEY_DIR=$(mktemp -d)
           trap 'rm -rf "$KEY_DIR"' EXIT
           echo "$SIGN_KEY_PK8_B64" | base64 -d > "$KEY_DIR/key.pk8"
           echo "$SIGN_CERT_PEM_B64" | base64 -d > "$KEY_DIR/cert.x509.pem"
 
-          "$APKSIGNER" sign \
-            --key "$KEY_DIR/key.pk8" \
-            --cert "$KEY_DIR/cert.x509.pem" \
-            --v1-signing-enabled true \
-            --v2-signing-enabled true \
-            --v3-signing-enabled true \
-            --out dist/BaytAlQaseed-v1.0.0.apk \
-            dist/aligned.apk
+          sign_apk() {
+            local IN_RAW="$1"
+            local OUT_SIGNED="$2"
+            local ALIGNED="${OUT_SIGNED}.aligned.apk"
+            "$ZIPALIGN" -p -f -v 4 "$IN_RAW" "$ALIGNED" > /dev/null
+            "$APKSIGNER" sign \
+              --key "$KEY_DIR/key.pk8" \
+              --cert "$KEY_DIR/cert.x509.pem" \
+              --v1-signing-enabled true \
+              --v2-signing-enabled true \
+              --v3-signing-enabled true \
+              --out "$OUT_SIGNED" \
+              "$ALIGNED"
+            rm -f "$ALIGNED" "$IN_RAW"
+            echo "=== Verified signature for $OUT_SIGNED ==="
+            "$APKSIGNER" verify --verbose --print-certs "$OUT_SIGNED"
+          }
 
-          rm -f dist/aligned.apk
+          sign_apk dist/raw-universal.apk dist/BaytAlQaseed-v1.0.0-universal.apk
+          sign_apk dist/raw-arm64-v8a.apk dist/BaytAlQaseed-v1.0.0-arm64-v8a.apk
+          sign_apk dist/raw-armeabi-v7a.apk dist/BaytAlQaseed-v1.0.0-armeabi-v7a.apk
+
           rm -rf "$KEY_DIR"
 
-          echo "=== Verifying APK Signature (v1/v2/v3) ==="
-          "$APKSIGNER" verify --verbose --print-certs dist/BaytAlQaseed-v1.0.0.apk
-
-      - name: Verify APK integrity & bundled assets
+      - name: Verify Signed APKs integrity & bundled assets
         run: |
-          APK="dist/BaytAlQaseed-v1.0.0.apk"
-          ls -lh "$APK" dist/BaytAlQaseed-release-unsigned.apk
-          echo "=== Verifying bundled DB, native SQLite3, fonts & WebP artwork ==="
-          unzip -l "$APK" | grep -E "bayt_al_qaseed\.db\.gz|libsqlite3\.so|libapp\.so|ArefRuqaa|ReemKufi|Amiri|ScheherazadeNew|Mirza|IBMPlexSansArabic|parchment_texture\.webp|calligraphy_bg\.webp"
+          ls -lh dist/BaytAlQaseed-v1.0.0-*.apk
+          for APK in dist/BaytAlQaseed-v1.0.0-universal.apk dist/BaytAlQaseed-v1.0.0-arm64-v8a.apk dist/BaytAlQaseed-v1.0.0-armeabi-v7a.apk; do
+            echo "=== Checking assets in $APK ==="
+            unzip -l "$APK" | grep -E "bayt_al_qaseed\.db\.gz|libsqlite3\.so|libapp\.so|ArefRuqaa|ReemKufi|Amiri|parchment_texture\.webp|calligraphy_bg\.webp"
+          done
 
-      - name: Upload Signed & Unsigned APK Artifacts
+      - name: Upload Signed Release APK Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: BaytAlQaseed-v1.0.0-release
+          name: BaytAlQaseed-v1.0.0-signed-apks
           path: |
-            dist/BaytAlQaseed-v1.0.0.apk
-            dist/BaytAlQaseed-release-unsigned.apk
+            dist/BaytAlQaseed-v1.0.0-universal.apk
+            dist/BaytAlQaseed-v1.0.0-arm64-v8a.apk
+            dist/BaytAlQaseed-v1.0.0-armeabi-v7a.apk
           retention-days: 90
 
-      - name: Publish Signed & Unsigned APKs to GitHub Release
+      - name: Publish Signed APKs ONLY to GitHub Release (v1.0.0)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="v1.0.0-unsigned"
+          TAG="v1.0.0"
+          NOTES="الإصدار الرسمي الموقّع **1.0.0** من تطبيق **بيت القصيد** (ديوان الشعر العربي).
+
+### النسخ الموقّعة المتوفرة للتثبيت المباشر:
+- **\`BaytAlQaseed-v1.0.0-arm64-v8a.apk\`** — نسخة **ARM8 (64-bit)** (موصى بها لمعظم الهواتف الحديثة — حجم أصغر وأداء مثالي).
+- **\`BaytAlQaseed-v1.0.0-armeabi-v7a.apk\`** — نسخة **ARM7 (32-bit)** (للهواتف الأقدم).
+- **\`BaytAlQaseed-v1.0.0-universal.apk\`** — النسخة **الشاملة (Universal)** المتوافقة مع جميع معماريات أندرويد."
+
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" dist/BaytAlQaseed-v1.0.0.apk dist/BaytAlQaseed-release-unsigned.apk --clobber
+            gh release upload "$TAG" \
+              dist/BaytAlQaseed-v1.0.0-universal.apk \
+              dist/BaytAlQaseed-v1.0.0-arm64-v8a.apk \
+              dist/BaytAlQaseed-v1.0.0-armeabi-v7a.apk \
+              --clobber
+            gh release edit "$TAG" --title "بيت القصيد v1.0.0" --notes "$NOTES"
           else
-            gh release create "$TAG" dist/BaytAlQaseed-v1.0.0.apk dist/BaytAlQaseed-release-unsigned.apk \
-              --title "بيت القصيد v1.0.0 (Signed & Unsigned Release APK)" \
-              --notes "الإصدار **1.0.0** من تطبيق **بيت القصيد** (يتضمن النسخة الموقّعة الجاهزة للتثبيت المباشر \`BaytAlQaseed-v1.0.0.apk\` والنسخة غير الموقّعة)."
+            gh release create "$TAG" \
+              dist/BaytAlQaseed-v1.0.0-universal.apk \
+              dist/BaytAlQaseed-v1.0.0-arm64-v8a.apk \
+              dist/BaytAlQaseed-v1.0.0-armeabi-v7a.apk \
+              --title "بيت القصيد v1.0.0" \
+              --notes "$NOTES"
           fi

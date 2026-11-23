@@ -121,7 +121,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         behavior: SnackBarBehavior.floating,
-        margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 82),
         content: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
@@ -618,7 +618,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
         // Clean Verse-Only Search Result Cards with Return-Origin Highlight
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 98),
           sliver: SliverList.separated(
             itemCount: bundle.poems.length,
             separatorBuilder: (_, __) => const SizedBox(height: 9),
