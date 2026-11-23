@@ -12,6 +12,7 @@ import '../../../core/widgets/empty_state_view.dart';
 import '../../../data/models/meter.dart';
 import '../../../data/models/poem.dart';
 import '../../../data/models/poet.dart';
+import '../../../data/models/search_result.dart';
 import '../../providers/database_providers.dart';
 import '../../providers/user_data_providers.dart';
 import '../reader/poem_reader_screen.dart';
@@ -46,8 +47,9 @@ class _PoetDetailScreenState extends ConsumerState<PoetDetailScreen> {
   PoemSortBy _sortBy = PoemSortBy.rhyme;
   int? _selectedMeterId;
   int? _selectedRhymeId;
-  String _titleFilter = '';
   bool _searchOpen = false;
+  bool _searchingVerses = false;
+  int _searchSeq = 0;
 
   final TextEditingController _searchCtrl = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
@@ -57,12 +59,12 @@ class _PoetDetailScreenState extends ConsumerState<PoetDetailScreen> {
   List<Meter> _meters = const [];
   List<Rhyme> _rhymes = const [];
   List<PoemSummary> _poems = const [];
+  SearchBundle? _verseSearchBundle;
   bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    // Defer DB load by 1 microtask so the page transition runs smoothly first!
     Future.microtask(_loadInitial);
   }
 
@@ -90,6 +92,10 @@ class _PoetDetailScreenState extends ConsumerState<PoetDetailScreen> {
 
   void _reloadPoems() {
     if (_poet == null) return;
+    if (_searchOpen && _searchCtrl.text.trim().isNotEmpty) {
+      _executePoetVerseSearch();
+      return;
+    }
     final poems = ref
         .read(poetryRepositoryProvider)
         .getPoemsForPoet(
@@ -97,11 +103,66 @@ class _PoetDetailScreenState extends ConsumerState<PoetDetailScreen> {
           sortBy: _sortBy,
           meterId: _selectedMeterId,
           rhymeId: _selectedRhymeId,
-          titleFilter: _titleFilter,
         );
-    setState(() => _poems = poems);
+    setState(() {
+      _poems = poems;
+      _verseSearchBundle = null;
+    });
     if (_scrollCtrl.hasClients) {
       _scrollCtrl.jumpTo(0);
+    }
+  }
+
+  /// Searches across ALL verses of ALL poems of this poet using contiguous character matching.
+  Future<void> _executePoetVerseSearch() async {
+    final poet = _poet;
+    if (poet == null) return;
+    final q = _searchCtrl.text.trim();
+    if (q.isEmpty) {
+      _searchSeq++;
+      setState(() {
+        _searchingVerses = false;
+        _verseSearchBundle = null;
+      });
+      return;
+    }
+    _searchFocus.unfocus();
+    final seq = ++_searchSeq;
+    setState(() => _searchingVerses = true);
+
+    final res = await ref
+        .read(poetryRepositoryProvider)
+        .searchAsync(
+          rawQuery: q,
+          filter: SearchFilter(
+            poetId: poet.id,
+            meterIds: _selectedMeterId != null ? {_selectedMeterId!} : const {},
+            rhymeIds: _selectedRhymeId != null ? {_selectedRhymeId!} : const {},
+            matchMode: SearchMatchMode.exactSequence,
+            matchPartialWords: true,
+          ),
+          poemLimit: 200,
+          poetLimit: 0,
+        );
+    if (!mounted || seq != _searchSeq) return;
+    setState(() {
+      _verseSearchBundle = res;
+      _searchingVerses = false;
+    });
+    if (res.hasMore && mounted) {
+      final p = context.palette;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            duration: const Duration(seconds: 4),
+            backgroundColor: p.surfaceElevated,
+            content: Text(
+              'تجاوزت النتائج ٢٠٠ قصيدة في ديوان ${poet.namePlain}؛ ضيّق بحثك بحروف إضافية.',
+              style: TextStyle(fontFamily: AppFonts.ui, color: p.ink),
+            ),
+          ),
+        );
     }
   }
 
@@ -115,13 +176,13 @@ class _PoetDetailScreenState extends ConsumerState<PoetDetailScreen> {
 
   void _closeSearch() {
     _searchFocus.unfocus();
-    final hadQuery = _titleFilter.isNotEmpty;
+    _searchSeq++;
     _searchCtrl.clear();
     setState(() {
       _searchOpen = false;
-      _titleFilter = '';
+      _searchingVerses = false;
+      _verseSearchBundle = null;
     });
-    if (hadQuery) _reloadPoems();
   }
 
   @override
@@ -266,13 +327,23 @@ class _PoetDetailScreenState extends ConsumerState<PoetDetailScreen> {
                     key: const ValueKey('poet_search_field'),
                     controller: _searchCtrl,
                     focusNode: _searchFocus,
+                    textInputAction: TextInputAction.search,
                     onChanged: (v) {
-                      _titleFilter = v;
-                      _reloadPoems();
+                      if (v.trim().isEmpty) {
+                        _searchSeq++;
+                        setState(() {
+                          _searchingVerses = false;
+                          _verseSearchBundle = null;
+                        });
+                      } else {
+                        setState(() {});
+                      }
                     },
+                    onSubmitted: (_) => _executePoetVerseSearch(),
                     style: Theme.of(context).textTheme.bodyMedium,
                     decoration: InputDecoration(
-                      hintText: 'ابحث في مطالع قصائد ${poet.namePlain}…',
+                      hintText:
+                          'ابحث في جميع أبيات ${poet.namePlain} ثم اضغط إدخال…',
                       isDense: true,
                       filled: false,
                       border: InputBorder.none,
@@ -320,15 +391,20 @@ class _PoetDetailScreenState extends ConsumerState<PoetDetailScreen> {
                   ),
           ),
           actions: [
-            if (_searchOpen)
+            if (_searchOpen) ...[
+              IconButton(
+                tooltip: 'تنفيذ البحث',
+                onPressed: _executePoetVerseSearch,
+                icon: Icon(Icons.search_rounded, color: p.accent),
+              ),
               IconButton(
                 tooltip: 'إغلاق البحث',
                 onPressed: _closeSearch,
                 icon: const BaytIconMorph(
                   icon: Icon(Icons.close_rounded, key: ValueKey('close_s')),
                 ),
-              )
-            else ...[
+              ),
+            ] else ...[
               // Progressive Disclosure: Poet Biography & Profile Icon right beside name
               IconButton(
                 tooltip: 'سيرة الشاعر وبياناته',
@@ -343,7 +419,7 @@ class _PoetDetailScreenState extends ConsumerState<PoetDetailScreen> {
               ),
               // On-demand Collapsible Search Icon
               IconButton(
-                tooltip: 'بحث في قصائد الشاعر',
+                tooltip: 'بحث في جميع قصائد الشاعر',
                 onPressed: _openSearch,
                 icon: const BaytIconMorph(
                   icon: Icon(Icons.search_rounded, key: ValueKey('open_s')),
@@ -391,50 +467,52 @@ class _PoetDetailScreenState extends ConsumerState<PoetDetailScreen> {
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.fromLTRB(16, 2, 16, 6),
                 children: [
-                  PopupMenuButton<PoemSortBy>(
-                    initialValue: _sortBy,
-                    onSelected: (v) {
-                      HapticFeedback.selectionClick();
-                      _sortBy = v;
-                      _reloadPoems();
-                    },
-                    itemBuilder: (_) => PoemSortBy.values
-                        .map(
-                          (s) => PopupMenuItem(value: s, child: Text(s.label)),
-                        )
-                        .toList(),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 11,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: p.accentSoft,
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(
-                          color: p.accent.withValues(alpha: 0.4),
+                  if (_verseSearchBundle == null)
+                    PopupMenuButton<PoemSortBy>(
+                      initialValue: _sortBy,
+                      onSelected: (v) {
+                        HapticFeedback.selectionClick();
+                        _sortBy = v;
+                        _reloadPoems();
+                      },
+                      itemBuilder: (_) => PoemSortBy.values
+                          .map(
+                            (s) =>
+                                PopupMenuItem(value: s, child: Text(s.label)),
+                          )
+                          .toList(),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 11,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: p.accentSoft,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: p.accent.withValues(alpha: 0.4),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.sort_rounded, size: 14, color: p.accent),
+                            const SizedBox(width: 4),
+                            Text(
+                              _sortBy.label,
+                              style: TextStyle(
+                                fontFamily: AppFonts.ui,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                                color: p.accent,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.sort_rounded, size: 14, color: p.accent),
-                          const SizedBox(width: 4),
-                          Text(
-                            _sortBy.label,
-                            style: TextStyle(
-                              fontFamily: AppFonts.ui,
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w600,
-                              color: p.accent,
-                            ),
-                          ),
-                        ],
-                      ),
                     ),
-                  ),
                   if (_meters.length > 1) ...[
-                    const SizedBox(width: 7),
+                    if (_verseSearchBundle == null) const SizedBox(width: 7),
                     _FilterDropdownPill(
                       icon: Icons.waves_rounded,
                       label: _selectedMeterId == null
@@ -499,9 +577,18 @@ class _PoetDetailScreenState extends ConsumerState<PoetDetailScreen> {
               ),
             ),
 
-            // Sectioned Poems List with Contacts-Style Fast Scrubber
+            if (_searchingVerses)
+              LinearProgressIndicator(
+                minHeight: 2,
+                backgroundColor: Colors.transparent,
+                valueColor: AlwaysStoppedAnimation(p.accent),
+              ),
+
+            // Full-Verse Search Results inside Poet OR Sectioned Poems List
             Expanded(
-              child: _poems.isEmpty
+              child: _verseSearchBundle != null
+                  ? _buildPoetVerseSearchResults(context, _verseSearchBundle!)
+                  : _poems.isEmpty
                   ? const EmptyStateView(
                       icon: Icons.filter_list_off_rounded,
                       title: 'لا توجد قصائد مطابقة',
@@ -662,6 +749,157 @@ class _PoetDetailScreenState extends ConsumerState<PoetDetailScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildPoetVerseSearchResults(
+    BuildContext context,
+    SearchBundle bundle,
+  ) {
+    final p = context.palette;
+    if (!_searchingVerses && bundle.poems.isEmpty) {
+      return const EmptyStateView(
+        icon: Icons.search_off_rounded,
+        title: 'لا توجد أبيات مطابقة في هذا الديوان',
+        subtitle: 'تأكّد من تتابع الحروف أو أزل التصفية بالبحر أو الرويّ.',
+      );
+    }
+
+    final verseStyle = TextStyle(
+      fontFamily: AppFonts.scheherazade,
+      fontSize: 18.5,
+      color: p.ink,
+      height: 1.75,
+    );
+
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
+      itemCount: bundle.poems.length + 1,
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      itemBuilder: (context, idx) {
+        if (idx == 0) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+            child: Row(
+              children: [
+                Icon(Icons.auto_stories_outlined, size: 14, color: p.accent),
+                const SizedBox(width: 5),
+                Text(
+                  bundle.hasMore
+                      ? 'عُثر على أكثر من ٢٠٠ قصيدة في ديوان الشاعر'
+                      : 'عُثر على ${ArabicNormalizer.toArabicNumber(bundle.poems.length)} قصيدة مطابقة في ديوان الشاعر',
+                  style: Theme.of(context).textTheme.labelSmall
+                      ?.copyWith(color: p.accent, fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+          );
+        }
+
+        final hit = bundle.poems[idx - 1];
+        return BaytStaggeredItem(
+          index: idx - 1,
+          child: Builder(
+            builder: (cardCtx) => BaytPressable(
+              child: InkWell(
+                onTap: () => BaytNav.pushDrop(
+                  context,
+                  PoemReaderScreen(
+                    poemId: hit.poemId,
+                    initialVerseIndex: hit.matchedVerseIndex,
+                    highlightMatchedVerseOnce: true,
+                  ),
+                  origin: BaytNav.originFromContext(cardCtx),
+                ),
+                borderRadius: BorderRadius.circular(14),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: p.surfaceElevated,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: p.hairline, width: 0.9),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: p.surface.withValues(alpha: 0.72),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              hit.matchedSadr,
+                              textAlign: TextAlign.right,
+                              style: verseStyle,
+                            ),
+                            if (hit.matchedAjuz.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(right: 20),
+                                child: Text(
+                                  hit.matchedAjuz,
+                                  textAlign: TextAlign.left,
+                                  style: verseStyle,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Icon(Icons.waves_rounded, size: 12, color: p.accent),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              'بحر ${hit.meterName}  •  الرويّ (${hit.rhymeName})  •  ${ArabicNormalizer.toArabicNumber(hit.verseCount)} بيتاً',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(
+                                    fontSize: 10.5,
+                                    fontFeatures: const [
+                                      FontFeature.tabularFigures(),
+                                    ],
+                                  ),
+                            ),
+                          ),
+                          if (hit.matchingVersesCount > 1)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: p.accentSoft,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                '${ArabicNormalizer.toArabicNumber(hit.matchingVersesCount)} أبيات',
+                                style: TextStyle(
+                                  fontFamily: AppFonts.ui,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: p.accent,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 

@@ -249,6 +249,50 @@ void main() {
       expect(wholeWord.poems.first.matchingVersesCount, equals(1));
     });
 
+    test('contiguous sequence matches 1-char trailing prefix, clitic words, poet full-body search, and >limit hasMore cap', () {
+      // "على ق" (single-letter trailing token 'ق') MUST match "عَلى قَدرِ"
+      final singleCharTail = poetryRepo.search(rawQuery: 'على ق', poetLimit: 0);
+      expect(singleCharTail.poems.length, equals(1));
+      expect(singleCharTail.poems.first.poemId, equals(1));
+      expect(singleCharTail.poets, isEmpty);
+
+      // "قدر اهل الع" matches contiguous characters without adding trailing space
+      final midPrefix = poetryRepo.search(
+        rawQuery: 'قدر اهل الع',
+        poetLimit: 0,
+      );
+      expect(midPrefix.poems.length, equals(1));
+      expect(midPrefix.poems.first.poemId, equals(1));
+
+      // "قلوب مع" matches "وَالقُلوبُ مَعَ" (clitic-prefixed contiguous letters)
+      final cliticStripped = poetryRepo.search(
+        rawQuery: 'قلوب مع',
+        poetLimit: 0,
+      );
+      expect(cliticStripped.poems.length, equals(1));
+      expect(cliticStripped.poems.first.poemId, equals(2));
+
+      // Searching inside a specific poet's Diwan searches ALL verses, not just opening titles!
+      final poetDeepVerse = poetryRepo.search(
+        rawQuery: 'في عين العظيم',
+        filter: const SearchFilter(poetId: 4),
+        poetLimit: 0,
+      );
+      expect(poetDeepVerse.poems.length, equals(1));
+      expect(poetDeepVerse.poems.first.poemId, equals(1));
+      expect(poetDeepVerse.poems.first.matchedVerseIndex, equals(1));
+
+      // Cap sentinel detects when results exceed limit (e.g. > 200 in production)
+      final capped = poetryRepo.search(
+        rawQuery: 'ال',
+        filter: const SearchFilter(poetId: 4),
+        poemLimit: 1,
+        poetLimit: 0,
+      );
+      expect(capped.poems.length, equals(1));
+      expect(capped.hasMore, isTrue);
+    });
+
     test(
       'supports multi-select meter/rhyme/era filters and async isolate search',
       () async {

@@ -481,8 +481,8 @@ class PoetryRepository {
   Future<SearchBundle> searchAsync({
     required String rawQuery,
     SearchFilter filter = const SearchFilter(),
-    int poemLimit = 80,
-    int poetLimit = 12,
+    int poemLimit = 200,
+    int poetLimit = 0,
   }) async {
     final tokens = ArabicNormalizer.tokenize(rawQuery);
     if (tokens.isEmpty) {
@@ -573,7 +573,7 @@ class PoetryRepository {
   SearchBundle search({
     required String rawQuery,
     SearchFilter filter = const SearchFilter(),
-    int poemLimit = 60,
+    int poemLimit = 200,
     int poetLimit = 12,
   }) {
     final sw = Stopwatch()..start();
@@ -587,14 +587,9 @@ class PoetryRepository {
       );
     }
 
-    final ftsQuery = _buildCandidateFtsQuery(
-      tokens: tokens,
-      matchMode: filter.matchMode,
-      matchPartialWords: filter.matchPartialWords,
-    );
-
     final matchedPoets = <Poet>[];
-    if (filter.poetId == null &&
+    if (poetLimit > 0 &&
+        filter.poetId == null &&
         filter.meterIds.isEmpty &&
         filter.rhymeIds.isEmpty) {
       final poetFtsQuery = tokens
@@ -622,53 +617,86 @@ class PoetryRepository {
       matchedPoets.addAll(poetRows.map(_mapPoet));
     }
 
-    // With FTS5 '+' phrase-prefix operator, exactSequence candidates are already
-    // ~98% accurate at C-index level, slashing Dart scanning by 4x-10x!
-    final candidateLimit = filter.matchMode == SearchMatchMode.exactSequence
-        ? (poemLimit * 2).clamp(100, 220)
-        : (poemLimit * 4).clamp(160, 340);
+    final targetCount = poemLimit + 1; // +1 sentinel to detect >200 cap cleanly
+    final ResultSet poemRows;
 
-    final where = <String>['poems_fts MATCH ?'];
-    final args = <Object?>[ftsQuery];
-    if (filter.eraIds.isNotEmpty) {
-      final ph = List.filled(filter.eraIds.length, '?').join(',');
-      where.add('p.era_id IN ($ph)');
-      args.addAll(filter.eraIds);
-    }
     if (filter.poetId != null) {
-      where.add('p.poet_id = ?');
-      args.add(filter.poetId);
-    }
-    if (filter.meterIds.isNotEmpty) {
-      final ph = List.filled(filter.meterIds.length, '?').join(',');
-      where.add('p.meter_id IN ($ph)');
-      args.addAll(filter.meterIds);
-    }
-    if (filter.rhymeIds.isNotEmpty) {
-      final ph = List.filled(filter.rhymeIds.length, '?').join(',');
-      where.add('p.rhyme_id IN ($ph)');
-      args.addAll(filter.rhymeIds);
-    }
+      // Inside a single poet's Diwan: scan ALL verses of ALL the poet's poems
+      // directly via indexed poet_id for 100% recall on any contiguous letters!
+      final where = <String>['p.poet_id = ?'];
+      final args = <Object?>[filter.poetId];
+      if (filter.meterIds.isNotEmpty) {
+        final ph = List.filled(filter.meterIds.length, '?').join(',');
+        where.add('p.meter_id IN ($ph)');
+        args.addAll(filter.meterIds);
+      }
+      if (filter.rhymeIds.isNotEmpty) {
+        final ph = List.filled(filter.rhymeIds.length, '?').join(',');
+        where.add('p.rhyme_id IN ($ph)');
+        args.addAll(filter.rhymeIds);
+      }
+      poemRows = _db.select('''
+        SELECT p.id, p.poet_id, pt.name_plain AS poet_name,
+               e.name AS era_name, m.name AS meter_name, r.name AS rhyme_name,
+               p.title, p.verse_count, p.body
+        FROM poems p
+        JOIN poets pt ON pt.id = p.poet_id
+        JOIN eras e ON e.id = p.era_id
+        JOIN meters m ON m.id = p.meter_id
+        JOIN rhymes r ON r.id = p.rhyme_id
+        WHERE ${where.join(' AND ')}
+        ORDER BY p.id ASC
+        ''', args);
+    } else {
+      final ftsQuery = _buildCandidateFtsQuery(
+        tokens: tokens,
+        matchMode: filter.matchMode,
+        matchPartialWords: filter.matchPartialWords,
+      );
 
-    final poemRows = _db.select(
-      '''
-      SELECT p.id, p.poet_id, pt.name_plain AS poet_name,
-             e.name AS era_name, m.name AS meter_name, r.name AS rhyme_name,
-             p.title, p.verse_count, p.body
-      FROM poems_fts f
-      JOIN poems p ON p.id = f.rowid
-      JOIN poets pt ON pt.id = p.poet_id
-      JOIN eras e ON e.id = p.era_id
-      JOIN meters m ON m.id = p.meter_id
-      JOIN rhymes r ON r.id = p.rhyme_id
-      WHERE ${where.join(' AND ')}
-      ORDER BY bm25(poems_fts, 2.5, 1.0, 1.5)
-      LIMIT ?
-      ''',
-      [...args, candidateLimit],
-    );
+      final candidateLimit = filter.matchMode == SearchMatchMode.exactSequence
+          ? (targetCount * 2).clamp(260, 560)
+          : (targetCount * 3).clamp(300, 620);
+
+      final where = <String>['poems_fts MATCH ?'];
+      final args = <Object?>[ftsQuery];
+      if (filter.eraIds.isNotEmpty) {
+        final ph = List.filled(filter.eraIds.length, '?').join(',');
+        where.add('p.era_id IN ($ph)');
+        args.addAll(filter.eraIds);
+      }
+      if (filter.meterIds.isNotEmpty) {
+        final ph = List.filled(filter.meterIds.length, '?').join(',');
+        where.add('p.meter_id IN ($ph)');
+        args.addAll(filter.meterIds);
+      }
+      if (filter.rhymeIds.isNotEmpty) {
+        final ph = List.filled(filter.rhymeIds.length, '?').join(',');
+        where.add('p.rhyme_id IN ($ph)');
+        args.addAll(filter.rhymeIds);
+      }
+
+      poemRows = _db.select(
+        '''
+        SELECT p.id, p.poet_id, pt.name_plain AS poet_name,
+               e.name AS era_name, m.name AS meter_name, r.name AS rhyme_name,
+               p.title, p.verse_count, p.body
+        FROM poems_fts f
+        JOIN poems p ON p.id = f.rowid
+        JOIN poets pt ON pt.id = p.poet_id
+        JOIN eras e ON e.id = p.era_id
+        JOIN meters m ON m.id = p.meter_id
+        JOIN rhymes r ON r.id = p.rhyme_id
+        WHERE ${where.join(' AND ')}
+        ORDER BY bm25(poems_fts, 2.5, 1.0, 1.5)
+        LIMIT ?
+        ''',
+        [...args, candidateLimit],
+      );
+    }
 
     final hits = <PoemSearchHit>[];
+    var hasMore = false;
     for (final r in poemRows) {
       final verses = Verse.parseBody(r['body'] as String);
       final match = _matchVerseInPoem(
@@ -678,6 +706,11 @@ class PoetryRepository {
         matchPartialWords: filter.matchPartialWords,
       );
       if (match == null) continue;
+
+      if (hits.length >= poemLimit) {
+        hasMore = true;
+        break;
+      }
 
       final (bestVerse, matchCount) = match;
       hits.add(
@@ -696,7 +729,6 @@ class PoetryRepository {
           matchingVersesCount: matchCount,
         ),
       );
-      if (hits.length >= poemLimit) break;
     }
 
     sw.stop();
@@ -705,6 +737,7 @@ class PoetryRepository {
       poems: hits,
       poets: matchedPoets,
       elapsedMs: sw.elapsedMicroseconds / 1000.0,
+      hasMore: hasMore,
     );
   }
 
@@ -713,25 +746,62 @@ class PoetryRepository {
     required SearchMatchMode matchMode,
     required bool matchPartialWords,
   }) {
-    if (matchMode == SearchMatchMode.exactSequence && !matchPartialWords) {
+    if (matchMode == SearchMatchMode.sameVerse) {
+      return tokens.map((t) => '$t*').join(' ');
+    }
+
+    if (!matchPartialWords) {
       if (tokens.length == 1) return tokens.first;
       return '"${tokens.join(' ')}"';
     }
-    if (matchMode == SearchMatchMode.exactSequence && matchPartialWords) {
-      if (tokens.length == 1) {
-        return tokens.first.length >= 2 ? '${tokens.first}*' : tokens.first;
-      }
-      // Native FTS5 '+' adjacent phrase-prefix operator:
-      // "على + قدر + اهل*" enforces consecutive adjacency right inside SQLite C!
-      final parts = <String>[
-        for (var i = 0; i < tokens.length - 1; i++) tokens[i],
-        tokens.last.length >= 2 ? '${tokens.last}*' : tokens.last,
-      ];
-      return parts.join(' + ');
+
+    // Contiguous character sequence mode («الحروف المتتابعة»):
+    // - Always prefix-match the last token (even 1-letter like "الدهر ل" -> "الدهر + ل*").
+    // - Expand the first token with common Arabic clitic prefixes (و، ف، ب، ل، ك، ال)
+    //   so "الدهر ليس" matches "والدهر ليس", "فالدهر ليس", and "دهر ليس" matches "الدهر ليس"!
+    final first = tokens.first;
+    final last = tokens.last;
+
+    if (tokens.length == 1) {
+      if (first.length == 1) return '$first*';
+      final variants = _arabicFirstTokenVariants(first);
+      return variants.map((v) => '$v*').join(' OR ');
     }
-    return tokens
-        .map((t) => (matchPartialWords && t.length >= 2) ? '$t*' : t)
-        .join(' ');
+
+    final middle = tokens.length > 2
+        ? tokens.sublist(1, tokens.length - 1)
+        : const <String>[];
+    final lastPart = '$last*';
+
+    // When the trailing token is a single letter (e.g. "الدهر ل"), keep the FTS5
+    // union lean so results return swiftly on 90k+ poems while still catching و-prefixed forms.
+    final firstVariants = last.length == 1
+        ? <String>[first, if (!first.startsWith('و')) 'و$first']
+        : _arabicFirstTokenVariants(first);
+
+    final phrases = <String>[
+      for (final fv in firstVariants) [fv, ...middle, lastPart].join(' + '),
+    ];
+    return phrases.join(' OR ');
+  }
+
+  List<String> _arabicFirstTokenVariants(String token) {
+    final variants = <String>{token};
+    if (token.startsWith('ال') && token.length >= 3) {
+      variants.add('و$token');
+      variants.add('ف$token');
+      variants.add('ب$token');
+      variants.add('ك$token');
+      variants.add('ل${token.substring(1)}'); // للدهر
+    } else if (token.length >= 2) {
+      variants.add('ال$token');
+      variants.add('وال$token');
+      variants.add('و$token');
+      variants.add('ف$token');
+      variants.add('ب$token');
+      variants.add('ل$token');
+    }
+    return variants.toList(growable: false);
   }
 
   (Verse, int)? _matchVerseInPoem({
@@ -749,26 +819,29 @@ class PoetryRepository {
       final normLine = ArabicNormalizer.normalize('${v.sadr} ${v.ajuz}');
       if (normLine.isEmpty) continue;
 
-      final words = normLine.split(' ');
       bool matched = false;
       int score = 0;
 
       if (matchMode == SearchMatchMode.exactSequence) {
         if (matchPartialWords) {
+          // Pure contiguous character sequence («الحروف المتتابعة») without
+          // adding synthetic leading/trailing spaces!
           var searchFrom = 0;
           while (searchFrom <= normLine.length - joinedPhrase.length) {
             final idx = normLine.indexOf(joinedPhrase, searchFrom);
             if (idx == -1) break;
-            final validStart = idx == 0 || normLine[idx - 1] == ' ';
-            if (validStart) {
-              matched = true;
-              final endPos = idx + joinedPhrase.length;
-              final exactWordEnd =
-                  endPos == normLine.length || normLine[endPos] == ' ';
-              final candidateScore = exactWordEnd ? 200 : 140;
-              if (candidateScore > score) score = candidateScore;
-              if (exactWordEnd) break;
-            }
+            matched = true;
+            final startBoundary = idx == 0 || normLine[idx - 1] == ' ';
+            final endPos = idx + joinedPhrase.length;
+            final endBoundary =
+                endPos == normLine.length || normLine[endPos] == ' ';
+            final candidateScore = (startBoundary && endBoundary)
+                ? 220
+                : startBoundary
+                ? 180
+                : 140;
+            if (candidateScore > score) score = candidateScore;
+            if (score == 220) break;
             searchFrom = idx + 1;
           }
         } else {
@@ -779,6 +852,7 @@ class PoetryRepository {
           }
         }
       } else {
+        final words = normLine.split(' ');
         var allMatched = true;
         for (final t in tokens) {
           final tokenHit = matchPartialWords

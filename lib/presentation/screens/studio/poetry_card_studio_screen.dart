@@ -142,6 +142,7 @@ class _PoetryCardStudioScreenState extends State<PoetryCardStudioScreen> {
   bool _staggered = true;
   bool _showDiacritics = true;
   bool _showPoet = true;
+  bool _showEra = true;
   bool _showWatermark = true;
   bool _showParchment = true;
   bool _exporting = false;
@@ -223,6 +224,7 @@ class _PoetryCardStudioScreenState extends State<PoetryCardStudioScreen> {
                       staggered: _staggered,
                       showDiacritics: _showDiacritics,
                       showPoet: _showPoet,
+                      showEra: _showEra,
                       showWatermark: _showWatermark,
                       showParchment: _showParchment,
                     ),
@@ -531,6 +533,13 @@ class _PoetryCardStudioScreenState extends State<PoetryCardStudioScreen> {
           FilterChip(
             visualDensity: VisualDensity.compact,
             showCheckmark: true,
+            selected: _showEra,
+            label: const Text('العصر'),
+            onSelected: (v) => setState(() => _showEra = v),
+          ),
+          FilterChip(
+            visualDensity: VisualDensity.compact,
+            showCheckmark: true,
             selected: _showWatermark,
             label: const Text('شعار التطبيق'),
             onSelected: (v) => setState(() => _showWatermark = v),
@@ -606,6 +615,7 @@ class _CardCanvas extends StatelessWidget {
     required this.staggered,
     required this.showDiacritics,
     required this.showPoet,
+    required this.showEra,
     required this.showWatermark,
     required this.showParchment,
   });
@@ -619,6 +629,7 @@ class _CardCanvas extends StatelessWidget {
   final bool staggered;
   final bool showDiacritics;
   final bool showPoet;
+  final bool showEra;
   final bool showWatermark;
   final bool showParchment;
 
@@ -832,7 +843,7 @@ class _CardCanvas extends StatelessWidget {
                     ),
                     Column(
                       children: [
-                        if (showPoet) ...[
+                        if (showPoet)
                           Text(
                             poetName,
                             textAlign: TextAlign.center,
@@ -843,16 +854,15 @@ class _CardCanvas extends StatelessWidget {
                               color: template.accent,
                             ),
                           ),
-                          if (eraName != null && eraName!.isNotEmpty)
-                            Text(
-                              'العصر $eraName',
-                              style: TextStyle(
-                                fontFamily: AppFonts.ui,
-                                fontSize: 10.5,
-                                color: template.ink.withValues(alpha: 0.65),
-                              ),
+                        if (showEra && eraName != null && eraName!.isNotEmpty)
+                          Text(
+                            'العصر $eraName',
+                            style: TextStyle(
+                              fontFamily: AppFonts.ui,
+                              fontSize: 10.5,
+                              color: template.ink.withValues(alpha: 0.65),
                             ),
-                        ],
+                          ),
                         if (showWatermark) ...[
                           const SizedBox(height: 8),
                           Text(

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/animations/bayt_motion.dart';
 import '../../../core/animations/bayt_transitions.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_typography.dart';
@@ -14,7 +15,6 @@ import '../../../data/models/meter.dart';
 import '../../../data/models/search_result.dart';
 import '../../providers/app_providers.dart';
 import '../../providers/database_providers.dart';
-import '../eras/poet_detail_screen.dart';
 import '../reader/poem_reader_screen.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
@@ -37,10 +37,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   final TextEditingController _ctrl = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
-  Timer? _debounce;
   Timer? _returnFlashTimer;
 
-  // Search strictly uses consecutive sequence (عبارة متتابعة) + partial/whole + filters
+  // Search strictly uses contiguous character sequence (الحروف المتتابعة) + multi-select filters
   SearchFilter _filter = const SearchFilter(
     matchMode: SearchMatchMode.exactSequence,
     matchPartialWords: true,
@@ -80,7 +79,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   @override
   void dispose() {
-    _debounce?.cancel();
     _returnFlashTimer?.cancel();
     _ctrl.dispose();
     _searchFocus.dispose();
@@ -88,18 +86,90 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   void _onQueryChanged(String value) {
-    _debounce?.cancel();
-    final trimmed = value.trim();
-    if (trimmed.isEmpty) {
+    // Do NOT trigger search while typing; wait until the user presses Enter/Search!
+    if (value.trim().isEmpty) {
       _searchSeq++;
       setState(() {
         _isSearching = false;
         _bundle = null;
       });
-      return;
+    } else {
+      setState(() {});
     }
-    setState(() => _isSearching = true);
-    _debounce = Timer(const Duration(milliseconds: 145), _executeSearch);
+  }
+
+  void _showExceededCapToast() {
+    if (!mounted) return;
+    final p = context.palette;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        duration: const Duration(seconds: 4),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.fromLTRB(18, 0, 18, 78),
+        content: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+          decoration: BoxDecoration(
+            color: p.surfaceElevated,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: p.accent.withValues(alpha: 0.65),
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.18),
+                blurRadius: 18,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: p.accentSoft,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.tune_rounded, size: 16.5, color: p.accent),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'تجاوزت النتائج ٢٠٠ قصيدة',
+                      style: TextStyle(
+                        fontFamily: AppFonts.ui,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: p.accent,
+                      ),
+                    ),
+                    Text(
+                      'ضيّق بحثك بحروف إضافية أو استخدم التصفية للوصول الدقيق.',
+                      style: TextStyle(
+                        fontFamily: AppFonts.ui,
+                        fontSize: 11.5,
+                        color: p.ink,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _executeSearch({bool saveHistory = false}) async {
@@ -112,21 +182,26 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       });
       return;
     }
+    _searchFocus.unfocus();
     if (saveHistory) _saveRecentQuery(q);
     final seq = ++_searchSeq;
+    setState(() => _isSearching = true);
     final res = await ref
         .read(poetryRepositoryProvider)
         .searchAsync(
           rawQuery: q,
           filter: _filter,
-          poemLimit: 80,
-          poetLimit: 12,
+          poemLimit: 200,
+          poetLimit: 0,
         );
     if (!mounted || seq != _searchSeq) return;
     setState(() {
       _bundle = res;
       _isSearching = false;
     });
+    if (res.hasMore) {
+      _showExceededCapToast();
+    }
   }
 
   void _applySuggestion(String text) {
@@ -215,65 +290,46 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       appBar: AppBar(title: const Text('البحث في الديوان')),
       body: Column(
         children: [
-          // 1. Clean Search Input Field
+          // 1. Clean Search Input Field + Inline Multi-Select Filter Button
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-            child: TextField(
-              controller: _ctrl,
-              focusNode: _searchFocus,
-              autofocus: false,
-              onChanged: _onQueryChanged,
-              onTapOutside: (_) => _searchFocus.unfocus(),
-              textInputAction: TextInputAction.search,
-              onSubmitted: (_) {
-                _searchFocus.unfocus();
-                setState(() => _isSearching = true);
-                _executeSearch(saveHistory: true);
-              },
-              decoration: InputDecoration(
-                hintText: 'ابحث بكلمات متتابعة في الأبيات أو الشعراء…',
-                prefixIcon: Icon(Icons.search_rounded, color: p.accent),
-                suffixIcon: _ctrl.text.isNotEmpty
-                    ? IconButton(
-                        tooltip: 'مسح النص',
-                        onPressed: () {
-                          _debounce?.cancel();
-                          _ctrl.clear();
-                          setState(() {
-                            _isSearching = false;
-                            _bundle = null;
-                          });
-                          _searchFocus.requestFocus();
-                        },
-                        icon: Icon(Icons.close_rounded, color: p.inkMuted),
-                      )
-                    : null,
-              ),
-            ),
-          ),
-
-          // 2. Ultra-Simple Two-Control Bar: Word Boundary Mode + Multi-Select Filter
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: Row(
               children: [
                 Expanded(
-                  child: _SimpleOptionPill(
-                    icon: _filter.matchPartialWords
-                        ? Icons.short_text_rounded
-                        : Icons.space_bar_rounded,
-                    label: _filter.matchPartialWords
-                        ? 'بداية الكلمة (قل ← قلب)'
-                        : 'كلمة تامة (قل فقط)',
-                    active: !_filter.matchPartialWords,
-                    onTap: () {
-                      HapticFeedback.selectionClick();
-                      _updateFilterAndSearch(
-                        _filter.copyWith(
-                          matchPartialWords: !_filter.matchPartialWords,
-                        ),
-                      );
-                    },
+                  child: TextField(
+                    controller: _ctrl,
+                    focusNode: _searchFocus,
+                    autofocus: false,
+                    onChanged: _onQueryChanged,
+                    onTapOutside: (_) => _searchFocus.unfocus(),
+                    textInputAction: TextInputAction.search,
+                    onSubmitted: (_) => _executeSearch(saveHistory: true),
+                    decoration: InputDecoration(
+                      hintText: 'ابحث بحروف متتابعة ثم اضغط إدخال…',
+                      prefixIcon: IconButton(
+                        tooltip: 'تنفيذ البحث',
+                        onPressed: () => _executeSearch(saveHistory: true),
+                        icon: Icon(Icons.search_rounded, color: p.accent),
+                      ),
+                      suffixIcon: _ctrl.text.isNotEmpty
+                          ? IconButton(
+                              tooltip: 'مسح النص',
+                              onPressed: () {
+                                _searchSeq++;
+                                _ctrl.clear();
+                                setState(() {
+                                  _isSearching = false;
+                                  _bundle = null;
+                                });
+                                _searchFocus.requestFocus();
+                              },
+                              icon: Icon(
+                                Icons.close_rounded,
+                                color: p.inkMuted,
+                              ),
+                            )
+                          : null,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -341,9 +397,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
           // 3. Results / Loading / Suggestions Area
           Expanded(
-            child: _ctrl.text.trim().isEmpty
-                ? _buildInitialSuggestions(context)
-                : _isSearching && _bundle == null
+            child: _isSearching
                 ? Center(
                     child: CircularProgressIndicator(
                       color: p.accent,
@@ -351,7 +405,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     ),
                   )
                 : _bundle == null
-                ? const SizedBox.shrink()
+                ? _buildInitialSuggestions(context)
                 : _buildResults(context, _bundle!),
           ),
         ],
@@ -384,7 +438,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'اكتب أيّ عبارةٍ بالتشكيل أو بدونه لتظهر لك الأبيات المطابقة متتابعة، ويمكنك التبديل بين «بداية الكلمة» و«كلمة تامة» أو التصفية بالعصر والبحر والرويّ.',
+                    'اكتب أيّ حروفٍ متتابعة بالتشكيل أو بدونه ثم اضغط زر البحث (إدخال) لتظهر لك الأبيات المطابقة في الديوان، ويمكنك التصفية بأكثر من عصر وبحر ورويّ معاً.',
                     style: Theme.of(context).textTheme.bodySmall
                         ?.copyWith(height: 1.7),
                   ),
@@ -471,11 +525,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   Widget _buildResults(BuildContext context, SearchBundle bundle) {
     final p = context.palette;
 
-    if (!_isSearching && bundle.poems.isEmpty && bundle.poets.isEmpty) {
+    if (!_isSearching && bundle.poems.isEmpty) {
       return const EmptyStateView(
         icon: Icons.search_off_rounded,
         title: 'لا توجد نتائج مطابقة',
-        subtitle: 'جرّب اختيار «بداية الكلمة» أو أزل التصفية بالعصر أو البحر.',
+        subtitle: 'تأكّد من تتابع الحروف أو أزل بعض خيارات التصفية إن وُجدت.',
       );
     }
 
@@ -489,8 +543,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 Icon(Icons.auto_stories_outlined, size: 15, color: p.accent),
                 const SizedBox(width: 6),
                 Text(
-                  'عُثر على ${ArabicNormalizer.toArabicNumber(bundle.poems.length)} قصيدة'
-                  '${bundle.poets.isNotEmpty ? ' و${ArabicNormalizer.toArabicNumber(bundle.poets.length)} شاعر' : ''}',
+                  bundle.hasMore
+                      ? 'عُثر على أكثر من ٢٠٠ قصيدة (تُعرض أول ٢٠٠ — ضيّق بحثك)'
+                      : 'عُثر على ${ArabicNormalizer.toArabicNumber(bundle.poems.length)} قصيدة',
                   style: Theme.of(context).textTheme.labelSmall
                       ?.copyWith(color: p.accent, fontWeight: FontWeight.w600),
                 ),
@@ -498,74 +553,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             ),
           ),
         ),
-
-        // Matched Poets Strip
-        if (bundle.poets.isNotEmpty) ...[
-          SliverToBoxAdapter(
-            child: SizedBox(
-              height: 66,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: bundle.poets.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
-                itemBuilder: (context, i) {
-                  final poet = bundle.poets[i];
-                  return InkWell(
-                    onTap: () {
-                      _saveRecentQuery(bundle.query);
-                      BaytNav.pushEditorial(
-                        context,
-                        PoetDetailScreen(poetId: poet.id),
-                      );
-                    },
-                    borderRadius: BorderRadius.circular(14),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 13,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: p.accentSoft,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: p.accent.withValues(alpha: 0.35),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.person_rounded, size: 17, color: p.accent),
-                          const SizedBox(width: 8),
-                          Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                poet.namePlain,
-                                style: TextStyle(
-                                  fontFamily: AppFonts.ruqaa,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                  color: p.ink,
-                                ),
-                              ),
-                              Text(
-                                'العصر ${poet.eraName}  •  ${ArabicNormalizer.toArabicNumber(poet.poemCount)} قصيدة',
-                                style: Theme.of(context).textTheme.labelSmall,
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 10)),
-        ],
 
         // Clean Verse-Only Search Result Cards with Return-Origin Highlight
         SliverPadding(
@@ -578,152 +565,162 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               final wasJustRead = _recentlyReadPoemId == hit.poemId;
               final verseStyle = TextStyle(
                 fontFamily: AppFonts.scheherazade,
-                fontSize: 20,
+                fontSize: 19.5,
                 color: p.ink,
-                height: 1.85,
+                height: 1.82,
               );
-              return Builder(
-                builder: (cardContext) {
-                  return InkWell(
-                    onTap: () =>
-                        _openPoemFromCard(cardContext, hit, bundle.query),
-                    borderRadius: BorderRadius.circular(16),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 420),
-                      curve: Curves.easeOutCubic,
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: wasJustRead
-                            ? p.accentSoft.withValues(alpha: 0.24)
-                            : p.surfaceElevated,
+              return BaytStaggeredItem(
+                index: i,
+                child: Builder(
+                  builder: (cardContext) {
+                    return BaytPressable(
+                      child: InkWell(
+                        onTap: () =>
+                            _openPoemFromCard(cardContext, hit, bundle.query),
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: wasJustRead ? p.accent : p.hairline,
-                          width: wasJustRead ? 1.5 : 1.0,
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 420),
+                          curve: Curves.easeOutCubic,
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: wasJustRead
+                                ? p.accentSoft.withValues(alpha: 0.24)
+                                : p.surfaceElevated,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: wasJustRead ? p.accent : p.hairline,
+                              width: wasJustRead ? 1.5 : 1.0,
                             ),
-                            decoration: BoxDecoration(
-                              color: wasJustRead
-                                  ? p.surfaceElevated.withValues(alpha: 0.8)
-                                  : p.surface.withValues(alpha: 0.72),
-                              borderRadius: BorderRadius.circular(11),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Text(
-                                  hit.matchedSadr,
-                                  textAlign: TextAlign.right,
-                                  style: verseStyle,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
                                 ),
-                                if (hit.matchedAjuz.isNotEmpty)
-                                  Padding(
-                                    padding: const EdgeInsets.only(right: 22),
-                                    child: Text(
-                                      hit.matchedAjuz,
-                                      textAlign: TextAlign.left,
+                                decoration: BoxDecoration(
+                                  color: wasJustRead
+                                      ? p.surfaceElevated.withValues(alpha: 0.8)
+                                      : p.surface.withValues(alpha: 0.72),
+                                  borderRadius: BorderRadius.circular(11),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    Text(
+                                      hit.matchedSadr,
+                                      textAlign: TextAlign.right,
                                       style: verseStyle,
                                     ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.history_edu_rounded,
-                                size: 13.5,
-                                color: p.accent,
+                                    if (hit.matchedAjuz.isNotEmpty)
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                          right: 22,
+                                        ),
+                                        child: Text(
+                                          hit.matchedAjuz,
+                                          textAlign: TextAlign.left,
+                                          style: verseStyle,
+                                        ),
+                                      ),
+                                  ],
+                                ),
                               ),
-                              const SizedBox(width: 5),
-                              Flexible(
-                                flex: 3,
-                                child: Text(
-                                  hit.poetName,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontFamily: AppFonts.ui,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.history_edu_rounded,
+                                    size: 13.5,
                                     color: p.accent,
                                   ),
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Icon(
-                                Icons.waves_rounded,
-                                size: 12,
-                                color: p.inkMuted,
-                              ),
-                              const SizedBox(width: 3),
-                              Expanded(
-                                flex: 3,
-                                child: Text(
-                                  '${hit.meterName}  •  ${hit.eraName}',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context).textTheme.labelSmall,
-                                ),
-                              ),
-                              if (wasJustRead)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 7,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: p.accent,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    'قرأتها للتو',
-                                    style: TextStyle(
-                                      fontFamily: AppFonts.ui,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w700,
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onPrimary,
+                                  const SizedBox(width: 5),
+                                  Flexible(
+                                    flex: 3,
+                                    child: Text(
+                                      hit.poetName,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontFamily: AppFonts.ui,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: p.accent,
+                                      ),
                                     ),
                                   ),
-                                )
-                              else if (hit.matchingVersesCount > 1)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 7,
-                                    vertical: 2,
+                                  const SizedBox(width: 6),
+                                  Icon(
+                                    Icons.waves_rounded,
+                                    size: 12,
+                                    color: p.inkMuted,
                                   ),
-                                  decoration: BoxDecoration(
-                                    color: p.accentSoft,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    '${ArabicNormalizer.toArabicNumber(hit.matchingVersesCount)} أبيات',
-                                    style: TextStyle(
-                                      fontFamily: AppFonts.ui,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w600,
-                                      color: p.accent,
+                                  const SizedBox(width: 3),
+                                  Expanded(
+                                    flex: 3,
+                                    child: Text(
+                                      '${hit.meterName}  •  ${hit.eraName}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .labelSmall,
                                     ),
                                   ),
-                                ),
+                                  if (wasJustRead)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 7,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: p.accent,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        'قرأتها للتو',
+                                        style: TextStyle(
+                                          fontFamily: AppFonts.ui,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onPrimary,
+                                        ),
+                                      ),
+                                    )
+                                  else if (hit.matchingVersesCount > 1)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 7,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: p.accentSoft,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        '${ArabicNormalizer.toArabicNumber(hit.matchingVersesCount)} أبيات',
+                                        style: TextStyle(
+                                          fontFamily: AppFonts.ui,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w600,
+                                          color: p.accent,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
                             ],
                           ),
-                        ],
+                        ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               );
             },
           ),

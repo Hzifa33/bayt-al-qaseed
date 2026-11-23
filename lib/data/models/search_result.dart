@@ -114,10 +114,14 @@ class SearchBundle {
     required this.poems,
     required this.poets,
     required this.elapsedMs,
+    this.hasMore = false,
   });
 
   final String query;
   final List<PoemSearchHit> poems;
   final List<Poet> poets;
   final double elapsedMs;
+
+  /// True when matching poems exceeded the requested limit (e.g. > 200 poems).
+  final bool hasMore;
 }
