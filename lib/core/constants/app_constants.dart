@@ -10,12 +10,13 @@ class AppConstants {
       'https://github.com/Hzifa33/bayt-al-qaseed';
 
   static const String corpusAssetPath = 'assets/db/bayt_al_qaseed.db.gz';
-  static const String corpusDbFileName = 'bayt_al_qaseed_v4.db';
+  static const String corpusDbFileName = 'bayt_al_qaseed_v5.db';
   static const List<String> legacyCorpusDbFileNames = [
     'bayt_al_qaseed_v1.db',
     'bayt_al_qaseed_v2.db',
     'bayt_al_qaseed_v3.db',
+    'bayt_al_qaseed_v4.db',
   ];
   static const String userDbFileName = 'bayt_user_data_v1.db';
-  static const int corpusDbVersion = 4;
+  static const int corpusDbVersion = 5;
 }

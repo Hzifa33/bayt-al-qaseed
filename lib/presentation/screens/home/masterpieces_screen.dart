@@ -41,18 +41,49 @@ class _MasterpiecesScreenState extends ConsumerState<MasterpiecesScreen> {
   bool _searchOpen = false;
   final TextEditingController _searchCtrl = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
+  late final Map<String, ScrollController> _tabControllers;
+  final ScrollController _searchListCtrl = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _selectedCategory = widget.initialCategory;
+    _tabControllers = {
+      for (final (cat, _) in _categories) cat: ScrollController(),
+    };
   }
 
   @override
   void dispose() {
     _searchCtrl.dispose();
     _searchFocus.dispose();
+    for (final ctrl in _tabControllers.values) {
+      ctrl.dispose();
+    }
+    _searchListCtrl.dispose();
     super.dispose();
+  }
+
+  void _selectCategory(String cat) {
+    HapticFeedback.selectionClick();
+    if (_selectedCategory == cat) {
+      // Re-tapping the active category smoothly returns to the top
+      final ctrl = _query.trim().isNotEmpty
+          ? _searchListCtrl
+          : _tabControllers[cat];
+      if (ctrl != null && ctrl.hasClients && ctrl.offset > 0) {
+        ctrl.animateTo(
+          0,
+          duration: BaytMotion.medium,
+          curve: Curves.easeOutCubic,
+        );
+      }
+      return;
+    }
+    setState(() => _selectedCategory = cat);
+    if (_query.trim().isNotEmpty && _searchListCtrl.hasClients) {
+      _searchListCtrl.jumpTo(0);
+    }
   }
 
   void _openSearch() {
@@ -202,35 +233,73 @@ class _MasterpiecesScreenState extends ConsumerState<MasterpiecesScreen> {
                         label: Text(
                           '$cat (${ArabicNormalizer.toArabicNumber(count)})',
                         ),
-                        onSelected: (_) {
-                          HapticFeedback.selectionClick();
-                          setState(() => _selectedCategory = cat);
-                        },
+                        onSelected: (_) => _selectCategory(cat),
                       );
                     },
                   ),
                 ),
 
-                // Anthology Cards List
+                // Anthology Cards List — each category preserves its own independent scroll
+                // position (new tabs always start from top, returning tabs resume smoothly).
                 Expanded(
-                  child: filtered.isEmpty
-                      ? const EmptyStateView(
-                          icon: Icons.auto_awesome_outlined,
-                          title: 'لا توجد قصيدة مطابقة',
-                          subtitle: 'جرّب تغيير التصنيف أو عبارة البحث.',
-                        )
-                      : ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-                          itemCount: filtered.length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(height: 10),
-                          itemBuilder: (context, i) {
-                            final item = filtered[i];
-                            return BaytStaggeredItem(
-                              index: i,
-                              child: _AnthologyMasterpieceCard(verse: item),
+                  child: normQ.isNotEmpty
+                      ? (filtered.isEmpty
+                            ? const EmptyStateView(
+                                icon: Icons.auto_awesome_outlined,
+                                title: 'لا توجد قصيدة مطابقة',
+                                subtitle: 'جرّب تغيير التصنيف أو عبارة البحث.',
+                              )
+                            : ListView.separated(
+                                key: ValueKey(
+                                  'mp_search_${_selectedCategory}_$normQ',
+                                ),
+                                controller: _searchListCtrl,
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  8,
+                                  16,
+                                  32,
+                                ),
+                                itemCount: filtered.length,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 10),
+                                itemBuilder: (context, i) =>
+                                    _AnthologyMasterpieceCard(
+                                      verse: filtered[i],
+                                    ),
+                              ))
+                      : IndexedStack(
+                          index: _categories
+                              .indexWhere((c) => c.$1 == _selectedCategory)
+                              .clamp(0, _categories.length - 1),
+                          children: _categories.map((entry) {
+                            final cat = entry.$1;
+                            final items = cat == 'الكل'
+                                ? all
+                                : all.where((m) => m.category == cat).toList();
+                            if (items.isEmpty) {
+                              return const EmptyStateView(
+                                icon: Icons.auto_awesome_outlined,
+                                title: 'لا توجد قصائد في هذا التصنيف',
+                                subtitle: 'جرّب اختيار تصنيفٍ آخر.',
+                              );
+                            }
+                            return ListView.separated(
+                              key: PageStorageKey('mp_tab_$cat'),
+                              controller: _tabControllers[cat],
+                              padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+                              itemCount: items.length,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(height: 10),
+                              itemBuilder: (context, i) {
+                                final item = items[i];
+                                return BaytStaggeredItem(
+                                  index: i,
+                                  child: _AnthologyMasterpieceCard(verse: item),
+                                );
+                              },
                             );
-                          },
+                          }).toList(),
                         ),
                 ),
               ],
@@ -283,58 +352,66 @@ class _AnthologyMasterpieceCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Top Row: Famous Poem Title Tag + Category & Verse Count
+                // Top Row: Full Famous Poem Title Tag + Verse Count & Card Studio button
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 3.5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: p.accentSoft,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: p.accent.withValues(alpha: 0.35),
-                          width: 0.8,
+                    Flexible(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
                         ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.auto_awesome_rounded,
-                            size: 12,
-                            color: p.accent,
+                        decoration: BoxDecoration(
+                          color: p.accentSoft,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: p.accent.withValues(alpha: 0.35),
+                            width: 0.8,
                           ),
-                          const SizedBox(width: 5),
-                          ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 210),
-                            child: Text(
-                              verse.tag,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontFamily: AppFonts.ui,
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w700,
-                                color: p.accent,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.auto_awesome_rounded,
+                              size: 12,
+                              color: p.accent,
+                            ),
+                            const SizedBox(width: 5),
+                            Flexible(
+                              child: Text(
+                                verse.tag,
+                                style: TextStyle(
+                                  fontFamily: AppFonts.ui,
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: p.accent,
+                                  height: 1.35,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Spacer(),
-                    if (verse.verseCount > 0)
-                      Text(
-                        '${ArabicNormalizer.toArabicNumber(verse.verseCount)} بيتاً',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          fontSize: 10.5,
-                          fontFeatures: const [FontFeature.tabularFigures()],
+                          ],
                         ),
                       ),
-                    const SizedBox(width: 4),
+                    ),
+                    const SizedBox(width: 8),
+                    if (verse.verseCount > 0)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 5),
+                        child: Text(
+                          '${ArabicNormalizer.toArabicNumber(verse.verseCount)} بيتاً',
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(
+                                fontSize: 10.5,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
+                              ),
+                        ),
+                      ),
+                    const SizedBox(width: 2),
                     IconButton(
                       visualDensity: VisualDensity.compact,
                       padding: EdgeInsets.zero,

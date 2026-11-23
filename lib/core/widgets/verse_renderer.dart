@@ -108,7 +108,11 @@ class VerseRowWidget extends StatelessWidget {
             child: Stack(
               clipBehavior: Clip.none,
               children: [
-                !verse.isTwoHemistich
+                verse.isMukhammas
+                    ? (layoutStyle == VerseLayoutStyle.staggered
+                          ? _buildMukhammasStaggered(context, baseStyle)
+                          : _buildMukhammasSideBySide(context, baseStyle))
+                    : !verse.isTwoHemistich
                     ? _buildSingleLine(
                         context,
                         sadr.isNotEmpty ? sadr : ajuz,
@@ -474,6 +478,258 @@ class VerseRowWidget extends StatelessWidget {
     );
   }
 
+  Widget _buildMukhammasStaggered(BuildContext context, TextStyle baseStyle) {
+    final textScaler = MediaQuery.textScalerOf(context);
+    final p = context.palette;
+    final h1 = _prepare(verse.sadr);
+    final h2 = _prepare(verse.ajuz);
+    final h3 = _prepare(verse.extraHemistichs[0]);
+    final h4 = _prepare(verse.extraHemistichs[1]);
+    final h5 = _prepare(verse.extraHemistichs[2]);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final totalW = constraints.maxWidth;
+        final boxW = (totalW * 0.80).clamp(160.0, 520.0);
+        final indent = totalW - boxW;
+
+        Widget hemistichLine(String text, TextAlign align, {double left = 0, double right = 0, bool isRefrain = false}) {
+          final allowWrap = ArabicNormalizer.stripDiacritics(text).length > 72;
+          final effectiveBase = isRefrain
+              ? baseStyle.copyWith(color: p.ink)
+              : baseStyle;
+          final style = allowWrap
+              ? effectiveBase
+              : _calibrateHemistichStyle(
+                  text: text,
+                  baseStyle: effectiveBase,
+                  boxWidth: isRefrain ? totalW * 0.90 : boxW,
+                  textScaler: textScaler,
+                );
+          return Padding(
+            padding: EdgeInsets.only(left: left, right: right),
+            child: SizedBox(
+              width: isRefrain ? totalW : boxW,
+              child: _renderHemistich(
+                context,
+                text,
+                style,
+                textAlign: align,
+                allowWrap: allowWrap,
+              ),
+            ),
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (showVerseNumber)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 5),
+                child: Row(
+                  children: [
+                    VerseNumberMedallion(
+                      number: verse.index + 1,
+                      isSelected: isSelected,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Container(
+                        height: 0.6,
+                        color: p.hairline.withValues(alpha: 0.65),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            hemistichLine(h1, TextAlign.right, left: indent),
+            const SizedBox(height: 2),
+            hemistichLine(h2, TextAlign.left, right: indent),
+            const SizedBox(height: 5),
+            hemistichLine(h3, TextAlign.right, left: indent),
+            const SizedBox(height: 2),
+            hemistichLine(h4, TextAlign.left, right: indent),
+            const SizedBox(height: 6),
+            // القفل (5th refrain hemistich centered with subtle ornamental tint)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              decoration: BoxDecoration(
+                color: p.accentSoft.withValues(alpha: 0.42),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: hemistichLine(h5, TextAlign.center, isRefrain: true),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildMukhammasSideBySide(BuildContext context, TextStyle baseStyle) {
+    final textScaler = MediaQuery.textScalerOf(context);
+    final p = context.palette;
+    final h1 = _prepare(verse.sadr);
+    final h2 = _prepare(verse.ajuz);
+    final h3 = _prepare(verse.extraHemistichs[0]);
+    final h4 = _prepare(verse.extraHemistichs[1]);
+    final h5 = _prepare(verse.extraHemistichs[2]);
+    const centerGap = 16.0;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const numColWidth = 34.0;
+        const numGap = 8.0;
+        final numReserve = showVerseNumber ? (numColWidth + numGap) : 0.0;
+        final contentWidth = (constraints.maxWidth - numReserve).clamp(
+          160.0,
+          900.0,
+        );
+        final halfWidth = ((contentWidth - centerGap) / 2.0).clamp(80.0, 420.0);
+
+        Widget buildPair(String s, String a) {
+          final sWrap = ArabicNormalizer.stripDiacritics(s).length > 68;
+          final aWrap = ArabicNormalizer.stripDiacritics(a).length > 68;
+          final sStyle = sWrap
+              ? baseStyle
+              : _calibrateHemistichStyle(
+                  text: s,
+                  baseStyle: baseStyle,
+                  boxWidth: halfWidth,
+                  textScaler: textScaler,
+                );
+          final aStyle = aWrap
+              ? baseStyle
+              : _calibrateHemistichStyle(
+                  text: a,
+                  baseStyle: baseStyle,
+                  boxWidth: halfWidth,
+                  textScaler: textScaler,
+                );
+          final sSz = sStyle.fontSize ?? (baseStyle.fontSize ?? 20);
+          final aSz = aStyle.fontSize ?? (baseStyle.fontSize ?? 20);
+          final minSz = sSz < aSz ? sSz : aSz;
+          final syncedS = sSz > minSz * 1.08
+              ? sStyle.copyWith(fontSize: minSz * 1.06)
+              : sStyle;
+          final syncedA = aSz > minSz * 1.08
+              ? aStyle.copyWith(fontSize: minSz * 1.06)
+              : aStyle;
+
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: sWrap
+                      ? _renderHemistich(
+                          context,
+                          s,
+                          syncedS,
+                          textAlign: TextAlign.right,
+                          allowWrap: true,
+                        )
+                      : FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerRight,
+                          child: _renderHemistich(
+                            context,
+                            s,
+                            syncedS,
+                            textAlign: TextAlign.right,
+                            allowWrap: false,
+                          ),
+                        ),
+                ),
+              ),
+              const SizedBox(width: centerGap),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: aWrap
+                      ? _renderHemistich(
+                          context,
+                          a,
+                          syncedA,
+                          textAlign: TextAlign.left,
+                          allowWrap: true,
+                        )
+                      : FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: _renderHemistich(
+                            context,
+                            a,
+                            syncedA,
+                            textAlign: TextAlign.left,
+                            allowWrap: false,
+                          ),
+                        ),
+                ),
+              ),
+            ],
+          );
+        }
+
+        final h5Style = _calibrateHemistichStyle(
+          text: h5,
+          baseStyle: baseStyle,
+          boxWidth: contentWidth * 0.88,
+          textScaler: textScaler,
+        );
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (showVerseNumber) ...[
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: SizedBox(
+                  width: numColWidth,
+                  child: VerseNumberMedallion(
+                    number: verse.index + 1,
+                    isSelected: isSelected,
+                    fixedWidth: numColWidth,
+                  ),
+                ),
+              ),
+              const SizedBox(width: numGap),
+            ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  buildPair(h1, h2),
+                  const SizedBox(height: 3),
+                  buildPair(h3, h4),
+                  const SizedBox(height: 5),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: p.accentSoft.withValues(alpha: 0.42),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: _renderHemistich(
+                      context,
+                      h5,
+                      h5Style,
+                      textAlign: TextAlign.center,
+                      allowWrap: true,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildSingleLine(
     BuildContext context,
     String text,
@@ -516,12 +772,20 @@ class VerseRowWidget extends StatelessWidget {
         if (showVerseNumber)
           Padding(
             padding: const EdgeInsets.only(bottom: 4),
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: VerseNumberMedallion(
-                number: verse.index + 1,
-                isSelected: isSelected,
-              ),
+            child: Row(
+              children: [
+                VerseNumberMedallion(
+                  number: verse.index + 1,
+                  isSelected: isSelected,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Container(
+                    height: 0.6,
+                    color: context.palette.hairline.withValues(alpha: 0.65),
+                  ),
+                ),
+              ],
             ),
           ),
         Padding(
@@ -573,8 +837,8 @@ double computePoemHarmoniousFontSize({
 
   for (var i = 0; i < verses.length; i += step) {
     final v = verses[i];
-    if (!v.isTwoHemistich) continue;
-    for (final raw in [v.sadr, v.ajuz]) {
+    if (!v.isTwoHemistich && !v.isMukhammas) continue;
+    for (final raw in v.allHemistichs) {
       final t = showDiacritics ? raw : ArabicNormalizer.stripDiacritics(raw);
       if (ArabicNormalizer.stripDiacritics(t).length > 65) continue;
       final tp = TextPainter(

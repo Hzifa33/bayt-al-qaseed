@@ -14,16 +14,23 @@ class ShareFormatter {
     final buf = StringBuffer();
     for (var i = 0; i < verses.length; i++) {
       final v = verses[i];
-      final sadr = showDiacritics
-          ? v.sadr
-          : ArabicNormalizer.stripDiacritics(v.sadr);
-      final ajuz = showDiacritics
-          ? v.ajuz
-          : ArabicNormalizer.stripDiacritics(v.ajuz);
-      if (ajuz.isNotEmpty) {
-        buf.writeln('$sadr  ۞  $ajuz');
+      String clean(String s) =>
+          showDiacritics ? s : ArabicNormalizer.stripDiacritics(s);
+      if (v.isMukhammas) {
+        buf.writeln('${clean(v.sadr)}  ۞  ${clean(v.ajuz)}');
+        buf.writeln(
+          '${clean(v.extraHemistichs[0])}  ۞  ${clean(v.extraHemistichs[1])}',
+        );
+        buf.writeln(clean(v.extraHemistichs[2]));
+        if (i < verses.length - 1) buf.writeln();
       } else {
-        buf.writeln(sadr);
+        final sadr = clean(v.sadr);
+        final ajuz = clean(v.ajuz);
+        if (ajuz.isNotEmpty) {
+          buf.writeln('$sadr  ۞  $ajuz');
+        } else {
+          buf.writeln(sadr);
+        }
       }
     }
     buf.writeln();

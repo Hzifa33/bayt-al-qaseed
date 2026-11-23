@@ -79,7 +79,10 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
     final repo = ref.read(poetryRepositoryProvider);
     final poem = repo.getPoemById(poemId);
     _poem = poem;
-    _targetScrollIndex = initialIndex;
+    final resolvedInitial = (poem != null && initialIndex != null)
+        ? Verse.resolveGroupedIndex(poem.verses, initialIndex)
+        : initialIndex;
+    _targetScrollIndex = resolvedInitial;
     _transientHighlightIndex = null;
     _lastBuiltVerse = 0;
 
@@ -91,10 +94,10 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
         if (!mounted) return;
         ref
             .read(userDataProvider.notifier)
-            .recordReading(poem, lastVerseIndex: initialIndex ?? 0);
-        if (initialIndex != null && initialIndex >= 0) {
+            .recordReading(poem, lastVerseIndex: resolvedInitial ?? 0);
+        if (resolvedInitial != null && resolvedInitial >= 0) {
           _scrollToExactVerseCenter(
-            targetIndex: initialIndex,
+            targetIndex: resolvedInitial,
             pulseAfterCenter: pulseTargetVerse,
           );
         }
@@ -369,9 +372,12 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
               ),
               _InfoRow(
                 icon: Icons.format_list_numbered_rtl_rounded,
-                label: 'عدد الأبيات',
-                value:
-                    '${ArabicNormalizer.toArabicNumber(poem.verseCount)} بيتاً',
+                label: poem.verses.any((v) => v.isMukhammas)
+                    ? 'عدد الأبيات المخمّسة'
+                    : 'عدد الأبيات',
+                value: poem.verses.any((v) => v.isMukhammas)
+                    ? '${ArabicNormalizer.toArabicNumber(poem.verses.length)} مخمّساً (خمسة أشطر للبيت)'
+                    : '${ArabicNormalizer.toArabicNumber(poem.verses.length)} بيتاً',
               ),
               _InfoRow(
                 icon: Icons.spellcheck_rounded,
@@ -760,7 +766,11 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
                                                     icon: Icons
                                                         .format_list_numbered_rtl_rounded,
                                                     label:
-                                                        '${ArabicNormalizer.toArabicNumber(poem.verseCount)} بيتاً',
+                                                        poem.verses.any(
+                                                          (v) => v.isMukhammas,
+                                                        )
+                                                        ? '${ArabicNormalizer.toArabicNumber(poem.verses.length)} مخمّساً'
+                                                        : '${ArabicNormalizer.toArabicNumber(poem.verses.length)} بيتاً',
                                                   ),
                                                 ],
                                               ),

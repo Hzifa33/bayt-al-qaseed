@@ -354,7 +354,7 @@ class VerseNumberMedallion extends StatelessWidget {
     final fg = isSelected ? p.accent : p.inkMuted.withValues(alpha: 0.78);
     return Container(
       width: fixedWidth,
-      alignment: Alignment.center,
+      alignment: fixedWidth != null ? Alignment.center : null,
       padding: EdgeInsets.symmetric(
         horizontal: fixedWidth != null ? 3 : 7,
         vertical: 2,

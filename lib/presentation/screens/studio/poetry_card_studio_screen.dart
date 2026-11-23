@@ -227,10 +227,26 @@ class _PoetryCardStudioScreenState extends State<PoetryCardStudioScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('تصميم بطاقة شعرية'),
+        titleSpacing: 4,
+        title: Align(
+          alignment: Alignment.centerRight,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerRight,
+            child: Text(
+              'تصميم بطاقة شعرية',
+              maxLines: 1,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontSize: 17.5,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ),
         actions: [
           IconButton(
             tooltip: 'حفظ في المعرض',
+            visualDensity: VisualDensity.compact,
             onPressed: (_savingGallery || _exporting) ? null : _saveToGallery,
             icon: _savingGallery
                 ? SizedBox(
@@ -246,6 +262,13 @@ class _PoetryCardStudioScreenState extends State<PoetryCardStudioScreen> {
           Padding(
             padding: const EdgeInsets.only(left: 10),
             child: FilledButton.icon(
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                visualDensity: VisualDensity.compact,
+              ),
               onPressed: (_exporting || _savingGallery)
                   ? null
                   : _exportAndShare,
@@ -255,8 +278,8 @@ class _PoetryCardStudioScreenState extends State<PoetryCardStudioScreen> {
                       height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Icon(Icons.ios_share_rounded, size: 17),
-              label: const Text('مشاركة'),
+                  : const Icon(Icons.ios_share_rounded, size: 16),
+              label: const Text('مشاركة', style: TextStyle(fontSize: 13)),
             ),
           ),
         ],
@@ -819,29 +842,14 @@ class _CardCanvas extends StatelessWidget {
                               children: verses.map((v) {
                                 final sadr = _clean(v.sadr);
                                 final ajuz = _clean(v.ajuz);
-                                if (!v.isTwoHemistich) {
-                                  return Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 4,
-                                    ),
-                                    child: Text(
-                                      sadr,
-                                      textAlign: TextAlign.center,
-                                      style: verseStyle,
-                                    ),
-                                  );
-                                }
-                                if (staggered) {
-                                  return Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 5,
-                                    ),
-                                    child: Column(
+                                Widget buildPair(String s, String a) {
+                                  if (staggered) {
+                                    return Column(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.stretch,
                                       children: [
                                         Text(
-                                          sadr,
+                                          s,
                                           textAlign: TextAlign.right,
                                           style: verseStyle,
                                         ),
@@ -850,26 +858,21 @@ class _CardCanvas extends StatelessWidget {
                                             right: 26,
                                           ),
                                           child: Text(
-                                            ajuz,
+                                            a,
                                             textAlign: TextAlign.left,
                                             style: verseStyle,
                                           ),
                                         ),
                                       ],
-                                    ),
-                                  );
-                                }
-                                return Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 4,
-                                  ),
-                                  child: Row(
+                                    );
+                                  }
+                                  return Row(
                                     children: [
                                       Expanded(
                                         child: FittedBox(
                                           fit: BoxFit.scaleDown,
                                           alignment: Alignment.centerRight,
-                                          child: Text(sadr, style: verseStyle),
+                                          child: Text(s, style: verseStyle),
                                         ),
                                       ),
                                       const SizedBox(width: 14),
@@ -877,11 +880,57 @@ class _CardCanvas extends StatelessWidget {
                                         child: FittedBox(
                                           fit: BoxFit.scaleDown,
                                           alignment: Alignment.centerLeft,
-                                          child: Text(ajuz, style: verseStyle),
+                                          child: Text(a, style: verseStyle),
                                         ),
                                       ),
                                     ],
+                                  );
+                                }
+
+                                if (v.isMukhammas) {
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 6,
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: [
+                                        buildPair(sadr, ajuz),
+                                        const SizedBox(height: 4),
+                                        buildPair(
+                                          _clean(v.extraHemistichs[0]),
+                                          _clean(v.extraHemistichs[1]),
+                                        ),
+                                        const SizedBox(height: 5),
+                                        Text(
+                                          _clean(v.extraHemistichs[2]),
+                                          textAlign: TextAlign.center,
+                                          style: verseStyle.copyWith(
+                                            color: template.accent,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }
+                                if (!v.isTwoHemistich) {
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 4,
+                                    ),
+                                    child: Text(
+                                      sadr.isNotEmpty ? sadr : ajuz,
+                                      textAlign: TextAlign.center,
+                                      style: verseStyle,
+                                    ),
+                                  );
+                                }
+                                return Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    vertical: staggered ? 5 : 4,
                                   ),
+                                  child: buildPair(sadr, ajuz),
                                 );
                               }).toList(),
                             ),

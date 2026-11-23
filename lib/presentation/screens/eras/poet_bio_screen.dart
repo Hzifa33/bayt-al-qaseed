@@ -269,14 +269,16 @@ class PoetBioScreen extends ConsumerWidget {
                         color: p.hairline.withValues(alpha: 0.8),
                       ),
                       const SizedBox(height: 14),
-                      SelectableText(
-                        poet.bio.trim(),
-                        textAlign: TextAlign.justify,
-                        style: TextStyle(
-                          fontFamily: AppFonts.amiri,
-                          fontSize: 18.5,
-                          height: 1.95,
-                          color: p.ink,
+                      SelectionArea(
+                        child: Text(
+                          poet.bio.trim(),
+                          textAlign: TextAlign.justify,
+                          style: TextStyle(
+                            fontFamily: AppFonts.amiri,
+                            fontSize: 18.5,
+                            height: 1.95,
+                            color: p.ink,
+                          ),
                         ),
                       ),
                     ],
