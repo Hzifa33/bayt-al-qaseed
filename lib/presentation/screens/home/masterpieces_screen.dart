@@ -74,7 +74,7 @@ class _MasterpiecesScreenState extends ConsumerState<MasterpiecesScreen> {
       if (ctrl != null && ctrl.hasClients && ctrl.offset > 0) {
         ctrl.animateTo(
           0,
-          duration: BaytMotion.medium,
+          duration: const Duration(milliseconds: 280),
           curve: Curves.easeOutCubic,
         );
       }
