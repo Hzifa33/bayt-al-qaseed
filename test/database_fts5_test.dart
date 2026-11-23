@@ -337,6 +337,86 @@ void main() {
       expect(adj.$1, isNull);
       expect(adj.$2, equals(2));
     });
+
+    test(
+      'matches 5-hemistich Mukhammas poems across all 5 hemistichs including hemistichs 3, 4, 5 and cross-hemistich 4->5',
+      () {
+        const mukhammasBody =
+            'وَلَمّا مَدَّتِ الأَعداءُ باعا\tوَراعَ النَفسَ كُرُّهُمُ سِراعا\n'
+            'بَرَزتُ وَقَد حَسَرتُ لَها القِناعا\tأَقولُ لَها وَقَد طارَت شَعاعا\n'
+            'مِنَ الأَبطالِ وَيحَكِ لا تُراعي\n'
+            'كَما اِبتَعتُ العَلاءَ بِغَيرِ سَومِ\tوَأَحلَلتُ النِكالَ بِكُلِ قَومِ\n'
+            'رِدي كَأسَ الفَناءِ بِغَيرِ لَومِ\tفَإِنَّكِ لَو سَأَلتِ بَقاءَ يَومِ\n'
+            'عَلى الأَجَلِ الَّذي لَكِ لَم تُطاعي';
+        const mukhammasTitle = 'وَلَمّا مَدَّتِ الأَعداءُ باعا';
+
+        final rawDb = sqlite3.open(corpusPath);
+        try {
+          rawDb.execute(
+            '''
+            INSERT INTO poems VALUES
+            (3, 3, 4, 5, 1, 1, '', ?, ?, 6, 1, 0, ?)
+            ''',
+            [
+              mukhammasTitle,
+              ArabicNormalizer.normalize(mukhammasTitle),
+              mukhammasBody,
+            ],
+          );
+          rawDb.execute(
+            'INSERT INTO poems_fts (rowid, title_norm, body_norm, poet_norm) VALUES (?, ?, ?, ?)',
+            [
+              3,
+              ArabicNormalizer.normalize(mukhammasTitle),
+              ArabicNormalizer.normalize(mukhammasBody),
+              ArabicNormalizer.normalize('أبو الطيب المتنبي'),
+            ],
+          );
+        } finally {
+          rawDb.dispose();
+        }
+
+        // Hemistich 3 (extraHemistichs[0]) in stanza 0
+        final hitH3 = poetryRepo.search(
+          rawQuery: 'برزت وقد حسرت',
+          poetLimit: 0,
+        );
+        expect(hitH3.poems.length, equals(1));
+        expect(hitH3.poems.first.poemId, equals(3));
+        expect(hitH3.poems.first.isMukhammas, isTrue);
+        expect(hitH3.poems.first.matchedVerseIndex, equals(0));
+        expect(hitH3.poems.first.verseCount, equals(2));
+
+        // Hemistich 5 / refrain (extraHemistichs[2]) in stanza 0
+        final hitH5 = poetryRepo.search(
+          rawQuery: 'ويحك لا تراعي',
+          poetLimit: 0,
+        );
+        expect(hitH5.poems.length, equals(1));
+        expect(hitH5.poems.first.poemId, equals(3));
+        expect(hitH5.poems.first.isMukhammas, isTrue);
+        expect(hitH5.poems.first.matchedExtraHemistichs.length, equals(3));
+
+        // Cross-hemistich 4 -> 5 (classical original couplet in Takhmees) in stanza 1
+        final hitH45 = poetryRepo.search(
+          rawQuery: 'لو سالت بقاء يوم على الاجل',
+          poetLimit: 0,
+        );
+        expect(hitH45.poems.length, equals(1));
+        expect(hitH45.poems.first.poemId, equals(3));
+        expect(hitH45.poems.first.matchedVerseIndex, equals(1));
+
+        // sameVerse mode combining hemistich 1 and hemistich 5 of stanza 1
+        final hitSameStanza = poetryRepo.search(
+          rawQuery: 'العلاء تطاعي',
+          filter: const SearchFilter(matchMode: SearchMatchMode.sameVerse),
+          poetLimit: 0,
+        );
+        expect(hitSameStanza.poems.length, equals(1));
+        expect(hitSameStanza.poems.first.poemId, equals(3));
+        expect(hitSameStanza.poems.first.matchedVerseIndex, equals(1));
+      },
+    );
   });
 
   group('UserRepository (Favorites, Verses, Collections, History)', () {

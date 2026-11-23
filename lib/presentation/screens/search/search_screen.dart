@@ -688,6 +688,44 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                           style: verseStyle,
                                         ),
                                       ),
+                                    if (hit.isMukhammas) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        hit.matchedExtraHemistichs[0],
+                                        textAlign: TextAlign.right,
+                                        style: verseStyle,
+                                      ),
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                          right: 22,
+                                        ),
+                                        child: Text(
+                                          hit.matchedExtraHemistichs[1],
+                                          textAlign: TextAlign.left,
+                                          style: verseStyle,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 5),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: p.accentSoft.withValues(
+                                            alpha: 0.42,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          hit.matchedExtraHemistichs[2],
+                                          textAlign: TextAlign.center,
+                                          style: verseStyle,
+                                        ),
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ),
@@ -765,7 +803,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: Text(
-                                        '${ArabicNormalizer.toArabicNumber(hit.matchingVersesCount)} أبيات',
+                                        '${ArabicNormalizer.toArabicNumber(hit.matchingVersesCount)} ${hit.isMukhammas ? 'مخمّسات' : 'أبيات'}',
                                         style: TextStyle(
                                           fontFamily: AppFonts.ui,
                                           fontSize: 10,

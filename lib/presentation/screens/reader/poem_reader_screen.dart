@@ -31,11 +31,13 @@ class PoemReaderScreen extends ConsumerStatefulWidget {
     super.key,
     required this.poemId,
     this.initialVerseIndex,
+    this.isRawVerseIndex = false,
     this.highlightMatchedVerseOnce = false,
   });
 
   final int poemId;
   final int? initialVerseIndex;
+  final bool isRawVerseIndex;
   final bool highlightMatchedVerseOnce;
 
   @override
@@ -79,8 +81,11 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
     final repo = ref.read(poetryRepositoryProvider);
     final poem = repo.getPoemById(poemId);
     _poem = poem;
-    final resolvedInitial = (poem != null && initialIndex != null)
-        ? Verse.resolveGroupedIndex(poem.verses, initialIndex)
+    final resolvedInitial =
+        (poem != null && initialIndex != null && poem.verses.isNotEmpty)
+        ? (widget.isRawVerseIndex
+              ? Verse.resolveGroupedIndex(poem.verses, initialIndex)
+              : initialIndex.clamp(0, poem.verses.length - 1))
         : initialIndex;
     _targetScrollIndex = resolvedInitial;
     _transientHighlightIndex = null;

@@ -722,10 +722,11 @@ class PoetryRepository {
           meterName: r['meter_name'] as String,
           rhymeName: r['rhyme_name'] as String,
           title: r['title'] as String,
-          verseCount: r['verse_count'] as int,
+          verseCount: verses.length,
           matchedVerseIndex: bestVerse.index,
           matchedSadr: bestVerse.sadr,
           matchedAjuz: bestVerse.ajuz,
+          matchedExtraHemistichs: bestVerse.extraHemistichs,
           matchingVersesCount: matchCount,
         ),
       );
@@ -816,7 +817,9 @@ class PoetryRepository {
     final joinedPhrase = tokens.join(' ');
 
     for (final v in verses) {
-      final normLine = ArabicNormalizer.normalize('${v.sadr} ${v.ajuz}');
+      final normLine = v.isMukhammas
+          ? ArabicNormalizer.normalize(v.allHemistichs.join(' '))
+          : ArabicNormalizer.normalize('${v.sadr} ${v.ajuz}');
       if (normLine.isEmpty) continue;
 
       bool matched = false;
@@ -869,10 +872,11 @@ class PoetryRepository {
           if (tokens.length > 1 && normLine.contains(joinedPhrase)) {
             score += 60;
           }
-          final normSadr = ArabicNormalizer.normalize(v.sadr);
-          final normAjuz = ArabicNormalizer.normalize(v.ajuz);
-          if (tokens.every((t) => normSadr.contains(t)) ||
-              tokens.every((t) => normAjuz.contains(t))) {
+          final singleHemistichHit = v.allHemistichs.any((h) {
+            final normH = ArabicNormalizer.normalize(h);
+            return tokens.every((t) => normH.contains(t));
+          });
+          if (singleHemistichHit) {
             score += 20;
           }
         }

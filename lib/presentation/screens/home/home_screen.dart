@@ -179,6 +179,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       PoemReaderScreen(
                         poemId: featured.poemId,
                         initialVerseIndex: featured.verseIndex,
+                        isRawVerseIndex: true,
                         highlightMatchedVerseOnce: featured.verseIndex > 0,
                       ),
                     ),
@@ -339,6 +340,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         PoemReaderScreen(
                           poemId: m.poemId,
                           initialVerseIndex: m.verseIndex,
+                          isRawVerseIndex: true,
                           highlightMatchedVerseOnce: m.verseIndex > 0,
                         ),
                       ),

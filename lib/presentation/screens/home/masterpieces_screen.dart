@@ -335,6 +335,7 @@ class _AnthologyMasterpieceCard extends StatelessWidget {
             PoemReaderScreen(
               poemId: verse.poemId,
               initialVerseIndex: verse.verseIndex,
+              isRawVerseIndex: true,
               highlightMatchedVerseOnce: verse.verseIndex > 0,
             ),
           ),

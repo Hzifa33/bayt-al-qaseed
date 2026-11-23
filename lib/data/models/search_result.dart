@@ -22,6 +22,7 @@ class PoemSearchHit {
     required this.matchedVerseIndex,
     required this.matchedSadr,
     required this.matchedAjuz,
+    this.matchedExtraHemistichs = const [],
     this.matchingVersesCount = 1,
   });
 
@@ -36,7 +37,13 @@ class PoemSearchHit {
   final int matchedVerseIndex;
   final String matchedSadr;
   final String matchedAjuz;
+  final List<String> matchedExtraHemistichs;
   final int matchingVersesCount;
+
+  bool get isMukhammas =>
+      matchedExtraHemistichs.length == 3 &&
+      matchedSadr.isNotEmpty &&
+      matchedAjuz.isNotEmpty;
 }
 
 class SearchFilter {
