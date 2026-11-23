@@ -10,7 +10,7 @@ import '../../../core/utils/arabic_normalizer.dart';
 import '../../../core/widgets/bayt_ornaments.dart';
 import '../../../core/widgets/empty_state_view.dart';
 import '../../../data/models/verse.dart';
-import '../../providers/database_providers.dart';
+import '../../providers/app_providers.dart';
 import '../eras/poet_detail_screen.dart';
 import '../reader/poem_reader_screen.dart';
 import '../studio/poetry_card_studio_screen.dart';
