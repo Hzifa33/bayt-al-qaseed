@@ -143,12 +143,14 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="v1.0.0"
-          NOTES="الإصدار الرسمي الموقّع **1.0.0** من تطبيق **بيت القصيد** (ديوان الشعر العربي).
-
-### النسخ الموقّعة المتوفرة للتثبيت المباشر:
-- **\`BaytAlQaseed-v1.0.0-arm64-v8a.apk\`** — نسخة **ARM8 (64-bit)** (موصى بها لمعظم الهواتف الحديثة — حجم أصغر وأداء مثالي).
-- **\`BaytAlQaseed-v1.0.0-armeabi-v7a.apk\`** — نسخة **ARM7 (32-bit)** (للهواتف الأقدم).
-- **\`BaytAlQaseed-v1.0.0-universal.apk\`** — النسخة **الشاملة (Universal)** المتوافقة مع جميع معماريات أندرويد."
+          printf '%s\n' \
+            "الإصدار الرسمي الموقّع **1.0.0** من تطبيق **بيت القصيد** (ديوان الشعر العربي)." \
+            "" \
+            "### النسخ الموقّعة المتوفرة للتثبيت المباشر:" \
+            "- \`BaytAlQaseed-v1.0.0-arm64-v8a.apk\` — نسخة **ARM8 (64-bit)** (موصى بها لمعظم الهواتف الحديثة — حجم أصغر وأداء مثالي)." \
+            "- \`BaytAlQaseed-v1.0.0-armeabi-v7a.apk\` — نسخة **ARM7 (32-bit)** (للهواتف الأقدم)." \
+            "- \`BaytAlQaseed-v1.0.0-universal.apk\` — النسخة **الشاملة (Universal)** المتوافقة مع جميع معماريات أندرويد." \
+            > dist/release_notes.md
 
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" \
@@ -156,12 +158,12 @@ jobs:
               dist/BaytAlQaseed-v1.0.0-arm64-v8a.apk \
               dist/BaytAlQaseed-v1.0.0-armeabi-v7a.apk \
               --clobber
-            gh release edit "$TAG" --title "بيت القصيد v1.0.0" --notes "$NOTES"
+            gh release edit "$TAG" --title "بيت القصيد v1.0.0" --notes-file dist/release_notes.md
           else
             gh release create "$TAG" \
               dist/BaytAlQaseed-v1.0.0-universal.apk \
               dist/BaytAlQaseed-v1.0.0-arm64-v8a.apk \
               dist/BaytAlQaseed-v1.0.0-armeabi-v7a.apk \
               --title "بيت القصيد v1.0.0" \
-              --notes "$NOTES"
+              --notes-file dist/release_notes.md
           fi
