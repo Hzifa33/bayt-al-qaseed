@@ -1,19 +1,19 @@
 <div align="center" dir="rtl">
 
-<img src="docs/assets/hero-banner.svg" alt="بيت القصيد — ديوان الشعر العربي" width="100%" />
+<img src="docs/assets/hero-banner.png" alt="بيت القصيد — ديوان الشعر العربي" width="100%" />
 
 <br/><br/>
 
 [![الإصدار](https://img.shields.io/badge/الإصدار-v1.0.0-C8A25F?style=for-the-badge&labelColor=181511)](https://github.com/Hzifa33/bayt-al-qaseed/releases/tag/v1.0.0)
 [![المنصة](https://img.shields.io/badge/Android-ARM8_%7C_ARM7_%7C_Universal-8C5E35?style=for-the-badge&labelColor=181511)](https://github.com/Hzifa33/bayt-al-qaseed/releases/tag/v1.0.0)
 [![Flutter](https://img.shields.io/badge/Flutter_%26_Dart-3.x-2E4D40?style=for-the-badge&labelColor=181511)](https://flutter.dev)
-[![صفحة التطبيق](https://img.shields.io/badge/موقع_التطبيق-GitHub_Pages-B88B4A?style=for-the-badge&labelColor=181511)](https://hzifa33.github.io/bayt-al-qaseed/)
+[![صفحة التطبيق](https://img.shields.io/badge/موقع_التطبيق-Landing_Page-B88B4A?style=for-the-badge&labelColor=181511)](https://hzifa33.com/bayt-al-qaseed/)
 
 <br/>
 
 **تطبيقٌ أدبيٌّ عربيٌّ متكامل يعمل بالكامل دون اتصالٍ بالإنترنت، يجمع عيون الشعر العربي عبر أحد عشر عصراً أدبياً في تجربة قراءةٍ تحريريةٍ هادئة وبحثٍ دقيقٍ فائق السرعة.**
 
-[**🌐 زيارة صفحة التطبيق**](https://hzifa33.github.io/bayt-al-qaseed/) &nbsp;•&nbsp; [**📥 تحميل التطبيق (APK موقّع)**](https://github.com/Hzifa33/bayt-al-qaseed/releases/tag/v1.0.0) &nbsp;•&nbsp; [**👤 موقع المطوّر**](https://hzifa33.com)
+[**🌐 زيارة صفحة التطبيق**](https://hzifa33.com/bayt-al-qaseed/) &nbsp;•&nbsp; [**📥 تحميل التطبيق (APK موقّع)**](https://github.com/Hzifa33/bayt-al-qaseed/releases/tag/v1.0.0) &nbsp;•&nbsp; [**👤 موقع المطوّر**](https://hzifa33.com)
 
 </div>
 
@@ -27,7 +27,7 @@
 
 <div align="center">
 <br/>
-<img src="docs/assets/preview-showcase.svg" alt="معاينة واجهات تطبيق بيت القصيد" width="100%" />
+<img src="docs/assets/preview-showcase.png" alt="معاينة واجهات تطبيق بيت القصيد" width="100%" />
 <br/>
 </div>
 
@@ -102,6 +102,6 @@
 
 - **الموقع الشخصي:** [hzifa33.com](https://hzifa33.com)
 - **المستودع البرمجي:** [github.com/Hzifa33/bayt-al-qaseed](https://github.com/Hzifa33/bayt-al-qaseed)
-- **صفحة التطبيق:** [hzifa33.github.io/bayt-al-qaseed](https://hzifa33.github.io/bayt-al-qaseed/)
+- **صفحة التطبيق:** [hzifa33.com/bayt-al-qaseed](https://hzifa33.com/bayt-al-qaseed/)
 
 </div>
