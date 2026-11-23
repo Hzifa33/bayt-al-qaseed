@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show FontFeature;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -6,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../../core/animations/bayt_motion.dart';
 import '../../../core/animations/bayt_transitions.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_typography.dart';
@@ -648,131 +650,131 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
                   ),
                   itemCount: poem.verses.length + 2,
                   itemBuilder: (context, idx) {
-                    // Compact Horizontal Editorial Poem Header
+                    // Sleek Open Editorial Micro-Header (Circular Poet Icon + Compact Side Metadata — No Card Box!)
                     if (idx == 0) {
                       return Padding(
-                        padding: const EdgeInsets.fromLTRB(4, 2, 4, 8),
+                        padding: const EdgeInsets.fromLTRB(6, 4, 6, 4),
                         child: Column(
                           children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 11,
-                                vertical: 8,
+                            InkWell(
+                              onTap: () => BaytNav.pushEditorial(
+                                context,
+                                PoetDetailScreen(poetId: poem.poetId),
                               ),
-                              decoration: BoxDecoration(
-                                color: p.surface.withValues(alpha: 0.72),
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(
-                                  color: p.hairline,
-                                  width: 0.85,
+                              borderRadius: BorderRadius.circular(16),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                  vertical: 4,
                                 ),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  // Row 1: Compact Poet Name (with Person icon) + Era on the side
-                                  InkWell(
-                                    onTap: () => BaytNav.pushEditorial(
-                                      context,
-                                      PoetDetailScreen(poetId: poem.poetId),
-                                    ),
-                                    borderRadius: BorderRadius.circular(10),
-                                    child: Row(
-                                      children: [
-                                        Container(
-                                          width: 28,
-                                          height: 28,
-                                          alignment: Alignment.center,
-                                          decoration: BoxDecoration(
-                                            color: p.accentSoft,
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
+                                child: Row(
+                                  children: [
+                                    // Refined Circular Poet Icon Medallion
+                                    Container(
+                                      width: 38,
+                                      height: 38,
+                                      alignment: Alignment.center,
+                                      decoration: BoxDecoration(
+                                        color: p.accentSoft,
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: p.accent.withValues(
+                                            alpha: 0.35,
                                           ),
-                                          child: Icon(
-                                            Icons.person_rounded,
-                                            size: 16.5,
-                                            color: p.accent,
-                                          ),
+                                          width: 0.9,
                                         ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Align(
+                                      ),
+                                      child: Icon(
+                                        Icons.person_rounded,
+                                        size: 20,
+                                        color: p.accent,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    // Compact Poet Name + Brief Inline Metadata beside the circular icon
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Flexible(
+                                                child: FittedBox(
+                                                  fit: BoxFit.scaleDown,
+                                                  alignment:
+                                                      Alignment.centerRight,
+                                                  child: Text(
+                                                    poem.poetName,
+                                                    maxLines: 1,
+                                                    style: TextStyle(
+                                                      fontFamily:
+                                                          AppFonts.ruqaa,
+                                                      fontSize: 18.5,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                      color: p.accent,
+                                                      height: 1.22,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 3),
+                                              Icon(
+                                                Icons.chevron_left_rounded,
+                                                size: 15,
+                                                color: p.inkMuted,
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Align(
                                             alignment: Alignment.centerRight,
                                             child: FittedBox(
                                               fit: BoxFit.scaleDown,
                                               alignment: Alignment.centerRight,
-                                              child: Text(
-                                                poem.poetName,
-                                                maxLines: 1,
-                                                style: TextStyle(
-                                                  fontFamily: AppFonts.ruqaa,
-                                                  fontSize: 19,
-                                                  fontWeight: FontWeight.w700,
-                                                  color: p.accent,
-                                                  height: 1.25,
-                                                ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  _InlineMetaTag(
+                                                    icon: Icons
+                                                        .hourglass_bottom_rounded,
+                                                    label: poem.eraName,
+                                                  ),
+                                                  _MetaDot(color: p.ornament),
+                                                  _InlineMetaTag(
+                                                    icon: Icons.waves_rounded,
+                                                    label: poem.meterName,
+                                                  ),
+                                                  _MetaDot(color: p.ornament),
+                                                  _InlineMetaTag(
+                                                    icon: Icons
+                                                        .music_note_outlined,
+                                                    label:
+                                                        'رويّ (${poem.rhymeName})',
+                                                  ),
+                                                  _MetaDot(color: p.ornament),
+                                                  _InlineMetaTag(
+                                                    icon: Icons
+                                                        .format_list_numbered_rtl_rounded,
+                                                    label:
+                                                        '${ArabicNormalizer.toArabicNumber(poem.verseCount)} بيتاً',
+                                                  ),
+                                                ],
                                               ),
                                             ),
                                           ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        _InlineMetaTag(
-                                          icon: Icons.hourglass_bottom_rounded,
-                                          label: poem.eraName,
-                                          accented: true,
-                                        ),
-                                        const SizedBox(width: 2),
-                                        Icon(
-                                          Icons.chevron_left_rounded,
-                                          size: 16,
-                                          color: p.inkMuted,
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 6,
-                                    ),
-                                    child: Divider(
-                                      height: 0.7,
-                                      thickness: 0.7,
-                                      color: p.hairline.withValues(alpha: 0.8),
-                                    ),
-                                  ),
-                                  // Row 2: Compact Side-by-Side Quick Metadata Strip with Icons
-                                  FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    alignment: Alignment.centerRight,
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        _InlineMetaTag(
-                                          icon: Icons.waves_rounded,
-                                          label: 'بحر ${poem.meterName}',
-                                        ),
-                                        _MetaDot(color: p.ornament),
-                                        _InlineMetaTag(
-                                          icon: Icons.music_note_outlined,
-                                          label: 'الرويّ (${poem.rhymeName})',
-                                        ),
-                                        _MetaDot(color: p.ornament),
-                                        _InlineMetaTag(
-                                          icon: Icons
-                                              .format_list_numbered_rtl_rounded,
-                                          label:
-                                              '${ArabicNormalizer.toArabicNumber(poem.verseCount)} بيتاً',
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
                             const EditorialDivider(
-                              verticalPadding: 9,
-                              horizontalPadding: 44,
+                              verticalPadding: 8,
+                              horizontalPadding: 48,
                             ),
                           ],
                         ),
@@ -1044,11 +1046,14 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
                                     ),
                                   );
                                 },
-                                icon: Icon(
-                                  isFavPoem
-                                      ? Icons.bookmark_rounded
-                                      : Icons.bookmark_border_rounded,
-                                  color: isFavPoem ? p.accent : p.ink,
+                                icon: BaytIconMorph(
+                                  icon: Icon(
+                                    isFavPoem
+                                        ? Icons.bookmark_rounded
+                                        : Icons.bookmark_border_rounded,
+                                    key: ValueKey(isFavPoem),
+                                    color: isFavPoem ? p.accent : p.ink,
+                                  ),
                                 ),
                               ),
                             ],
@@ -1116,15 +1121,10 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
 }
 
 class _InlineMetaTag extends StatelessWidget {
-  const _InlineMetaTag({
-    required this.icon,
-    required this.label,
-    this.accented = false,
-  });
+  const _InlineMetaTag({required this.icon, required this.label});
 
   final IconData icon;
   final String label;
-  final bool accented;
 
   @override
   Widget build(BuildContext context) {
@@ -1132,16 +1132,17 @@ class _InlineMetaTag extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 11.5, color: accented ? p.accent : p.accent),
+        Icon(icon, size: 11, color: p.accent),
         const SizedBox(width: 3),
         Text(
           label,
           style: TextStyle(
             fontFamily: AppFonts.ui,
             fontSize: 10.5,
-            fontWeight: accented ? FontWeight.w600 : FontWeight.w500,
-            color: accented ? p.accent : p.inkMuted,
+            fontWeight: FontWeight.w500,
+            color: p.inkMuted,
             height: 1.25,
+            fontFeatures: const [FontFeature.tabularFigures()],
           ),
         ),
       ],

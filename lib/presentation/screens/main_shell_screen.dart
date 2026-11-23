@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/animations/bayt_motion.dart';
 import '../../core/animations/bayt_transitions.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_typography.dart';
@@ -47,7 +48,26 @@ class _MainShellScreenState extends State<MainShellScreen> {
       },
       child: Scaffold(
         extendBody: true,
-        body: IndexedStack(index: _index, children: pages),
+        body: Stack(
+          fit: StackFit.expand,
+          children: List.generate(pages.length, (i) {
+            final active = i == _index;
+            return IgnorePointer(
+              ignoring: !active,
+              child: AnimatedOpacity(
+                opacity: active ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 210),
+                curve: active ? BaytMotion.easeOut : BaytMotion.exit,
+                child: AnimatedScale(
+                  scale: active ? 1.0 : 0.985,
+                  duration: const Duration(milliseconds: 240),
+                  curve: BaytMotion.easeOut,
+                  child: TickerMode(enabled: active, child: pages[i]),
+                ),
+              ),
+            );
+          }),
+        ),
         bottomNavigationBar: _SculptedFloatingNavBar(
           selectedIndex: _index,
           onSelect: _goToTab,

@@ -1,6 +1,9 @@
+import 'dart:ui' show FontFeature;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/animations/bayt_motion.dart';
 import '../../../core/animations/bayt_transitions.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_typography.dart';
@@ -52,10 +55,32 @@ class _MeterPoemsScreenState extends ConsumerState<MeterPoemsScreen> {
     final p = context.palette;
     return Scaffold(
       appBar: AppBar(
-        title: Text('بحر ${widget.meter.name}'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'بحر ${widget.meter.name}',
+              style: TextStyle(
+                fontFamily: AppFonts.ruqaa,
+                fontSize: 21,
+                fontWeight: FontWeight.w700,
+                color: p.ink,
+                height: 1.25,
+              ),
+            ),
+            Text(
+              '${ArabicNormalizer.toArabicNumber(widget.meter.poemCount)} قصيدة',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                fontSize: 10.5,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ],
+        ),
         actions: [
           IconButton(
-            tooltip: 'درّةٌ من هذا البحر',
+            tooltip: 'قصيدة عشوائية من هذا البحر',
             onPressed: () {
               final rnd = ref
                   .read(poetryRepositoryProvider)
@@ -69,7 +94,8 @@ class _MeterPoemsScreenState extends ConsumerState<MeterPoemsScreen> {
         ],
       ),
       body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 260),
+        duration: BaytMotion.popover,
+        switchInCurve: BaytMotion.easeOut,
         child: _initialLoading
             ? Center(
                 key: const ValueKey('loading'),
@@ -80,9 +106,9 @@ class _MeterPoemsScreenState extends ConsumerState<MeterPoemsScreen> {
               )
             : ListView.separated(
                 key: const ValueKey('list'),
-                padding: const EdgeInsets.fromLTRB(18, 12, 18, 30),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 30),
                 itemCount: _poems.length + (_hasMore ? 1 : 0),
-                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                separatorBuilder: (_, __) => const SizedBox(height: 6),
                 itemBuilder: (context, i) {
                   if (i >= _poems.length) {
                     return Padding(
@@ -96,42 +122,75 @@ class _MeterPoemsScreenState extends ConsumerState<MeterPoemsScreen> {
                     );
                   }
                   final poem = _poems[i];
-                  return InkWell(
-                    onTap: () => BaytNav.pushDrop(
-                      context,
-                      PoemReaderScreen(poemId: poem.id),
-                    ),
-                    borderRadius: BorderRadius.circular(14),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 13,
-                      ),
-                      decoration: BoxDecoration(
-                        color: p.surfaceElevated,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: p.hairline),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            poem.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontFamily: AppFonts.scheherazade,
-                              fontSize: 20,
-                              color: p.ink,
-                              height: 1.5,
+                  return BaytStaggeredItem(
+                    index: i,
+                    child: Builder(
+                      builder: (cardCtx) => BaytPressable(
+                        child: InkWell(
+                          onTap: () => BaytNav.pushDrop(
+                            context,
+                            PoemReaderScreen(poemId: poem.id),
+                            origin: BaytNav.originFromContext(cardCtx),
+                          ),
+                          borderRadius: BorderRadius.circular(13),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 13,
+                              vertical: 9,
+                            ),
+                            decoration: BoxDecoration(
+                              color: p.surfaceElevated,
+                              borderRadius: BorderRadius.circular(13),
+                              border: Border.all(
+                                color: p.hairline,
+                                width: 0.85,
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  poem.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontFamily: AppFonts.scheherazade,
+                                    fontSize: 17.5,
+                                    color: p.ink,
+                                    height: 1.4,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.person_rounded,
+                                      size: 11.5,
+                                      color: p.accent,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        '${poem.poetName}  •  ${poem.eraName}  •  ${ArabicNormalizer.toArabicNumber(poem.verseCount)} بيتاً',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .labelSmall
+                                            ?.copyWith(
+                                              fontSize: 10.5,
+                                              fontFeatures: const [
+                                                FontFeature.tabularFigures(),
+                                              ],
+                                            ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
-                          const SizedBox(height: 3),
-                          Text(
-                            '${poem.poetName}  •  العصر ${poem.eraName}  •  ${ArabicNormalizer.toArabicNumber(poem.verseCount)} بيتاً',
-                            style: Theme.of(context).textTheme.labelSmall,
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   );

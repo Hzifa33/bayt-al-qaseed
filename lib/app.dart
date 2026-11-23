@@ -21,6 +21,7 @@ class BaytAlQaseedApp extends ConsumerWidget {
         return MaterialApp(
           title: AppConstants.appName,
           debugShowCheckedModeBanner: false,
+          scrollBehavior: const _BaytScrollBehavior(),
           locale: const Locale('ar'),
           supportedLocales: const [Locale('ar')],
           localizationsDelegates: const [
@@ -46,5 +47,15 @@ class BaytAlQaseedApp extends ConsumerWidget {
         );
       },
     );
+  }
+}
+
+/// Silky rubber-band scroll physics past list bounds across the entire app.
+class _BaytScrollBehavior extends MaterialScrollBehavior {
+  const _BaytScrollBehavior();
+
+  @override
+  ScrollPhysics getScrollPhysics(BuildContext context) {
+    return const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics());
   }
 }
