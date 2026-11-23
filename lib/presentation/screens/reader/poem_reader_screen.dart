@@ -577,6 +577,50 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
       child: Scaffold(
         body: Stack(
           children: [
+            // Full-bleed Theme-Tinted Arabic Calligraphy Watermark Background
+            Positioned.fill(
+              child: IgnorePointer(
+                child: RepaintBoundary(
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Image.asset(
+                        'assets/images/calligraphy_bg.webp',
+                        fit: BoxFit.cover,
+                        alignment: Alignment.center,
+                        color: p.accent.withValues(
+                          alpha: Theme.of(context).brightness == Brightness.dark
+                              ? 0.085
+                              : 0.075,
+                        ),
+                        colorBlendMode: BlendMode.srcIn,
+                        filterQuality: FilterQuality.medium,
+                      ),
+                      // Subtle editorial radial vignette keeping center verses effortless to read
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: RadialGradient(
+                            center: Alignment.center,
+                            radius: 0.96,
+                            colors: [
+                              p.canvas.withValues(
+                                alpha:
+                                    Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? 0.34
+                                    : 0.40,
+                              ),
+                              p.canvas.withValues(alpha: 0.0),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
             // Main Immersive Reading Surface
             GestureDetector(
               behavior: HitTestBehavior.translucent,

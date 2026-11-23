@@ -74,7 +74,7 @@ jobs:
           APK="dist/BaytAlQaseed-release-unsigned.apk"
           ls -lh "$APK"
           echo "=== Verifying bundled DB & native SQLite3 ==="
-          unzip -l "$APK" | grep -E "bayt_al_qaseed\.db\.gz|libsqlite3\.so|libapp\.so|ArefRuqaa|ReemKufi|Amiri|ScheherazadeNew|Mirza|IBMPlexSansArabic"
+          unzip -l "$APK" | grep -E "bayt_al_qaseed\.db\.gz|libsqlite3\.so|libapp\.so|ArefRuqaa|ReemKufi|Amiri|ScheherazadeNew|Mirza|IBMPlexSansArabic|parchment_texture\.webp|calligraphy_bg\.webp"
           echo "=== Confirming APK is unsigned (no META-INF signatures) ==="
           if unzip -l "$APK" | grep -qE "META-INF/.*\.(RSA|DSA|EC|SF)$"; then
             echo "ERROR: APK unexpectedly contains signature files!"

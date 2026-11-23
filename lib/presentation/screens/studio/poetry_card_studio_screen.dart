@@ -33,6 +33,7 @@ class _CardTemplate {
     required this.ink,
     required this.accent,
     required this.border,
+    this.isLight = false,
   });
 
   final String name;
@@ -41,6 +42,7 @@ class _CardTemplate {
   final Color ink;
   final Color accent;
   final Color border;
+  final bool isLight;
 }
 
 const _templates = [
@@ -51,6 +53,16 @@ const _templates = [
     ink: Color(0xFF1D1A16),
     accent: Color(0xFF8C5E35),
     border: Color(0xFFCBB894),
+    isLight: true,
+  ),
+  _CardTemplate(
+    name: 'رقّ عتيق',
+    bgTop: Color(0xFFF3E6CE),
+    bgBottom: Color(0xFFE2CCA8),
+    ink: Color(0xFF281D12),
+    accent: Color(0xFF7B4921),
+    border: Color(0xFFB39468),
+    isLight: true,
   ),
   _CardTemplate(
     name: 'ليلي فاخر',
@@ -131,6 +143,7 @@ class _PoetryCardStudioScreenState extends State<PoetryCardStudioScreen> {
   bool _showDiacritics = true;
   bool _showPoet = true;
   bool _showWatermark = true;
+  bool _showParchment = true;
   bool _exporting = false;
 
   Future<void> _exportAndShare() async {
@@ -211,6 +224,7 @@ class _PoetryCardStudioScreenState extends State<PoetryCardStudioScreen> {
                       showDiacritics: _showDiacritics,
                       showPoet: _showPoet,
                       showWatermark: _showWatermark,
+                      showParchment: _showParchment,
                     ),
                   ),
                 ),
@@ -489,23 +503,32 @@ class _PoetryCardStudioScreenState extends State<PoetryCardStudioScreen> {
     return Center(
       key: const ValueKey('elem_tab'),
       child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
+        spacing: 6,
+        runSpacing: 6,
         alignment: WrapAlignment.center,
         children: [
           FilterChip(
+            visualDensity: VisualDensity.compact,
+            selected: _showParchment,
+            label: const Text('ملمس المخطوطة'),
+            onSelected: (v) => setState(() => _showParchment = v),
+          ),
+          FilterChip(
+            visualDensity: VisualDensity.compact,
             selected: _showDiacritics,
-            label: const Text('إظهار التشكيل'),
+            label: const Text('التشكيل'),
             onSelected: (v) => setState(() => _showDiacritics = v),
           ),
           FilterChip(
+            visualDensity: VisualDensity.compact,
             selected: _showPoet,
             label: const Text('توقيع الشاعر'),
             onSelected: (v) => setState(() => _showPoet = v),
           ),
           FilterChip(
+            visualDensity: VisualDensity.compact,
             selected: _showWatermark,
-            label: const Text('شعار «بيت القصيد»'),
+            label: const Text('شعار التطبيق'),
             onSelected: (v) => setState(() => _showWatermark = v),
           ),
         ],
@@ -580,6 +603,7 @@ class _CardCanvas extends StatelessWidget {
     required this.showDiacritics,
     required this.showPoet,
     required this.showWatermark,
+    required this.showParchment,
   });
 
   final _CardTemplate template;
@@ -592,6 +616,7 @@ class _CardCanvas extends StatelessWidget {
   final bool showDiacritics;
   final bool showPoet;
   final bool showWatermark;
+  final bool showParchment;
 
   String _clean(String s) =>
       showDiacritics ? s : ArabicNormalizer.stripDiacritics(s);
@@ -607,11 +632,6 @@ class _CardCanvas extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
-          colors: [template.bgTop, template.bgBottom],
-        ),
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
@@ -621,152 +641,233 @@ class _CardCanvas extends StatelessWidget {
           ),
         ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: template.border.withValues(alpha: 0.75),
-              width: 1.1,
-            ),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(width: 28, height: 0.8, color: template.accent),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Transform.rotate(
-                      angle: 0.785398,
-                      child: Container(
-                        width: 6,
-                        height: 6,
-                        decoration: BoxDecoration(
-                          border: Border.all(color: template.accent, width: 1),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Container(width: 28, height: 0.8, color: template.accent),
-                ],
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Base Theme Gradient
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topRight,
+                  end: Alignment.bottomLeft,
+                  colors: [template.bgTop, template.bgBottom],
+                ),
               ),
-              Expanded(
-                child: Center(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 320),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: verses.map((v) {
-                          final sadr = _clean(v.sadr);
-                          final ajuz = _clean(v.ajuz);
-                          if (!v.isTwoHemistich) {
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 4),
-                              child: Text(
-                                sadr,
-                                textAlign: TextAlign.center,
-                                style: verseStyle,
-                              ),
-                            );
-                          }
-                          if (staggered) {
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 5),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Text(
-                                    sadr,
-                                    textAlign: TextAlign.right,
-                                    style: verseStyle,
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.only(right: 26),
-                                    child: Text(
-                                      ajuz,
-                                      textAlign: TextAlign.left,
-                                      style: verseStyle,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    alignment: Alignment.centerRight,
-                                    child: Text(sadr, style: verseStyle),
-                                  ),
-                                ),
-                                const SizedBox(width: 14),
-                                Expanded(
-                                  child: FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    alignment: Alignment.centerLeft,
-                                    child: Text(ajuz, style: verseStyle),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                      ),
+            ),
+
+            // Translucent Vintage Manuscript Parchment Overlay (adapts to every theme)
+            if (showParchment)
+              Positioned.fill(
+                child: Opacity(
+                  opacity: template.isLight ? 0.44 : 0.21,
+                  child: Image.asset(
+                    'assets/images/parchment_texture.webp',
+                    fit: BoxFit.cover,
+                    color: template.isLight
+                        ? null
+                        : template.accent.withValues(alpha: 0.65),
+                    colorBlendMode: template.isLight
+                        ? null
+                        : BlendMode.modulate,
+                    filterQuality: FilterQuality.medium,
+                  ),
+                ),
+              ),
+
+            // Gentle center readability wash preserving aged antique corners
+            if (showParchment)
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: RadialGradient(
+                      center: Alignment.center,
+                      radius: 0.92,
+                      colors: [
+                        template.bgTop.withValues(
+                          alpha: template.isLight ? 0.24 : 0.18,
+                        ),
+                        Colors.transparent,
+                      ],
                     ),
                   ),
                 ),
               ),
-              Column(
-                children: [
-                  if (showPoet) ...[
-                    Text(
-                      poetName,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: AppFonts.ruqaa,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        color: template.accent,
-                      ),
+
+            // Framed Poetic Content
+            Padding(
+              padding: const EdgeInsets.all(14),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 20,
+                ),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: template.border.withValues(alpha: 0.78),
+                    width: 1.1,
+                  ),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 28,
+                          height: 0.8,
+                          color: template.accent,
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: Transform.rotate(
+                            angle: 0.785398,
+                            child: Container(
+                              width: 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: template.accent,
+                                  width: 1,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Container(
+                          width: 28,
+                          height: 0.8,
+                          color: template.accent,
+                        ),
+                      ],
                     ),
-                    if (eraName != null && eraName!.isNotEmpty)
-                      Text(
-                        'العصر $eraName',
-                        style: TextStyle(
-                          fontFamily: AppFonts.ui,
-                          fontSize: 10.5,
-                          color: template.ink.withValues(alpha: 0.65),
+                    Expanded(
+                      child: Center(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 320),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: verses.map((v) {
+                                final sadr = _clean(v.sadr);
+                                final ajuz = _clean(v.ajuz);
+                                if (!v.isTwoHemistich) {
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 4,
+                                    ),
+                                    child: Text(
+                                      sadr,
+                                      textAlign: TextAlign.center,
+                                      style: verseStyle,
+                                    ),
+                                  );
+                                }
+                                if (staggered) {
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 5,
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: [
+                                        Text(
+                                          sadr,
+                                          textAlign: TextAlign.right,
+                                          style: verseStyle,
+                                        ),
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            right: 26,
+                                          ),
+                                          child: Text(
+                                            ajuz,
+                                            textAlign: TextAlign.left,
+                                            style: verseStyle,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 4,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          alignment: Alignment.centerRight,
+                                          child: Text(sadr, style: verseStyle),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 14),
+                                      Expanded(
+                                        child: FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          alignment: Alignment.centerLeft,
+                                          child: Text(ajuz, style: verseStyle),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ),
                         ),
                       ),
-                  ],
-                  if (showWatermark) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      AppConstants.appName,
-                      style: TextStyle(
-                        fontFamily: AppFonts.kufi,
-                        fontSize: 11,
-                        letterSpacing: 0.4,
-                        color: template.ink.withValues(alpha: 0.45),
-                      ),
+                    ),
+                    Column(
+                      children: [
+                        if (showPoet) ...[
+                          Text(
+                            poetName,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontFamily: AppFonts.ruqaa,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
+                              color: template.accent,
+                            ),
+                          ),
+                          if (eraName != null && eraName!.isNotEmpty)
+                            Text(
+                              'العصر $eraName',
+                              style: TextStyle(
+                                fontFamily: AppFonts.ui,
+                                fontSize: 10.5,
+                                color: template.ink.withValues(alpha: 0.65),
+                              ),
+                            ),
+                        ],
+                        if (showWatermark) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            AppConstants.appName,
+                            style: TextStyle(
+                              fontFamily: AppFonts.kufi,
+                              fontSize: 11,
+                              letterSpacing: 0.4,
+                              color: template.ink.withValues(alpha: 0.45),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ],
-                ],
+                ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

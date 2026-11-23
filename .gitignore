@@ -40,3 +40,6 @@ android/key.properties
 # Uncompressed build artifact DB (keep compressed asset assets/db/bayt_al_qaseed.db.gz)
 tool/bayt_al_qaseed.db
 tool/*.db
+
+# Raw unoptimized source images (optimized WebP assets live in assets/images/)
+images/
