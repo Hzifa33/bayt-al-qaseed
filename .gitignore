@@ -41,5 +41,5 @@ android/key.properties
 tool/bayt_al_qaseed.db
 tool/*.db
 
-# Raw unoptimized source images (optimized WebP assets live in assets/images/)
-images/
+# Raw unoptimized source images in repo root (optimized WebP assets live in assets/images/)
+/images/

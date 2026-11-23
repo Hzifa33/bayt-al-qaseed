@@ -1002,6 +1002,7 @@ class _SearchFiltersSheetState extends State<_SearchFiltersSheet> {
                           final sel = _draft.eraIds.contains(e.id);
                           return FilterChip(
                             selected: sel,
+                            showCheckmark: true,
                             visualDensity: VisualDensity.compact,
                             label: Text(e.name),
                             onSelected: (_) => setState(() {
@@ -1028,6 +1029,7 @@ class _SearchFiltersSheetState extends State<_SearchFiltersSheet> {
                           final sel = _draft.meterIds.contains(m.id);
                           return FilterChip(
                             selected: sel,
+                            showCheckmark: true,
                             visualDensity: VisualDensity.compact,
                             label: Text(m.name),
                             onSelected: (_) => setState(() {
@@ -1054,6 +1056,7 @@ class _SearchFiltersSheetState extends State<_SearchFiltersSheet> {
                           final sel = _draft.rhymeIds.contains(r.id);
                           return FilterChip(
                             selected: sel,
+                            showCheckmark: true,
                             visualDensity: VisualDensity.compact,
                             label: Text(r.name),
                             onSelected: (_) => setState(() {

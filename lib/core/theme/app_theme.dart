@@ -327,7 +327,17 @@ class AppTheme {
       chipTheme: ChipThemeData(
         backgroundColor: palette.surface,
         selectedColor: palette.accentSoft,
-        side: BorderSide(color: palette.hairline),
+        showCheckmark: false,
+        checkmarkColor: palette.accent,
+        side: WidgetStateBorderSide.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return BorderSide(
+              color: palette.accent.withValues(alpha: 0.72),
+              width: 1.25,
+            );
+          }
+          return BorderSide(color: palette.hairline, width: 0.9);
+        }),
         labelStyle: TextStyle(
           fontFamily: AppFonts.ui,
           fontSize: 12.5,

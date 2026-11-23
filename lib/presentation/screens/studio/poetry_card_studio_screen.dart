@@ -509,24 +509,28 @@ class _PoetryCardStudioScreenState extends State<PoetryCardStudioScreen> {
         children: [
           FilterChip(
             visualDensity: VisualDensity.compact,
+            showCheckmark: true,
             selected: _showParchment,
             label: const Text('ملمس المخطوطة'),
             onSelected: (v) => setState(() => _showParchment = v),
           ),
           FilterChip(
             visualDensity: VisualDensity.compact,
+            showCheckmark: true,
             selected: _showDiacritics,
             label: const Text('التشكيل'),
             onSelected: (v) => setState(() => _showDiacritics = v),
           ),
           FilterChip(
             visualDensity: VisualDensity.compact,
+            showCheckmark: true,
             selected: _showPoet,
             label: const Text('توقيع الشاعر'),
             onSelected: (v) => setState(() => _showPoet = v),
           ),
           FilterChip(
             visualDensity: VisualDensity.compact,
+            showCheckmark: true,
             selected: _showWatermark,
             label: const Text('شعار التطبيق'),
             onSelected: (v) => setState(() => _showWatermark = v),
