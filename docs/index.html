@@ -55,10 +55,10 @@
 
     body {
       font-family: 'IBM Plex Sans Arabic', system-ui, sans-serif;
-      font-size: 1.0625rem; /* 17px comfortable Arabic reading base */
+      font-size: clamp(0.92rem, 0.86rem + 0.35vw, 1.04rem);
       background-color: var(--canvas);
       color: var(--ink);
-      line-height: 1.85;
+      line-height: 1.8;
       overflow-x: hidden;
       transition: background-color 0.35s ease, color 0.35s ease;
       position: relative;
@@ -92,15 +92,15 @@
       width: 100%;
       max-width: 1120px;
       margin: 0 auto;
-      padding: 0 24px;
+      padding: 0 clamp(14px, 3vw, 24px);
     }
 
     /* Top Frosted Floating Header */
     header {
       position: sticky;
-      top: 14px;
+      top: 12px;
       z-index: 50;
-      padding: 0 18px;
+      padding: 0 clamp(10px, 2.5vw, 18px);
     }
 
     .nav-bar {
@@ -109,8 +109,8 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 16px;
-      padding: 11px 20px;
+      gap: 12px;
+      padding: 10px 18px;
       background: var(--nav-glass);
       backdrop-filter: blur(18px);
       -webkit-backdrop-filter: blur(18px);
@@ -122,42 +122,47 @@
     .brand {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
       text-decoration: none;
       color: var(--ink);
+      min-width: 0;
+      flex-shrink: 1;
     }
 
     .brand-logo {
-      width: 42px;
-      height: 42px;
+      width: 40px;
+      height: 40px;
       flex-shrink: 0;
     }
 
     .brand-title {
       font-family: 'Aref Ruqaa', serif;
-      font-size: 1.75rem;
+      font-size: clamp(1.22rem, 1.05rem + 0.8vw, 1.65rem);
       font-weight: 700;
       line-height: 1.15;
+      white-space: nowrap;
     }
 
     .brand-sub {
-      font-size: 0.84rem;
+      font-size: clamp(0.68rem, 0.64rem + 0.22vw, 0.82rem);
       color: var(--accent);
       font-weight: 600;
-      margin-top: 2px;
+      margin-top: 1px;
+      white-space: nowrap;
     }
 
     .nav-links {
       display: flex;
       align-items: center;
-      gap: 26px;
+      gap: 24px;
     }
 
     .nav-links a {
       text-decoration: none;
       color: var(--ink-muted);
-      font-size: 1rem;
+      font-size: 0.96rem;
       font-weight: 600;
+      white-space: nowrap;
       transition: color 0.2s ease;
     }
 
@@ -166,12 +171,13 @@
     .nav-actions {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
+      flex-shrink: 0;
     }
 
     .theme-btn {
-      width: 42px;
-      height: 42px;
+      width: 40px;
+      height: 40px;
       border-radius: 50%;
       border: 1px solid var(--hairline);
       background: var(--surface);
@@ -180,6 +186,7 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      flex-shrink: 0;
       transition: transform 0.16s ease, border-color 0.2s ease;
     }
 
@@ -190,17 +197,25 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 9px;
-      padding: 12px 24px;
+      gap: 8px;
+      padding: clamp(10px, 1.8vw, 12px) clamp(16px, 2.8vw, 24px);
       border-radius: 999px;
       background: var(--accent);
       color: #FFFDF8;
       text-decoration: none;
       font-weight: 700;
-      font-size: 1rem;
+      font-size: clamp(0.84rem, 0.8rem + 0.24vw, 0.98rem);
+      line-height: 1.25;
+      white-space: nowrap;
+      flex-shrink: 0;
       border: 1px solid transparent;
       box-shadow: 0 10px 24px -10px rgba(140, 94, 53, 0.55);
       transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease;
+    }
+
+    .nav-bar .btn-primary {
+      padding: 9px 18px;
+      font-size: 0.92rem;
     }
 
     [data-theme="dark"] .btn-primary {
@@ -215,14 +230,17 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 9px;
-      padding: 12px 24px;
+      gap: 8px;
+      padding: clamp(10px, 1.8vw, 12px) clamp(16px, 2.8vw, 24px);
       border-radius: 999px;
       background: var(--surface-elevated);
       color: var(--ink);
       text-decoration: none;
       font-weight: 600;
-      font-size: 1rem;
+      font-size: clamp(0.84rem, 0.8rem + 0.24vw, 0.98rem);
+      line-height: 1.25;
+      white-space: nowrap;
+      flex-shrink: 0;
       border: 1px solid var(--hairline);
       transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
     }
@@ -232,33 +250,33 @@
 
     /* Hero Section */
     .hero {
-      padding: 68px 0 48px;
+      padding: clamp(32px, 6vw, 68px) 0 clamp(28px, 4.5vw, 48px);
       display: grid;
       grid-template-columns: 1.08fr 0.92fr;
       align-items: center;
-      gap: 46px;
+      gap: clamp(26px, 4.5vw, 46px);
     }
 
     .badge-pill {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      padding: 7px 16px;
+      gap: 7px;
+      padding: 6px 14px;
       border-radius: 999px;
       background: var(--accent-soft);
       border: 1px solid var(--hairline);
       color: var(--accent);
-      font-size: 0.92rem;
+      font-size: clamp(0.76rem, 0.71rem + 0.24vw, 0.9rem);
       font-weight: 700;
-      margin-bottom: 20px;
+      margin-bottom: 16px;
     }
 
     .hero h1 {
       font-family: 'Aref Ruqaa', serif;
-      font-size: clamp(3rem, 5.5vw, 4.65rem);
+      font-size: clamp(2.15rem, 4.8vw, 4.2rem);
       line-height: 1.3;
       color: var(--ink);
-      margin-bottom: 18px;
+      margin-bottom: 16px;
     }
 
     .hero h1 span {
@@ -266,25 +284,25 @@
     }
 
     .hero p.lead {
-      font-size: 1.16rem;
+      font-size: clamp(0.94rem, 0.88rem + 0.36vw, 1.12rem);
       color: var(--ink-muted);
       max-width: 560px;
-      margin-bottom: 30px;
-      line-height: 1.95;
+      margin-bottom: 24px;
+      line-height: 1.88;
     }
 
     .hero-cta {
       display: flex;
       flex-wrap: wrap;
-      gap: 14px;
-      margin-bottom: 28px;
+      gap: 12px;
+      margin-bottom: 22px;
     }
 
     .hero-meta {
       display: flex;
       flex-wrap: wrap;
-      gap: 20px;
-      font-size: 0.95rem;
+      gap: 10px 18px;
+      font-size: clamp(0.8rem, 0.76rem + 0.2vw, 0.92rem);
       color: var(--ink-muted);
       font-weight: 500;
     }
@@ -298,8 +316,8 @@
     /* Interactive Manuscript Verse Preview Card */
     .manuscript-showcase {
       position: relative;
-      border-radius: 28px;
-      padding: 14px;
+      border-radius: clamp(20px, 3vw, 28px);
+      padding: clamp(9px, 1.8vw, 14px);
       background: var(--surface-elevated);
       border: 1px solid var(--hairline);
       box-shadow: var(--shadow);
@@ -308,8 +326,8 @@
 
     .manuscript-inner {
       position: relative;
-      border-radius: 20px;
-      padding: 32px 28px 26px;
+      border-radius: clamp(14px, 2.2vw, 20px);
+      padding: clamp(20px, 3.8vw, 32px) clamp(16px, 3.2vw, 28px) clamp(18px, 3vw, 24px);
       border: 1px solid var(--ornament);
       background: linear-gradient(145deg, var(--surface-elevated), var(--surface));
       overflow: hidden;
@@ -338,55 +356,55 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 12px;
-      margin-bottom: 26px;
+      gap: 10px;
+      margin-bottom: clamp(16px, 2.8vw, 24px);
     }
 
     .ornament-line i {
       display: block;
-      width: 52px;
+      width: clamp(34px, 6vw, 52px);
       height: 1px;
       background: var(--accent);
       opacity: 0.55;
     }
 
     .ornament-diamond {
-      width: 9px;
-      height: 9px;
+      width: 8px;
+      height: 8px;
       border: 1.5px solid var(--accent);
       transform: rotate(45deg);
     }
 
     .verse-block {
       font-family: 'Amiri', serif;
-      font-size: clamp(1.6rem, 2.5vw, 2.02rem);
-      line-height: 2.18;
+      font-size: clamp(1.22rem, 1.02rem + 1.05vw, 1.88rem);
+      line-height: 2.08;
       color: var(--ink);
-      margin-bottom: 26px;
+      margin-bottom: clamp(18px, 3vw, 24px);
     }
 
     .verse-sadr { text-align: right; }
-    .verse-ajuz { text-align: left; padding-right: 26px; }
+    .verse-ajuz { text-align: left; padding-right: clamp(10px, 2.8vw, 26px); }
 
     .verse-footer {
       display: flex;
       align-items: center;
       justify-content: space-between;
       border-top: 1px solid var(--hairline);
-      padding-top: 16px;
-      gap: 12px;
+      padding-top: 14px;
+      gap: 10px;
     }
 
     .poet-sig {
       font-family: 'Aref Ruqaa', serif;
-      font-size: 1.55rem;
+      font-size: clamp(1.16rem, 1rem + 0.65vw, 1.5rem);
       color: var(--accent);
       font-weight: 700;
       line-height: 1.25;
     }
 
     .poet-era {
-      font-size: 0.92rem;
+      font-size: clamp(0.76rem, 0.72rem + 0.2vw, 0.9rem);
       color: var(--ink-muted);
       margin-top: 2px;
     }
@@ -396,12 +414,13 @@
       background: var(--canvas);
       color: var(--accent);
       font-family: inherit;
-      font-size: 0.9rem;
+      font-size: clamp(0.76rem, 0.72rem + 0.18vw, 0.88rem);
       font-weight: 600;
-      padding: 8px 16px;
+      padding: 6px 13px;
       border-radius: 999px;
       cursor: pointer;
       white-space: nowrap;
+      flex-shrink: 0;
       transition: border-color 0.2s ease, transform 0.15s ease;
     }
 
@@ -412,21 +431,21 @@
     .stats-strip {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      gap: 16px;
-      margin: 22px 0 64px;
+      gap: clamp(10px, 2vw, 16px);
+      margin: 16px 0 clamp(36px, 6vw, 60px);
     }
 
     .stat-card {
       background: var(--surface-elevated);
       border: 1px solid var(--hairline);
-      border-radius: 20px;
-      padding: 24px 16px;
+      border-radius: clamp(14px, 2vw, 20px);
+      padding: clamp(14px, 2.6vw, 22px) clamp(10px, 2vw, 16px);
       text-align: center;
       box-shadow: 0 8px 24px -16px rgba(0, 0, 0, 0.12);
     }
 
     .stat-num {
-      font-size: clamp(1.85rem, 2.8vw, 2.3rem);
+      font-size: clamp(1.32rem, 1.05rem + 1.25vw, 2.15rem);
       font-weight: 700;
       color: var(--accent);
       font-variant-numeric: tabular-nums;
@@ -434,39 +453,39 @@
     }
 
     .stat-label {
-      font-size: 0.98rem;
+      font-size: clamp(0.78rem, 0.73rem + 0.26vw, 0.95rem);
       color: var(--ink-muted);
-      margin-top: 6px;
+      margin-top: 5px;
       font-weight: 500;
     }
 
     /* Section Headings */
-    .section { padding: 44px 0; }
+    .section { padding: clamp(26px, 4.5vw, 44px) 0; }
 
     .section-head {
       text-align: center;
       max-width: 680px;
-      margin: 0 auto 40px;
+      margin: 0 auto clamp(24px, 4vw, 38px);
     }
 
     .section-head h2 {
       font-family: 'Aref Ruqaa', serif;
-      font-size: clamp(2.35rem, 4vw, 3.05rem);
+      font-size: clamp(1.75rem, 3.4vw, 2.85rem);
       line-height: 1.35;
       color: var(--ink);
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
 
     .section-head p {
       color: var(--ink-muted);
-      font-size: 1.1rem;
-      line-height: 1.85;
+      font-size: clamp(0.9rem, 0.84rem + 0.34vw, 1.06rem);
+      line-height: 1.82;
     }
 
     /* App Preview Frame */
     .preview-frame {
-      border-radius: 26px;
-      padding: 10px;
+      border-radius: clamp(16px, 2.5vw, 26px);
+      padding: clamp(6px, 1.2vw, 10px);
       background: var(--surface-elevated);
       border: 1px solid var(--ornament);
       box-shadow: var(--shadow);
@@ -477,21 +496,21 @@
       display: block;
       width: 100%;
       height: auto;
-      border-radius: 18px;
+      border-radius: clamp(11px, 1.8vw, 18px);
     }
 
     /* Features Grid */
     .features-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 18px;
+      gap: clamp(12px, 2vw, 18px);
     }
 
     .feature-card {
       background: var(--surface-elevated);
       border: 1px solid var(--hairline);
-      border-radius: 22px;
-      padding: 28px 24px;
+      border-radius: clamp(16px, 2.2vw, 22px);
+      padding: clamp(18px, 2.8vw, 26px) clamp(16px, 2.5vw, 22px);
       transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.22s ease;
     }
 
@@ -501,56 +520,56 @@
     }
 
     .feature-icon {
-      width: 48px;
-      height: 48px;
-      border-radius: 14px;
+      width: clamp(40px, 4.5vw, 46px);
+      height: clamp(40px, 4.5vw, 46px);
+      border-radius: 13px;
       background: var(--accent-soft);
       color: var(--accent);
       display: flex;
       align-items: center;
       justify-content: center;
-      margin-bottom: 16px;
+      margin-bottom: 13px;
     }
 
     .feature-card h3 {
-      font-size: 1.2rem;
+      font-size: clamp(1rem, 0.94rem + 0.3vw, 1.16rem);
       font-weight: 700;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
       color: var(--ink);
     }
 
     .feature-card p {
-      font-size: 1rem;
+      font-size: clamp(0.86rem, 0.82rem + 0.22vw, 0.98rem);
       color: var(--ink-muted);
-      line-height: 1.85;
+      line-height: 1.8;
     }
 
     /* Download Section */
     .download-box {
       background: var(--surface-elevated);
       border: 1px solid var(--ornament);
-      border-radius: 28px;
-      padding: 42px 32px;
+      border-radius: clamp(20px, 3vw, 28px);
+      padding: clamp(22px, 4vw, 40px) clamp(16px, 3.2vw, 32px);
       box-shadow: var(--shadow);
-      margin-top: 12px;
+      margin-top: 8px;
     }
 
     .download-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 18px;
-      margin-top: 28px;
+      gap: clamp(12px, 2vw, 18px);
+      margin-top: clamp(18px, 3vw, 28px);
     }
 
     .apk-card {
       background: var(--surface);
       border: 1px solid var(--hairline);
-      border-radius: 22px;
-      padding: 26px 22px;
+      border-radius: clamp(16px, 2.2vw, 22px);
+      padding: clamp(18px, 2.8vw, 24px) clamp(16px, 2.4vw, 22px);
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      gap: 18px;
+      gap: 15px;
       position: relative;
       transition: border-color 0.2s ease, transform 0.2s ease;
     }
@@ -567,52 +586,52 @@
       align-self: flex-start;
       background: var(--accent);
       color: #FFFDF8;
-      font-size: 0.84rem;
+      font-size: clamp(0.72rem, 0.69rem + 0.15vw, 0.82rem);
       font-weight: 700;
-      padding: 4px 12px;
+      padding: 3px 11px;
       border-radius: 999px;
-      margin-bottom: 8px;
+      margin-bottom: 7px;
     }
 
     [data-theme="dark"] .rec-tag { color: #16130E; }
 
     .apk-title {
-      font-size: 1.24rem;
+      font-size: clamp(1.02rem, 0.96rem + 0.3vw, 1.2rem);
       font-weight: 700;
       color: var(--ink);
     }
 
     .apk-arch {
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 0.9rem;
+      font-size: clamp(0.78rem, 0.74rem + 0.18vw, 0.88rem);
       color: var(--accent);
       direction: ltr;
       display: inline-block;
-      margin-top: 3px;
+      margin-top: 2px;
     }
 
     .apk-desc {
-      font-size: 0.98rem;
+      font-size: clamp(0.85rem, 0.81rem + 0.2vw, 0.96rem);
       color: var(--ink-muted);
-      line-height: 1.75;
+      line-height: 1.72;
     }
 
     /* Footer */
     footer {
-      margin-top: 64px;
-      padding: 32px 0 46px;
+      margin-top: clamp(38px, 6vw, 64px);
+      padding: 26px 0 40px;
       border-top: 1px solid var(--hairline);
       text-align: center;
       color: var(--ink-muted);
-      font-size: 0.98rem;
+      font-size: clamp(0.84rem, 0.8rem + 0.2vw, 0.95rem);
     }
 
     .footer-links {
       display: flex;
       justify-content: center;
       flex-wrap: wrap;
-      gap: 24px;
-      margin-top: 12px;
+      gap: 12px 22px;
+      margin-top: 10px;
     }
 
     .footer-links a {
@@ -623,21 +642,36 @@
 
     .footer-links a:hover { text-decoration: underline; }
 
-    /* Responsive */
-    @media (max-width: 900px) {
-      .hero { grid-template-columns: 1fr; padding-top: 40px; gap: 34px; }
-      .features-grid, .download-grid { grid-template-columns: 1fr; }
+    /* Responsive Breakpoints */
+    @media (max-width: 980px) {
+      .hero { grid-template-columns: 1fr; }
+      .features-grid, .download-grid { grid-template-columns: repeat(2, 1fr); }
       .stats-strip { grid-template-columns: repeat(2, 1fr); }
       .nav-links { display: none; }
     }
 
-    @media (max-width: 560px) {
-      .nav-bar { padding: 9px 14px; }
-      .brand-title { font-size: 1.48rem; }
-      .brand-sub { font-size: 0.78rem; }
-      .btn-primary, .btn-outline { padding: 11px 18px; font-size: 0.94rem; }
-      .manuscript-inner { padding: 24px 18px 20px; }
-      .download-box { padding: 28px 18px; }
+    @media (max-width: 640px) {
+      .features-grid, .download-grid { grid-template-columns: 1fr; }
+      .nav-bar { padding: 8px 12px; gap: 8px; }
+      .brand { gap: 8px; }
+      .brand-logo { width: 34px; height: 34px; }
+      .theme-btn { width: 34px; height: 34px; }
+      .theme-btn svg { width: 17px; height: 17px; }
+      .nav-actions { gap: 6px; }
+      .nav-bar .btn-primary {
+        padding: 7px 13px;
+        font-size: 0.78rem;
+      }
+      .apk-card .btn-primary,
+      .apk-card .btn-outline {
+        width: 100%;
+      }
+    }
+
+    @media (max-width: 375px) {
+      .brand-sub { display: none; }
+      .brand-title { font-size: 1.18rem; }
+      .nav-bar .btn-primary { padding: 7px 11px; font-size: 0.75rem; }
     }
   </style>
 </head>
