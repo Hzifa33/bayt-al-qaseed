@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 480" width="1200" height="480">
+  <defs>
+    <linearGradient id="stage" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F6F0E4"/>
+      <stop offset="100%" stop-color="#EBE0CC"/>
+    </linearGradient>
+    <linearGradient id="cardDark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1C1A16"/>
+      <stop offset="100%" stop-color="#11100D"/>
+    </linearGradient>
+    <linearGradient id="emeraldCard" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#142C24"/>
+      <stop offset="100%" stop-color="#0B1914"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="125%">
+      <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#1A1510" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="480" rx="26" fill="url(#stage)"/>
+  <rect x="12" y="12" width="1176" height="456" rx="18" fill="none" stroke="#8C5E35" stroke-opacity="0.22" stroke-width="1"/>
+
+  <!-- Screen 1 (Left): Poetry Card Studio -->
+  <g transform="translate(88, 52)" filter="url(#shadow)">
+    <rect width="290" height="376" rx="28" fill="#171512" stroke="#3B3328" stroke-width="2"/>
+    <rect x="14" y="14" width="262" height="348" rx="18" fill="#141310"/>
+    <text x="145" y="42" text-anchor="middle" fill="#D5B274" font-family="sans-serif" font-size="13" font-weight="700">استوديو البطاقات الشعرية</text>
+    <!-- Mini Emerald Card Preview -->
+    <rect x="34" y="58" width="222" height="228" rx="14" fill="url(#emeraldCard)" stroke="#D2B275" stroke-opacity="0.65" stroke-width="1.2"/>
+    <rect x="44" y="68" width="202" height="208" rx="9" fill="none" stroke="#D2B275" stroke-opacity="0.45" stroke-width="0.9"/>
+    <line x1="112" y1="90" x2="178" y2="90" stroke="#D2B275" stroke-width="0.9"/>
+    <text x="228" y="138" text-anchor="end" fill="#F2ECE0" font-family="serif" font-size="16" direction="rtl">عَلى قَدرِ أَهلِ العَزمِ تَأتي العَزائِمُ</text>
+    <text x="62" y="172" text-anchor="start" fill="#F2ECE0" font-family="serif" font-size="16" direction="rtl">وَتَأتي عَلى قَدرِ الكِرامِ المَكارِمُ</text>
+    <text x="145" y="226" text-anchor="middle" fill="#D2B275" font-family="serif" font-size="15" font-weight="700">أبو الطيب المتنبي</text>
+    <text x="145" y="256" text-anchor="middle" fill="#F2ECE0" fill-opacity="0.55" font-family="sans-serif" font-size="10">بيت القصيد</text>
+    <!-- Studio Tabs -->
+    <rect x="30" y="302" width="52" height="24" rx="12" fill="#C8A25F" fill-opacity="0.22" stroke="#C8A25F" stroke-opacity="0.6"/>
+    <text x="56" y="318" text-anchor="middle" fill="#E6C98F" font-family="sans-serif" font-size="10">القالب</text>
+    <rect x="89" y="302" width="52" height="24" rx="12" fill="#23201B"/>
+    <text x="115" y="318" text-anchor="middle" fill="#9E9484" font-family="sans-serif" font-size="10">الخط</text>
+    <rect x="148" y="302" width="52" height="24" rx="12" fill="#23201B"/>
+    <text x="174" y="318" text-anchor="middle" fill="#9E9484" font-family="sans-serif" font-size="10">المقاس</text>
+    <rect x="207" y="302" width="52" height="24" rx="12" fill="#23201B"/>
+    <text x="233" y="318" text-anchor="middle" fill="#9E9484" font-family="sans-serif" font-size="10">العناصر</text>
+  </g>
+
+  <!-- Screen 2 (Center - Featured): Poem Reader -->
+  <g transform="translate(435, 26)" filter="url(#shadow)">
+    <rect width="330" height="428" rx="32" fill="#241E17" stroke="#C8A25F" stroke-opacity="0.55" stroke-width="2"/>
+    <rect x="14" y="14" width="302" height="400" rx="22" fill="#FAF6EE"/>
+    <!-- Progress Hairline -->
+    <rect x="14" y="14" width="160" height="3" rx="1.5" fill="#8C5E35"/>
+    <!-- Top Header -->
+    <circle cx="272" cy="58" r="18" fill="#8C5E35" fill-opacity="0.14" stroke="#8C5E35" stroke-opacity="0.35"/>
+    <circle cx="272" cy="54" r="5" fill="#8C5E35"/>
+    <path d="M262 67 C264 61 280 61 282 67" fill="#8C5E35"/>
+    <text x="245" y="55" text-anchor="end" fill="#8C5E35" font-family="serif" font-size="18" font-weight="700">بهاء الدين زهير</text>
+    <text x="245" y="72" text-anchor="end" fill="#6F6558" font-family="sans-serif" font-size="10">الأيوبي  •  الوافر  •  الرويّ (ك)  •  ٣٢ بيتاً</text>
+    <line x1="65" y1="88" x2="265" y2="88" stroke="#CBB894" stroke-width="1"/>
+    <rect x="161" y="84" width="8" height="8" transform="rotate(45 165 88)" fill="#FAF6EE" stroke="#8C5E35" stroke-width="1"/>
+
+    <!-- Verses (Staggered Symmetry) -->
+    <text x="292" y="128" text-anchor="end" fill="#1D1A16" font-family="serif" font-size="18.5">نَهاكَ عَنِ الغَوايَةِ ما نَهاكا</text>
+    <text x="42" y="156" text-anchor="start" fill="#1D1A16" font-family="serif" font-size="18.5">وَذُقتَ مِنَ الصَبابَةِ ما كَفاكا</text>
+
+    <!-- Highlighted Selected Verse Card -->
+    <rect x="28" y="176" width="274" height="74" rx="14" fill="#8C5E35" fill-opacity="0.11" stroke="#8C5E35" stroke-opacity="0.55" stroke-width="1.2"/>
+    <text x="286" y="206" text-anchor="end" fill="#1D1A16" font-family="serif" font-size="18.5">وَطالَ سَراكَ في لَيلِ التَصابي</text>
+    <text x="44" y="234" text-anchor="start" fill="#1D1A16" font-family="serif" font-size="18.5">وَقَد أَصبَحتَ لا تَحمَد سُراكا</text>
+
+    <text x="292" y="280" text-anchor="end" fill="#1D1A16" font-family="serif" font-size="18.5">فَلا تَجزَع لِحادِثَةِ اللَيالي</text>
+    <text x="42" y="308" text-anchor="start" fill="#1D1A16" font-family="serif" font-size="18.5">فَما لِحَوادِثِ الدُنيا بَقاءُ</text>
+
+    <!-- Reader Floating Controls -->
+    <rect x="36" y="346" width="258" height="46" rx="23" fill="#FFFDF8" stroke="#CBB894" stroke-width="1"/>
+    <text x="242" y="373" text-anchor="middle" fill="#1D1A16" font-family="sans-serif" font-size="10.5">هيئة القراءة</text>
+    <text x="165" y="373" text-anchor="middle" fill="#8C5E35" font-family="sans-serif" font-size="10.5" font-weight="700">التشكيل</text>
+    <text x="90" y="373" text-anchor="middle" fill="#1D1A16" font-family="sans-serif" font-size="10.5">بطاقة شعرية</text>
+  </g>
+
+  <!-- Screen 3 (Right): Precision Search & Filters -->
+  <g transform="translate(822, 52)" filter="url(#shadow)">
+    <rect width="290" height="376" rx="28" fill="#171512" stroke="#3B3328" stroke-width="2"/>
+    <rect x="14" y="14" width="262" height="348" rx="18" fill="url(#cardDark)"/>
+    <text x="256" y="44" text-anchor="end" fill="#F2E8D5" font-family="serif" font-size="16" font-weight="700">البحث في الديوان</text>
+    <!-- Search Input -->
+    <rect x="28" y="58" width="174" height="34" rx="14" fill="#24201A" stroke="#C8A25F" stroke-opacity="0.5"/>
+    <text x="190" y="79" text-anchor="end" fill="#E8DFCE" font-family="sans-serif" font-size="12">الدهر ليس</text>
+    <rect x="208" y="58" width="54" height="34" rx="14" fill="#C8A25F" fill-opacity="0.2" stroke="#C8A25F" stroke-opacity="0.55"/>
+    <text x="235" y="79" text-anchor="middle" fill="#E6C98F" font-family="sans-serif" font-size="11" font-weight="600">تصفية</text>
+
+    <!-- Multi-Select Filter Chips -->
+    <rect x="180" y="102" width="82" height="22" rx="11" fill="#C8A25F" fill-opacity="0.18" stroke="#C8A25F" stroke-opacity="0.45"/>
+    <text x="221" y="117" text-anchor="middle" fill="#E6C98F" font-family="sans-serif" font-size="9.5">العباسي ×</text>
+    <rect x="102" y="102" width="72" height="22" rx="11" fill="#C8A25F" fill-opacity="0.18" stroke="#C8A25F" stroke-opacity="0.45"/>
+    <text x="138" y="117" text-anchor="middle" fill="#E6C98F" font-family="sans-serif" font-size="9.5">الطويل ×</text>
+
+    <!-- Result Card 1 -->
+    <rect x="28" y="138" width="234" height="82" rx="14" fill="#211E19" stroke="#383126"/>
+    <text x="248" y="164" text-anchor="end" fill="#F2ECE0" font-family="serif" font-size="13.5">لَنِمنا وَصَرفُ الدَهرِ لَيسَ بِنائِمٍ</text>
+    <text x="42" y="186" text-anchor="start" fill="#F2ECE0" font-family="serif" font-size="13.5">خُزِمنا لَهُ قَسراً بِغَيرِ خَزائِمِ</text>
+    <text x="248" y="209" text-anchor="end" fill="#C8A25F" font-family="sans-serif" font-size="9.5" font-weight="600">أبو العلاء المعري  •  الطويل</text>
+
+    <!-- Result Card 2 -->
+    <rect x="28" y="230" width="234" height="82" rx="14" fill="#211E19" stroke="#383126"/>
+    <text x="248" y="256" text-anchor="end" fill="#F2ECE0" font-family="serif" font-size="13.5">وَرَيبُ الدَهرِ لَيسَ بِرائِبِ</text>
+    <text x="248" y="294" text-anchor="end" fill="#C8A25F" font-family="sans-serif" font-size="9.5" font-weight="600">البحتري  •  الطويل  •  العباسي</text>
+
+    <!-- Floating Frosted Nav Pill -->
+    <rect x="40" y="324" width="210" height="28" rx="14" fill="#26221C" stroke="#C8A25F" stroke-opacity="0.5"/>
+    <rect x="116" y="328" width="66" height="20" rx="10" fill="#C8A25F"/>
+    <text x="149" y="342" text-anchor="middle" fill="#171410" font-family="sans-serif" font-size="10" font-weight="700">البحث</text>
+  </g>
+</svg>
