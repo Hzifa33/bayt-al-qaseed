@@ -705,25 +705,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                           style: verseStyle,
                                         ),
                                       ),
-                                      const SizedBox(height: 5),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 2,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: p.accentSoft.withValues(
-                                            alpha: 0.42,
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          hit.matchedExtraHemistichs[2],
-                                          textAlign: TextAlign.center,
-                                          style: verseStyle,
-                                        ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        hit.matchedExtraHemistichs[2],
+                                        textAlign: TextAlign.center,
+                                        style: verseStyle,
                                       ),
                                     ],
                                   ],

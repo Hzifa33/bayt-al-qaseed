@@ -906,9 +906,7 @@ class _CardCanvas extends StatelessWidget {
                                         Text(
                                           _clean(v.extraHemistichs[2]),
                                           textAlign: TextAlign.center,
-                                          style: verseStyle.copyWith(
-                                            color: template.accent,
-                                          ),
+                                          style: verseStyle,
                                         ),
                                       ],
                                     ),

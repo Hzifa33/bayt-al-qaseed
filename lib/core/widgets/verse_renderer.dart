@@ -495,14 +495,11 @@ class VerseRowWidget extends StatelessWidget {
 
         Widget hemistichLine(String text, TextAlign align, {double left = 0, double right = 0, bool isRefrain = false}) {
           final allowWrap = ArabicNormalizer.stripDiacritics(text).length > 72;
-          final effectiveBase = isRefrain
-              ? baseStyle.copyWith(color: p.ink)
-              : baseStyle;
           final style = allowWrap
-              ? effectiveBase
+              ? baseStyle
               : _calibrateHemistichStyle(
                   text: text,
-                  baseStyle: effectiveBase,
+                  baseStyle: baseStyle,
                   boxWidth: isRefrain ? totalW * 0.90 : boxW,
                   textScaler: textScaler,
                 );
@@ -550,16 +547,8 @@ class VerseRowWidget extends StatelessWidget {
             hemistichLine(h3, TextAlign.right, left: indent),
             const SizedBox(height: 2),
             hemistichLine(h4, TextAlign.left, right: indent),
-            const SizedBox(height: 6),
-            // القفل (5th refrain hemistich centered with subtle ornamental tint)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-              decoration: BoxDecoration(
-                color: p.accentSoft.withValues(alpha: 0.42),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: hemistichLine(h5, TextAlign.center, isRefrain: true),
-            ),
+            const SizedBox(height: 5),
+            hemistichLine(h5, TextAlign.center, isRefrain: true),
           ],
         );
       },
@@ -568,7 +557,6 @@ class VerseRowWidget extends StatelessWidget {
 
   Widget _buildMukhammasSideBySide(BuildContext context, TextStyle baseStyle) {
     final textScaler = MediaQuery.textScalerOf(context);
-    final p = context.palette;
     final h1 = _prepare(verse.sadr);
     final h2 = _prepare(verse.ajuz);
     final h3 = _prepare(verse.extraHemistichs[0]);
@@ -704,22 +692,12 @@ class VerseRowWidget extends StatelessWidget {
                   const SizedBox(height: 3),
                   buildPair(h3, h4),
                   const SizedBox(height: 5),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: p.accentSoft.withValues(alpha: 0.42),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: _renderHemistich(
-                      context,
-                      h5,
-                      h5Style,
-                      textAlign: TextAlign.center,
-                      allowWrap: true,
-                    ),
+                  _renderHemistich(
+                    context,
+                    h5,
+                    h5Style,
+                    textAlign: TextAlign.center,
+                    allowWrap: true,
                   ),
                 ],
               ),
