@@ -17,7 +17,7 @@ class AppConstants {
       ? 'الموسوعة الشعرية العربية الشاملة'
       : 'ديوان الشعر العربي';
 
-  static const String appVersion = isExpanded ? '2.0.0' : '1.0.0';
+  static const String appVersion = '1.0.0';
 
   static const String developerHandle = 'hzifa33';
   static const String developerWebsite = 'https://hzifa33.com';

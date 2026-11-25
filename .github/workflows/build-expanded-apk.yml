@@ -1,4 +1,4 @@
-name: Build & Sign Expanded Edition APKs (v2.0.0)
+name: Build & Sign Expanded Edition APKs (v1.0.0)
 
 on:
   push:
@@ -126,16 +126,16 @@ jobs:
             "$APKSIGNER" verify --verbose --print-certs "$OUT_SIGNED"
           }
 
-          sign_apk dist/raw-universal.apk dist/BaytAlQaseed-Expanded-v2.0.0-universal.apk
-          sign_apk dist/raw-arm64-v8a.apk dist/BaytAlQaseed-Expanded-v2.0.0-arm64-v8a.apk
-          sign_apk dist/raw-armeabi-v7a.apk dist/BaytAlQaseed-Expanded-v2.0.0-armeabi-v7a.apk
+          sign_apk dist/raw-universal.apk dist/BaytAlQaseed-Expanded-v1.0.0-universal.apk
+          sign_apk dist/raw-arm64-v8a.apk dist/BaytAlQaseed-Expanded-v1.0.0-arm64-v8a.apk
+          sign_apk dist/raw-armeabi-v7a.apk dist/BaytAlQaseed-Expanded-v1.0.0-armeabi-v7a.apk
 
           rm -rf "$KEY_DIR"
 
       - name: Verify Signed Expanded APKs & Flavor Asset Isolation
         run: |
-          ls -lh dist/BaytAlQaseed-Expanded-v2.0.0-*.apk
-          for APK in dist/BaytAlQaseed-Expanded-v2.0.0-universal.apk dist/BaytAlQaseed-Expanded-v2.0.0-arm64-v8a.apk dist/BaytAlQaseed-Expanded-v2.0.0-armeabi-v7a.apk; do
+          ls -lh dist/BaytAlQaseed-Expanded-v1.0.0-*.apk
+          for APK in dist/BaytAlQaseed-Expanded-v1.0.0-universal.apk dist/BaytAlQaseed-Expanded-v1.0.0-arm64-v8a.apk dist/BaytAlQaseed-Expanded-v1.0.0-armeabi-v7a.apk; do
             echo "=== Checking assets in $APK ==="
             unzip -l "$APK" | grep -E "bayt_qafiyah_merged\.db\.gz|libsqlite3\.so|libapp\.so"
             if unzip -l "$APK" | grep -q "bayt_al_qaseed\.db\.gz"; then
@@ -147,41 +147,41 @@ jobs:
       - name: Upload Signed Expanded APK Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: BaytAlQaseed-Expanded-v2.0.0-signed-apks
+          name: BaytAlQaseed-Expanded-v1.0.0-signed-apks
           path: |
-            dist/BaytAlQaseed-Expanded-v2.0.0-universal.apk
-            dist/BaytAlQaseed-Expanded-v2.0.0-arm64-v8a.apk
-            dist/BaytAlQaseed-Expanded-v2.0.0-armeabi-v7a.apk
+            dist/BaytAlQaseed-Expanded-v1.0.0-universal.apk
+            dist/BaytAlQaseed-Expanded-v1.0.0-arm64-v8a.apk
+            dist/BaytAlQaseed-Expanded-v1.0.0-armeabi-v7a.apk
           retention-days: 90
 
-      - name: Publish Signed Expanded APKs to GitHub Release (v2.0.0-expanded)
+      - name: Publish Signed Expanded APKs to GitHub Release (v1.0.0-expanded)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="v2.0.0-expanded"
+          TAG="v1.0.0-expanded"
           printf '%s\n' \
-            "الإصدار الرسمي الموقّع **2.0.0** من **بيت القصيد — النسخة الموسّعة (الموسوعة)** (`com.baytalqaseed.expanded`)." \
+            "الإصدار الرسمي الموقّع **1.0.0** من **بيت القصيد — النسخة الموسّعة (الموسوعة)** (`com.baytalqaseed.expanded`)." \
             "" \
             "تُثبّت بشكلٍ مستقل تماماً بجانب النسخة القياسية (`com.baytalqaseed.app`) دون أي تعارض، وتضمّ **٣٣٨٬١٣٤ قصيدة** و**٥٬٦٢٦٬٣٣٦ بيتاً** لـ **١٧٬٢٤٤ شاعراً** عبر **١٣ عصراً** و**٤٧ بحراً** و**١٠ أغراض شعرية** و**١٢٧ شعوراً بتقسيماتها الهرمية** دون اتصال بالإنترنت." \
             "" \
             "### النسخ الموقّعة المتوفرة للتثبيت المباشر:" \
-            "- \`BaytAlQaseed-Expanded-v2.0.0-arm64-v8a.apk\` — نسخة **ARM8 (64-bit)** (موصى بها لمعظم الهواتف الحديثة)." \
-            "- \`BaytAlQaseed-Expanded-v2.0.0-armeabi-v7a.apk\` — نسخة **ARM7 (32-bit)** (للهواتف الأقدم)." \
-            "- \`BaytAlQaseed-Expanded-v2.0.0-universal.apk\` — النسخة **الشاملة (Universal)** المتوافقة مع جميع معماريات أندرويد." \
+            "- \`BaytAlQaseed-Expanded-v1.0.0-arm64-v8a.apk\` — نسخة **ARM8 (64-bit)** (موصى بها لمعظم الهواتف الحديثة)." \
+            "- \`BaytAlQaseed-Expanded-v1.0.0-armeabi-v7a.apk\` — نسخة **ARM7 (32-bit)** (للهواتف الأقدم)." \
+            "- \`BaytAlQaseed-Expanded-v1.0.0-universal.apk\` — النسخة **الشاملة (Universal)** المتوافقة مع جميع معماريات أندرويد." \
             > dist/release_notes.md
 
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" \
-              dist/BaytAlQaseed-Expanded-v2.0.0-universal.apk \
-              dist/BaytAlQaseed-Expanded-v2.0.0-arm64-v8a.apk \
-              dist/BaytAlQaseed-Expanded-v2.0.0-armeabi-v7a.apk \
+              dist/BaytAlQaseed-Expanded-v1.0.0-universal.apk \
+              dist/BaytAlQaseed-Expanded-v1.0.0-arm64-v8a.apk \
+              dist/BaytAlQaseed-Expanded-v1.0.0-armeabi-v7a.apk \
               --clobber
             gh release edit "$TAG" --notes-file dist/release_notes.md
           else
             gh release create "$TAG" \
-              dist/BaytAlQaseed-Expanded-v2.0.0-universal.apk \
-              dist/BaytAlQaseed-Expanded-v2.0.0-arm64-v8a.apk \
-              dist/BaytAlQaseed-Expanded-v2.0.0-armeabi-v7a.apk \
-              --title "بيت القصيد — النسخة الموسّعة v2.0.0 (الموسوعة)" \
+              dist/BaytAlQaseed-Expanded-v1.0.0-universal.apk \
+              dist/BaytAlQaseed-Expanded-v1.0.0-arm64-v8a.apk \
+              dist/BaytAlQaseed-Expanded-v1.0.0-armeabi-v7a.apk \
+              --title "بيت القصيد — النسخة الموسّعة v1.0.0 (الموسوعة)" \
               --notes-file dist/release_notes.md
           fi

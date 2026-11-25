@@ -5,15 +5,15 @@
 <br/><br/>
 
 [![النسخة القياسية](https://img.shields.io/badge/القياسية-v1.0.0-C8A25F?style=for-the-badge&labelColor=181511)](https://github.com/Hzifa33/bayt-al-qaseed/releases/tag/v1.0.0)
-[![النسخة الموسّعة](https://img.shields.io/badge/الموسّعة_(الموسوعة)-v2.0.0-2E6F5E?style=for-the-badge&labelColor=181511)](https://github.com/Hzifa33/bayt-al-qaseed/releases/tag/v2.0.0-expanded)
+[![النسخة الموسّعة](https://img.shields.io/badge/الموسّعة_(الموسوعة)-v1.0.0-2E6F5E?style=for-the-badge&labelColor=181511)](https://github.com/Hzifa33/bayt-al-qaseed/releases/tag/v1.0.0-expanded)
 [![المنصة](https://img.shields.io/badge/Android-ARM8_%7C_ARM7_%7C_Universal-8C5E35?style=for-the-badge&labelColor=181511)](https://github.com/Hzifa33/bayt-al-qaseed/releases)
 [![صفحة التطبيق](https://img.shields.io/badge/موقع_التطبيق-Landing_Page-B88B4A?style=for-the-badge&labelColor=181511)](https://hzifa33.com/bayt-al-qaseed/)
 
 <br/>
 
-**تطبيقٌ أدبيٌّ عربيٌّ متكامل يعمل بالكامل دون اتصالٍ بالإنترنت، يتوفّر الآن بنسختين مستقلّتين قابلتين للتثبيت جنباً إلى جنب: «بيت القصيد» القياسية الخفيفة، و«بيت القصيد — الموسوعة» (النسخة الموسّعة) التي تضمّ أكثر من ٥٫٦ مليون بيتٍ شعري و٣٣٨ ألف قصيدة.**
+**تطبيقٌ أدبيٌّ عربيٌّ متكامل يعمل بالكامل دون اتصالٍ بالإنترنت، يتوفّر الآن بنسختين مستقلّتين (`v1.0.0`) قابلتين للتثبيت جنباً إلى جنب: «بيت القصيد» القياسية الخفيفة، و«بيت القصيد — الموسوعة» (النسخة الموسّعة) التي تضمّ أكثر من ٥٫٦ مليون بيتٍ شعري و٣٣٨ ألف قصيدة.**
 
-[**🌐 زيارة صفحة التطبيق**](https://hzifa33.com/bayt-al-qaseed/) &nbsp;•&nbsp; [**📥 تحميل النسخة الموسّعة v2.0.0**](https://github.com/Hzifa33/bayt-al-qaseed/releases/tag/v2.0.0-expanded) &nbsp;•&nbsp; [**📥 تحميل النسخة القياسية v1.0.0**](https://github.com/Hzifa33/bayt-al-qaseed/releases/tag/v1.0.0) &nbsp;•&nbsp; [**👤 موقع المطوّر**](https://hzifa33.com)
+[**زيارة صفحة التطبيق**](https://hzifa33.com/bayt-al-qaseed/) &nbsp;•&nbsp; [**تحميل النسخة الموسّعة v1.0.0**](https://github.com/Hzifa33/bayt-al-qaseed/releases/tag/v1.0.0-expanded) &nbsp;•&nbsp; [**تحميل النسخة القياسية v1.0.0**](https://github.com/Hzifa33/bayt-al-qaseed/releases/tag/v1.0.0) &nbsp;•&nbsp; [**موقع المطوّر**](https://hzifa33.com)
 
 </div>
 
@@ -25,7 +25,7 @@
 
 يمكن تثبيت النسختين معاً على الهاتف نفسه دون أي تعارض، فلكلٍّ منهما معرّف حزمةٍ مستقلّ وقاعدة بياناتٍ خاصة وملفات مستخدم منفصلة:
 
-| المعيار | النسخة القياسية (`v1.0.0`) | النسخة الموسّعة — «الموسوعة» (`v2.0.0`) |
+| المعيار | النسخة القياسية (`v1.0.0`) | النسخة الموسّعة — «الموسوعة» (`v1.0.0`) |
 | :--- | :---: | :---: |
 | **معرّف الحزمة (`applicationId`)** | `com.baytalqaseed.app` | `com.baytalqaseed.expanded` |
 | **الأبيات الشعرية** | **١٬١٦٢٬١١٩** بيتاً | **٥٬٦٢٦٬٣٣٦** بيتاً *(أكثر من ٥٫٦ مليون!)* |
@@ -71,15 +71,15 @@
 
 ## التحميل والتثبيت المباشر (APK موقّعة رقمياً)
 
-### 🌟 النسخة الموسّعة — «بيت القصيد: الموسوعة» (`v2.0.0` — ٥٫٦ مليون بيت)
+### النسخة الموسّعة — «بيت القصيد: الموسوعة» (`v1.0.0` — ٥٫٦ مليون بيت)
 
 | النسخة | المعمارية | التوصية | رابط التحميل المباشر |
 | :--- | :---: | :--- | :---: |
-| **ARM8 (64-bit)** | `arm64-v8a` | **موصى بها** لمعظم الهواتف الحديثة | [**تحميل Expanded ARM8 APK**](https://github.com/Hzifa33/bayt-al-qaseed/releases/download/v2.0.0-expanded/BaytAlQaseed-Expanded-v2.0.0-arm64-v8a.apk) |
-| **ARM7 (32-bit)** | `armeabi-v7a` | مخصّصة للهواتف الأقدم (32-bit) | [**تحميل Expanded ARM7 APK**](https://github.com/Hzifa33/bayt-al-qaseed/releases/download/v2.0.0-expanded/BaytAlQaseed-Expanded-v2.0.0-armeabi-v7a.apk) |
-| **الشاملة (Universal)** | `arm64 + armv7` | متوافقة مع جميع أجهزة أندرويد | [**تحميل Expanded Universal APK**](https://github.com/Hzifa33/bayt-al-qaseed/releases/download/v2.0.0-expanded/BaytAlQaseed-Expanded-v2.0.0-universal.apk) |
+| **ARM8 (64-bit)** | `arm64-v8a` | **موصى بها** لمعظم الهواتف الحديثة | [**تحميل Expanded ARM8 APK**](https://github.com/Hzifa33/bayt-al-qaseed/releases/download/v1.0.0-expanded/BaytAlQaseed-Expanded-v1.0.0-arm64-v8a.apk) |
+| **ARM7 (32-bit)** | `armeabi-v7a` | مخصّصة للهواتف الأقدم (32-bit) | [**تحميل Expanded ARM7 APK**](https://github.com/Hzifa33/bayt-al-qaseed/releases/download/v1.0.0-expanded/BaytAlQaseed-Expanded-v1.0.0-armeabi-v7a.apk) |
+| **الشاملة (Universal)** | `arm64 + armv7` | متوافقة مع جميع أجهزة أندرويد | [**تحميل Expanded Universal APK**](https://github.com/Hzifa33/bayt-al-qaseed/releases/download/v1.0.0-expanded/BaytAlQaseed-Expanded-v1.0.0-universal.apk) |
 
-### 📖 النسخة القياسية الخفيفة — «بيت القصيد» (`v1.0.0` — ١٫١٦ مليون بيت)
+### النسخة القياسية الخفيفة — «بيت القصيد» (`v1.0.0` — ١٫١٦ مليون بيت)
 
 | النسخة | المعمارية | التوصية | رابط التحميل المباشر |
 | :--- | :---: | :--- | :---: |

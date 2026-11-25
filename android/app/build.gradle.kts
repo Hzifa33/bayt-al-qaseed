@@ -33,8 +33,8 @@ android {
         create("expanded") {
             dimension = "edition"
             applicationId = "com.baytalqaseed.expanded"
-            versionCode = 2
-            versionName = "2.0.0"
+            versionCode = 1
+            versionName = "1.0.0"
             manifestPlaceholders["appName"] = "بيت القصيد الموسّعة"
         }
     }
