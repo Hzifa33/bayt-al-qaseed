@@ -1457,7 +1457,7 @@ class PoetryRepository {
     required bool matchPartialWords,
   }) {
     if (!matchPartialWords) {
-      return tokens.join(' ');
+      return tokens.join(' AND ');
     }
     final groups = <String>[];
     for (final t in tokens) {
@@ -1468,7 +1468,7 @@ class PoetryRepository {
         groups.add('(${variants.map((v) => '$v*').join(' OR ')})');
       }
     }
-    return groups.join(' ');
+    return groups.join(' AND ');
   }
 
   String _buildCandidateFtsQuery({
