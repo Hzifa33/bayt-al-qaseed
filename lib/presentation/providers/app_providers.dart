@@ -24,6 +24,14 @@ final rhymesProvider = Provider<List<Rhyme>>((ref) {
   return ref.watch(poetryRepositoryProvider).getRhymes();
 });
 
+final themesProvider = Provider<List<ThemeCategory>>((ref) {
+  return ref.watch(poetryRepositoryProvider).getThemes();
+});
+
+final feelingsTreeProvider = Provider<List<Feeling>>((ref) {
+  return ref.watch(poetryRepositoryProvider).getFeelingsTree();
+});
+
 final verseOfTheDayProvider = Provider<FeaturedVerse?>((ref) {
   return ref.watch(poetryRepositoryProvider).getVerseOfTheDay();
 });

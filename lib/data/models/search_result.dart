@@ -52,6 +52,7 @@ class SearchFilter {
     this.poetId,
     this.meterIds = const {},
     this.rhymeIds = const {},
+    this.themeIds = const {},
     this.matchMode = SearchMatchMode.exactSequence,
     this.matchPartialWords = true,
   });
@@ -60,6 +61,7 @@ class SearchFilter {
   final int? poetId;
   final Set<int> meterIds;
   final Set<int> rhymeIds;
+  final Set<int> themeIds;
   final SearchMatchMode matchMode;
 
   /// When true, «قل» matches «قلب» & «قليل».
@@ -70,6 +72,7 @@ class SearchFilter {
       eraIds.length +
       meterIds.length +
       rhymeIds.length +
+      themeIds.length +
       (poetId != null ? 1 : 0);
 
   bool get hasActiveFilters => activeFilterCount > 0;
@@ -92,6 +95,12 @@ class SearchFilter {
     return copyWith(rhymeIds: Set<int>.unmodifiable(next));
   }
 
+  SearchFilter withToggledTheme(int id) {
+    final next = Set<int>.of(themeIds);
+    if (!next.add(id)) next.remove(id);
+    return copyWith(themeIds: Set<int>.unmodifiable(next));
+  }
+
   SearchFilter copyWith({
     Set<int>? eraIds,
     bool clearEras = false,
@@ -101,6 +110,8 @@ class SearchFilter {
     bool clearMeters = false,
     Set<int>? rhymeIds,
     bool clearRhymes = false,
+    Set<int>? themeIds,
+    bool clearThemes = false,
     SearchMatchMode? matchMode,
     bool? matchPartialWords,
   }) {
@@ -109,6 +120,7 @@ class SearchFilter {
       poetId: clearPoet ? null : (poetId ?? this.poetId),
       meterIds: clearMeters ? const {} : (meterIds ?? this.meterIds),
       rhymeIds: clearRhymes ? const {} : (rhymeIds ?? this.rhymeIds),
+      themeIds: clearThemes ? const {} : (themeIds ?? this.themeIds),
       matchMode: matchMode ?? this.matchMode,
       matchPartialWords: matchPartialWords ?? this.matchPartialWords,
     );

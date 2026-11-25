@@ -1,8 +1,10 @@
 import 'dart:isolate';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:sqlite3/sqlite3.dart';
 
+import '../../core/utils/arabic_codec.dart';
 import '../../core/utils/arabic_normalizer.dart';
 import '../datasources/poetry_database.dart';
 import '../models/era.dart';
@@ -13,13 +15,56 @@ import '../models/search_result.dart';
 import '../models/verse.dart';
 
 class PoetryRepository {
-  PoetryRepository(this._corpus);
+  PoetryRepository(this._corpus) {
+    _isCompactV6 = _tableExists('content_blocks');
+    _hasThemesTable = _tableExists('themes');
+    _hasFeelingsTable = _tableExists('feelings');
+  }
 
   final PoetryDatabase _corpus;
   final math.Random _rng = math.Random();
+  final BlockLruCache _blockCache = BlockLruCache(capacity: 16);
+
+  late final bool _isCompactV6;
+  late final bool _hasThemesTable;
+  late final bool _hasFeelingsTable;
   int? _cachedMaxPoemId;
 
   Database get _db => _corpus.db;
+
+  bool get isExpandedCorpus => _isCompactV6;
+  bool get hasThemes => _hasThemesTable;
+  bool get hasFeelings => _hasFeelingsTable;
+
+  String get _poetDisplayCol => _isCompactV6 ? 'pt.name' : 'pt.name_plain';
+
+  bool _tableExists(String name) {
+    final rows = _db.select(
+      "SELECT 1 FROM sqlite_master WHERE type='table' AND name = ?",
+      [name],
+    );
+    return rows.isNotEmpty;
+  }
+
+  String _readPoemBody(Row r) {
+    if (!_isCompactV6) {
+      return r['body'] as String;
+    }
+    final blockId = r['block_id'] as int;
+    final offset = r['offset'] as int;
+    final length = r['length'] as int;
+    var block = _blockCache.get(blockId);
+    if (block == null) {
+      final bRows = _db.select('SELECT data FROM content_blocks WHERE id = ?', [
+        blockId,
+      ]);
+      if (bRows.isEmpty) return '';
+      final rawBlob = bRows.first['data'] as Uint8List;
+      block = ArabicCodec.decompressZlib(rawBlob);
+      _blockCache.put(blockId, block);
+    }
+    return ArabicCodec.unpack(block, offset, length);
+  }
 
   int _getMaxPoemId() {
     if (_cachedMaxPoemId != null) return _cachedMaxPoemId!;
@@ -34,6 +79,11 @@ class PoetryRepository {
     for (final r in rows) {
       map[r['key'] as String] = int.tryParse(r['value'] as String) ?? 0;
     }
+    int feelingCount = 0;
+    if (_hasFeelingsTable) {
+      feelingCount =
+          _db.select('SELECT COUNT(*) AS c FROM feelings').first['c'] as int;
+    }
     return LibraryStats(
       eraCount: map['era_count'] ?? 11,
       poetCount: map['poet_count'] ?? 0,
@@ -41,6 +91,8 @@ class PoetryRepository {
       verseCount: map['verse_count'] ?? 0,
       meterCount: map['meter_count'] ?? 0,
       rhymeCount: map['rhyme_count'] ?? 0,
+      themeCount: map['theme_count'] ?? 0,
+      feelingCount: feelingCount,
     );
   }
 
@@ -82,21 +134,228 @@ class PoetryRepository {
   }
 
   List<Rhyme> getRhymes() {
-    final rows = _db.select('''
-      SELECT id, name, poem_count
-      FROM rhymes
-      WHERE poem_count > 0
-      ORDER BY poem_count DESC
-    ''');
+    final sql = _isCompactV6
+        ? '''
+          SELECT id, name, letter, poem_count
+          FROM rhymes
+          WHERE poem_count > 0
+          ORDER BY poem_count DESC
+          '''
+        : '''
+          SELECT id, name, poem_count
+          FROM rhymes
+          WHERE poem_count > 0
+          ORDER BY poem_count DESC
+          ''';
+    final rows = _db.select(sql);
     return rows
         .map(
           (r) => Rhyme(
             id: r['id'] as int,
             name: r['name'] as String,
             poemCount: r['poem_count'] as int,
+            letter: _isCompactV6 ? (r['letter'] as String? ?? '') : '',
           ),
         )
         .toList();
+  }
+
+  List<ThemeCategory> getThemes() {
+    if (!_hasThemesTable) return const [];
+    final rows = _db.select('''
+      SELECT id, slug, name, poem_count
+      FROM themes
+      WHERE poem_count > 0
+      ORDER BY poem_count DESC
+    ''');
+    return rows
+        .map(
+          (r) => ThemeCategory(
+            id: r['id'] as int,
+            slug: r['slug'] as String,
+            name: r['name'] as String,
+            poemCount: r['poem_count'] as int,
+          ),
+        )
+        .toList();
+  }
+
+  /// Hierarchical 3-level Feelings Wheel tree (7 root emotions -> 127 total feelings).
+  List<Feeling> getFeelingsTree() {
+    if (!_hasFeelingsTable) return const [];
+    final rows = _db.select('''
+      SELECT id, slug, name, wheel_term, parent_slug, verse_count
+      FROM feelings
+      ORDER BY verse_count DESC
+    ''');
+
+    final byParent = <String?, List<Row>>{};
+    for (final r in rows) {
+      final parent = r['parent_slug'] as String?;
+      byParent.putIfAbsent(parent, () => []).add(r);
+    }
+
+    Feeling buildNode(Row r) {
+      final slug = r['slug'] as String;
+      final childRows = byParent[slug] ?? const [];
+      return Feeling(
+        id: r['id'] as int,
+        slug: slug,
+        name: r['name'] as String,
+        wheelTerm: (r['wheel_term'] as String?) ?? '',
+        parentSlug: r['parent_slug'] as String?,
+        verseCount: r['verse_count'] as int,
+        children: childRows.map(buildNode).toList(growable: false),
+      );
+    }
+
+    final roots = byParent[null] ?? const [];
+    return roots.map(buildNode).toList(growable: false);
+  }
+
+  /// Fetches poems matching a specific feeling using curated theme + Arabic lexical mapping.
+  List<PoemSummary> getPoemsByFeeling(
+    Feeling feeling, {
+    String? rootSlug,
+    int limit = 60,
+    int offset = 0,
+  }) {
+    final effectiveRoot = rootSlug ?? feeling.slug;
+    final keywords = _feelingKeywords(
+      feeling.slug,
+      effectiveRoot,
+      feeling.name,
+    );
+    final themeSlugs = _feelingThemeSlugs(feeling.slug, effectiveRoot);
+
+    // 1. Try FTS5 title search with feeling keywords first for pinpoint relevance
+    if (keywords.isNotEmpty) {
+      final ftsTable = _isCompactV6 ? 'poems_title_fts' : 'poems_fts';
+      final ftsExpr = keywords.map((k) => '$k*').join(' OR ');
+      try {
+        final rows = _db.select(
+          '''
+          SELECT p.id, p.poet_id, $_poetDisplayCol AS poet_name,
+                 p.era_id, e.name AS era_name,
+                 p.meter_id, m.name AS meter_name,
+                 p.rhyme_id, r.name AS rhyme_name,
+                 p.title, p.verse_count, p.has_diacritics, p.is_free_verse
+          FROM $ftsTable f
+          JOIN poems p ON p.id = f.rowid
+          JOIN poets pt ON pt.id = p.poet_id
+          JOIN eras e ON e.id = p.era_id
+          JOIN meters m ON m.id = p.meter_id
+          JOIN rhymes r ON r.id = p.rhyme_id
+          WHERE $ftsTable MATCH ?
+          ORDER BY p.has_diacritics DESC, p.verse_count DESC
+          LIMIT ? OFFSET ?
+          ''',
+          [ftsExpr, limit, offset],
+        );
+        if (rows.isNotEmpty) {
+          return rows.map(_mapPoemSummary).toList();
+        }
+      } catch (_) {
+        // Fall through to theme-based query
+      }
+    }
+
+    // 2. Fallback to curated thematic poetry matching this emotion family
+    if (_hasThemesTable && themeSlugs.isNotEmpty) {
+      final ph = List.filled(themeSlugs.length, '?').join(',');
+      final rows = _db.select(
+        '''
+        SELECT p.id, p.poet_id, $_poetDisplayCol AS poet_name,
+               p.era_id, e.name AS era_name,
+               p.meter_id, m.name AS meter_name,
+               p.rhyme_id, r.name AS rhyme_name,
+               p.title, p.verse_count, p.has_diacritics, p.is_free_verse
+        FROM poems p
+        JOIN themes t ON t.id = p.theme_id
+        JOIN poets pt ON pt.id = p.poet_id
+        JOIN eras e ON e.id = p.era_id
+        JOIN meters m ON m.id = p.meter_id
+        JOIN rhymes r ON r.id = p.rhyme_id
+        WHERE t.slug IN ($ph)
+        ORDER BY p.has_diacritics DESC, p.verse_count DESC
+        LIMIT ? OFFSET ?
+        ''',
+        [...themeSlugs, limit, offset],
+      );
+      return rows.map(_mapPoemSummary).toList();
+    }
+
+    return const [];
+  }
+
+  List<String> _feelingKeywords(String slug, String rootSlug, String name) {
+    const specific = <String, List<String>>{
+      'alsurur': ['سرور', 'فرح', 'بشر', 'سعد', 'انس', 'هناء', 'بهج'],
+      'almarah': ['مرح', 'طرب', 'لهو', 'ضحك', 'نشو'],
+      'alsabwa': ['صبو', 'هوي', 'شوق', 'غرام', 'عشق', 'حب', 'وجد'],
+      'alrida': ['رضا', 'قناع', 'سكين', 'اطمئن'],
+      'albahja': ['بهج', 'سرور', 'اشراق', 'ربيع', 'زهر'],
+      'alfakhr': ['فخر', 'مجد', 'عز', 'شرف', 'سيف', 'كرم', 'نصر'],
+      'alhuzn': ['حزن', 'دمع', 'بكا', 'اسي', 'لوع', 'فراق', 'شجن', 'رثا'],
+      'altaajjub': ['عجب', 'عجيب', 'دهش', 'يا ليت', 'سبحان'],
+      'alghadab': ['غضب', 'ثأر', 'سخط', 'غيظ', 'حرب', 'عدو'],
+      'alkhawf': ['خوف', 'رهب', 'وجل', 'خشيه', 'حذر', 'هول'],
+      'alishmizaz': ['ذم', 'قبح', 'بخل', 'لؤم', 'غدر', 'خيان'],
+      'aldiq': ['ضيق', 'هم', 'غم', 'كرب', 'شكو', 'سأم', 'ملل'],
+    };
+    if (specific.containsKey(slug)) return specific[slug]!;
+    final normName = ArabicNormalizer.normalize(name);
+    final stem = normName.startsWith('ال') && normName.length > 4
+        ? normName.substring(2)
+        : normName;
+    final rootWords = specific[rootSlug] ?? const <String>[];
+    return [if (stem.length >= 3) stem, ...rootWords.take(4)];
+  }
+
+  List<String> _feelingThemeSlugs(String slug, String rootSlug) {
+    if (slug == 'alfakhr' || slug == 'alzafar' || slug == 'alitidad') {
+      return const ['alhamasa', 'almadih'];
+    }
+    if (slug == 'alsabwa' || slug == 'almarah') {
+      return const ['alnasib', 'alwasf'];
+    }
+    return switch (rootSlug) {
+      'alsurur' => const ['alnasib', 'almadih', 'alwasf'],
+      'alhuzn' => const ['alritha', 'alitab', 'alzuhd'],
+      'alghadab' => const ['alhija', 'alhamasa', 'alitab'],
+      'alkhawf' => const ['alzuhd', 'alhikma'],
+      'alishmizaz' => const ['alhija', 'alitab'],
+      'altaajjub' => const ['alhikma', 'alwasf'],
+      'aldiq' => const ['alitab', 'alzuhd', 'alritha'],
+      _ => const ['alhikma', 'alnasib'],
+    };
+  }
+
+  List<PoemSummary> getPoemsByTheme(
+    int themeId, {
+    int limit = 60,
+    int offset = 0,
+  }) {
+    if (!_hasThemesTable) return const [];
+    final rows = _db.select(
+      '''
+      SELECT p.id, p.poet_id, $_poetDisplayCol AS poet_name,
+             p.era_id, e.name AS era_name,
+             p.meter_id, m.name AS meter_name,
+             p.rhyme_id, r.name AS rhyme_name,
+             p.title, p.verse_count, p.has_diacritics, p.is_free_verse
+      FROM poems p
+      JOIN poets pt ON pt.id = p.poet_id
+      JOIN eras e ON e.id = p.era_id
+      JOIN meters m ON m.id = p.meter_id
+      JOIN rhymes r ON r.id = p.rhyme_id
+      WHERE p.theme_id = ?
+      ORDER BY p.has_diacritics DESC, p.verse_count DESC
+      LIMIT ? OFFSET ?
+      ''',
+      [themeId, limit, offset],
+    );
+    return rows.map(_mapPoemSummary).toList();
   }
 
   FeaturedVerse? getVerseOfTheDay([DateTime? now]) {
@@ -134,14 +393,14 @@ class PoetryRepository {
   }
 
   /// Instant O(log N) random poem picker (~0.08 ms) avoiding full-table RANDOM() scans.
-  PoemSummary? getRandomPoem({int? eraId, int? meterId}) {
-    if (eraId == null && meterId == null) {
+  PoemSummary? getRandomPoem({int? eraId, int? meterId, int? themeId}) {
+    if (eraId == null && meterId == null && themeId == null) {
       final maxId = _getMaxPoemId();
       if (maxId <= 0) return null;
       final probeId = _rng.nextInt(maxId) + 1;
       final rows = _db.select(
         '''
-        SELECT p.id, p.poet_id, pt.name_plain AS poet_name,
+        SELECT p.id, p.poet_id, $_poetDisplayCol AS poet_name,
                p.era_id, e.name AS era_name,
                p.meter_id, m.name AS meter_name,
                p.rhyme_id, r.name AS rhyme_name,
@@ -161,7 +420,6 @@ class PoetryRepository {
       return null;
     }
 
-    // Fast indexed count + random offset when filtered by era or meter
     final where = <String>[];
     final args = <Object?>[];
     if (eraId != null) {
@@ -171,6 +429,10 @@ class PoetryRepository {
     if (meterId != null) {
       where.add('meter_id = ?');
       args.add(meterId);
+    }
+    if (themeId != null && _hasThemesTable) {
+      where.add('theme_id = ?');
+      args.add(themeId);
     }
     final countRow = _db.select(
       'SELECT COUNT(*) AS c FROM poems WHERE ${where.join(' AND ')}',
@@ -183,7 +445,7 @@ class PoetryRepository {
     final prefixedWhere = where.map((w) => 'p.$w').join(' AND ');
     final rows = _db.select(
       '''
-      SELECT p.id, p.poet_id, pt.name_plain AS poet_name,
+      SELECT p.id, p.poet_id, $_poetDisplayCol AS poet_name,
              p.era_id, e.name AS era_name,
              p.meter_id, m.name AS meter_name,
              p.rhyme_id, r.name AS rhyme_name,
@@ -206,6 +468,8 @@ class PoetryRepository {
     int? eraId,
     String? filterQuery,
     PoetSortBy sortBy = PoetSortBy.poemsDesc,
+    int? limit,
+    int offset = 0,
   }) {
     final where = <String>[];
     final args = <Object?>[];
@@ -214,13 +478,10 @@ class PoetryRepository {
       where.add('pt.era_id = ?');
       args.add(eraId);
     }
-    if (filterQuery != null && filterQuery.trim().isNotEmpty) {
-      final norm = ArabicNormalizer.normalize(filterQuery);
-      if (norm.isNotEmpty) {
-        where.add('pt.name_norm LIKE ?');
-        args.add('%$norm%');
-      }
-    }
+
+    final normQuery = (filterQuery != null && filterQuery.trim().isNotEmpty)
+        ? ArabicNormalizer.normalize(filterQuery)
+        : '';
 
     final orderBy = switch (sortBy) {
       PoetSortBy.poemsDesc => 'pt.poem_count DESC, pt.name_norm ASC',
@@ -229,15 +490,54 @@ class PoetryRepository {
       PoetSortBy.oldest => 'pt.era_id ASC, pt.id ASC',
     };
 
+    // Fast path for expanded 17k+ poets: cap unbounded lists smoothly unless specified
+    final effectiveLimit = limit ?? (_isCompactV6 ? 400 : 1000);
+
+    // Use FTS5 when searching poets by name in expanded DB
+    if (_isCompactV6 && normQuery.isNotEmpty) {
+      final tokens = ArabicNormalizer.tokenize(normQuery);
+      if (tokens.isNotEmpty) {
+        final ftsQ = tokens.map((t) => t.length >= 2 ? '$t*' : t).join(' ');
+        final ftsWhere = <String>['poets_fts MATCH ?', ...where];
+        final rows = _db.select(
+          '''
+          SELECT pt.id, pt.era_id, pt.name, pt.name_vocalized, pt.nickname,
+                 pt.dates_hijri, pt.dates_gregorian, pt.poem_count, pt.verse_count,
+                 e.name AS era_name
+          FROM poets_fts f
+          JOIN poets pt ON pt.id = f.rowid
+          JOIN eras e ON e.id = pt.era_id
+          WHERE ${ftsWhere.join(' AND ')}
+          ORDER BY $orderBy
+          LIMIT ? OFFSET ?
+          ''',
+          [ftsQ, ...args, effectiveLimit, offset],
+        );
+        return rows.map((r) => _mapPoet(r, includeBio: false)).toList();
+      }
+    }
+
+    if (normQuery.isNotEmpty) {
+      where.add('pt.name_norm LIKE ?');
+      args.add('%$normQuery%');
+    }
+
     final whereSql = where.isEmpty ? '' : 'WHERE ${where.join(' AND ')}';
-    final rows = _db.select('''
-      SELECT pt.*, e.name AS era_name
+    final selectCols = _isCompactV6
+        ? 'pt.id, pt.era_id, pt.name, pt.name_vocalized, pt.nickname, pt.dates_hijri, pt.dates_gregorian, pt.poem_count, pt.verse_count, e.name AS era_name'
+        : 'pt.*, e.name AS era_name';
+    final rows = _db.select(
+      '''
+      SELECT $selectCols
       FROM poets pt
       JOIN eras e ON e.id = pt.era_id
       $whereSql
       ORDER BY $orderBy
-      ''', args);
-    return rows.map(_mapPoet).toList();
+      LIMIT ? OFFSET ?
+      ''',
+      [...args, effectiveLimit, offset],
+    );
+    return rows.map((r) => _mapPoet(r, includeBio: !_isCompactV6)).toList();
   }
 
   Poet? getPoetById(int poetId) {
@@ -251,7 +551,7 @@ class PoetryRepository {
       [poetId],
     );
     if (rows.isEmpty) return null;
-    return _mapPoet(rows.first);
+    return _mapPoet(rows.first, includeBio: true);
   }
 
   List<Poet> getPoetsByIds(List<int> ids) {
@@ -263,7 +563,9 @@ class PoetryRepository {
       JOIN eras e ON e.id = pt.era_id
       WHERE pt.id IN ($placeholders)
       ''', ids);
-    final byId = {for (final r in rows) r['id'] as int: _mapPoet(r)};
+    final byId = {
+      for (final r in rows) r['id'] as int: _mapPoet(r, includeBio: false),
+    };
     return [
       for (final id in ids)
         if (byId.containsKey(id)) byId[id]!,
@@ -354,7 +656,7 @@ class PoetryRepository {
 
     final rows = _db.select(
       '''
-      SELECT p.id, p.poet_id, pt.name_plain AS poet_name,
+      SELECT p.id, p.poet_id, $_poetDisplayCol AS poet_name,
              p.era_id, e.name AS era_name,
              p.meter_id, m.name AS meter_name,
              p.rhyme_id, r.name AS rhyme_name,
@@ -380,7 +682,7 @@ class PoetryRepository {
   }) {
     final rows = _db.select(
       '''
-      SELECT p.id, p.poet_id, pt.name_plain AS poet_name,
+      SELECT p.id, p.poet_id, $_poetDisplayCol AS poet_name,
              p.era_id, e.name AS era_name,
              p.meter_id, m.name AS meter_name,
              p.rhyme_id, r.name AS rhyme_name,
@@ -418,7 +720,7 @@ class PoetryRepository {
     if (ids.isEmpty) return const [];
     final placeholders = List.filled(ids.length, '?').join(',');
     final rows = _db.select('''
-      SELECT p.id, p.poet_id, pt.name_plain AS poet_name,
+      SELECT p.id, p.poet_id, $_poetDisplayCol AS poet_name,
              p.era_id, e.name AS era_name,
              p.meter_id, m.name AS meter_name,
              p.rhyme_id, r.name AS rhyme_name,
@@ -438,14 +740,15 @@ class PoetryRepository {
   }
 
   PoemDetail? getPoemById(int poemId) {
+    final bodyCols = _isCompactV6 ? 'p.block_id, p.offset, p.length' : 'p.body';
     final rows = _db.select(
       '''
-      SELECT p.id, p.poet_id, pt.name_plain AS poet_name,
+      SELECT p.id, p.poet_id, $_poetDisplayCol AS poet_name,
              p.era_id, e.name AS era_name,
              p.meter_id, m.name AS meter_name,
              p.rhyme_id, r.name AS rhyme_name,
              p.meter_note, p.title, p.verse_count,
-             p.has_diacritics, p.is_free_verse, p.body
+             p.has_diacritics, p.is_free_verse, $bodyCols
       FROM poems p
       JOIN poets pt ON pt.id = p.poet_id
       JOIN eras e ON e.id = p.era_id
@@ -457,7 +760,8 @@ class PoetryRepository {
     );
     if (rows.isEmpty) return null;
     final r = rows.first;
-    final verses = Verse.parseBody(r['body'] as String);
+    final body = _readPoemBody(r);
+    final verses = Verse.parseBody(body);
     return PoemDetail(
       id: r['id'] as int,
       poetId: r['poet_id'] as int,
@@ -468,7 +772,7 @@ class PoetryRepository {
       meterName: r['meter_name'] as String,
       rhymeId: r['rhyme_id'] as int,
       rhymeName: r['rhyme_name'] as String,
-      meterNote: r['meter_note'] as String,
+      meterNote: (r['meter_note'] as String?) ?? '',
       title: r['title'] as String,
       verseCount: verses.length,
       hasDiacritics: (r['has_diacritics'] as int) == 1,
@@ -507,6 +811,7 @@ class PoetryRepository {
     final eraList = filter.eraIds.toList(growable: false);
     final meterList = filter.meterIds.toList(growable: false);
     final rhymeList = filter.rhymeIds.toList(growable: false);
+    final themeList = filter.themeIds.toList(growable: false);
     final poetId = filter.poetId;
     final modeIdx = filter.matchMode.index;
     final partial = filter.matchPartialWords;
@@ -520,6 +825,7 @@ class PoetryRepository {
           poetId,
           meterList,
           rhymeList,
+          themeList,
           modeIdx,
           partial,
           poemLimit,
@@ -543,6 +849,7 @@ class PoetryRepository {
     int? poetId,
     List<int> meterIds,
     List<int> rhymeIds,
+    List<int> themeIds,
     int matchModeIndex,
     bool matchPartialWords,
     int poemLimit,
@@ -558,6 +865,7 @@ class PoetryRepository {
           poetId: poetId,
           meterIds: meterIds.toSet(),
           rhymeIds: rhymeIds.toSet(),
+          themeIds: themeIds.toSet(),
           matchMode: SearchMatchMode.values[matchModeIndex],
           matchPartialWords: matchPartialWords,
         ),
@@ -591,7 +899,8 @@ class PoetryRepository {
     if (poetLimit > 0 &&
         filter.poetId == null &&
         filter.meterIds.isEmpty &&
-        filter.rhymeIds.isEmpty) {
+        filter.rhymeIds.isEmpty &&
+        filter.themeIds.isEmpty) {
       final poetFtsQuery = tokens
           .map((t) => t.length >= 2 ? '$t*' : t)
           .join(' ');
@@ -602,6 +911,9 @@ class PoetryRepository {
         poetWhere.add('pt.era_id IN ($ph)');
         poetArgs.addAll(filter.eraIds);
       }
+      final poetOrder = _isCompactV6
+          ? 'pt.poem_count DESC'
+          : 'bm25(poets_fts, 4.0, 1.0)';
       final poetRows = _db.select(
         '''
         SELECT pt.*, e.name AS era_name
@@ -609,20 +921,19 @@ class PoetryRepository {
         JOIN poets pt ON pt.id = f.rowid
         JOIN eras e ON e.id = pt.era_id
         WHERE ${poetWhere.join(' AND ')}
-        ORDER BY bm25(poets_fts, 4.0, 1.0)
+        ORDER BY $poetOrder
         LIMIT ?
         ''',
         [...poetArgs, poetLimit],
       );
-      matchedPoets.addAll(poetRows.map(_mapPoet));
+      matchedPoets.addAll(poetRows.map((r) => _mapPoet(r, includeBio: false)));
     }
 
-    final targetCount = poemLimit + 1; // +1 sentinel to detect >200 cap cleanly
+    final targetCount = poemLimit + 1;
+    final bodyCols = _isCompactV6 ? 'p.block_id, p.offset, p.length' : 'p.body';
     final ResultSet poemRows;
 
     if (filter.poetId != null) {
-      // Inside a single poet's Diwan: scan ALL verses of ALL the poet's poems
-      // directly via indexed poet_id for 100% recall on any contiguous letters!
       final where = <String>['p.poet_id = ?'];
       final args = <Object?>[filter.poetId];
       if (filter.meterIds.isNotEmpty) {
@@ -635,10 +946,15 @@ class PoetryRepository {
         where.add('p.rhyme_id IN ($ph)');
         args.addAll(filter.rhymeIds);
       }
+      if (filter.themeIds.isNotEmpty && _hasThemesTable) {
+        final ph = List.filled(filter.themeIds.length, '?').join(',');
+        where.add('p.theme_id IN ($ph)');
+        args.addAll(filter.themeIds);
+      }
       poemRows = _db.select('''
-        SELECT p.id, p.poet_id, pt.name_plain AS poet_name,
+        SELECT p.id, p.poet_id, $_poetDisplayCol AS poet_name,
                e.name AS era_name, m.name AS meter_name, r.name AS rhyme_name,
-               p.title, p.verse_count, p.body
+               p.title, p.verse_count, $bodyCols
         FROM poems p
         JOIN poets pt ON pt.id = p.poet_id
         JOIN eras e ON e.id = p.era_id
@@ -658,7 +974,12 @@ class PoetryRepository {
           ? (targetCount * 2).clamp(260, 560)
           : (targetCount * 3).clamp(300, 620);
 
-      final where = <String>['poems_fts MATCH ?'];
+      final ftsTable = _isCompactV6 ? 'poems_title_fts' : 'poems_fts';
+      final orderSql = _isCompactV6
+          ? 'bm25(poems_title_fts), p.verse_count DESC'
+          : 'bm25(poems_fts, 2.5, 1.0, 1.5)';
+
+      final where = <String>['$ftsTable MATCH ?'];
       final args = <Object?>[ftsQuery];
       if (filter.eraIds.isNotEmpty) {
         final ph = List.filled(filter.eraIds.length, '?').join(',');
@@ -675,20 +996,25 @@ class PoetryRepository {
         where.add('p.rhyme_id IN ($ph)');
         args.addAll(filter.rhymeIds);
       }
+      if (filter.themeIds.isNotEmpty && _hasThemesTable) {
+        final ph = List.filled(filter.themeIds.length, '?').join(',');
+        where.add('p.theme_id IN ($ph)');
+        args.addAll(filter.themeIds);
+      }
 
       poemRows = _db.select(
         '''
-        SELECT p.id, p.poet_id, pt.name_plain AS poet_name,
+        SELECT p.id, p.poet_id, $_poetDisplayCol AS poet_name,
                e.name AS era_name, m.name AS meter_name, r.name AS rhyme_name,
-               p.title, p.verse_count, p.body
-        FROM poems_fts f
+               p.title, p.verse_count, $bodyCols
+        FROM $ftsTable f
         JOIN poems p ON p.id = f.rowid
         JOIN poets pt ON pt.id = p.poet_id
         JOIN eras e ON e.id = p.era_id
         JOIN meters m ON m.id = p.meter_id
         JOIN rhymes r ON r.id = p.rhyme_id
         WHERE ${where.join(' AND ')}
-        ORDER BY bm25(poems_fts, 2.5, 1.0, 1.5)
+        ORDER BY $orderSql
         LIMIT ?
         ''',
         [...args, candidateLimit],
@@ -698,14 +1024,42 @@ class PoetryRepository {
     final hits = <PoemSearchHit>[];
     var hasMore = false;
     for (final r in poemRows) {
-      final verses = Verse.parseBody(r['body'] as String);
+      final body = _readPoemBody(r);
+      final verses = Verse.parseBody(body);
       final match = _matchVerseInPoem(
         verses: verses,
         tokens: tokens,
         matchMode: filter.matchMode,
         matchPartialWords: filter.matchPartialWords,
       );
-      if (match == null) continue;
+      if (match == null) {
+        // In compact v6 title-FTS mode, if the title matched FTS5, still surface the opening verse cleanly
+        if (_isCompactV6 && filter.poetId == null && verses.isNotEmpty) {
+          if (hits.length >= poemLimit) {
+            hasMore = true;
+            break;
+          }
+          final first = verses.first;
+          hits.add(
+            PoemSearchHit(
+              poemId: r['id'] as int,
+              poetId: r['poet_id'] as int,
+              poetName: r['poet_name'] as String,
+              eraName: r['era_name'] as String,
+              meterName: r['meter_name'] as String,
+              rhymeName: r['rhyme_name'] as String,
+              title: r['title'] as String,
+              verseCount: verses.length,
+              matchedVerseIndex: first.index,
+              matchedSadr: first.sadr,
+              matchedAjuz: first.ajuz,
+              matchedExtraHemistichs: first.extraHemistichs,
+              matchingVersesCount: 1,
+            ),
+          );
+        }
+        continue;
+      }
 
       if (hits.length >= poemLimit) {
         hasMore = true;
@@ -756,10 +1110,6 @@ class PoetryRepository {
       return '"${tokens.join(' ')}"';
     }
 
-    // Contiguous character sequence mode («الحروف المتتابعة»):
-    // - Always prefix-match the last token (even 1-letter like "الدهر ل" -> "الدهر + ل*").
-    // - Expand the first token with common Arabic clitic prefixes (و، ف، ب، ل، ك، ال)
-    //   so "الدهر ليس" matches "والدهر ليس", "فالدهر ليس", and "دهر ليس" matches "الدهر ليس"!
     final first = tokens.first;
     final last = tokens.last;
 
@@ -774,8 +1124,6 @@ class PoetryRepository {
         : const <String>[];
     final lastPart = '$last*';
 
-    // When the trailing token is a single letter (e.g. "الدهر ل"), keep the FTS5
-    // union lean so results return swiftly on 90k+ poems while still catching و-prefixed forms.
     final firstVariants = last.length == 1
         ? <String>[first, if (!first.startsWith('و')) 'و$first']
         : _arabicFirstTokenVariants(first);
@@ -793,7 +1141,7 @@ class PoetryRepository {
       variants.add('ف$token');
       variants.add('ب$token');
       variants.add('ك$token');
-      variants.add('ل${token.substring(1)}'); // للدهر
+      variants.add('ل${token.substring(1)}');
     } else if (token.length >= 2) {
       variants.add('ال$token');
       variants.add('وال$token');
@@ -827,8 +1175,6 @@ class PoetryRepository {
 
       if (matchMode == SearchMatchMode.exactSequence) {
         if (matchPartialWords) {
-          // Pure contiguous character sequence («الحروف المتتابعة») without
-          // adding synthetic leading/trailing spaces!
           var searchFrom = 0;
           while (searchFrom <= normLine.length - joinedPhrase.length) {
             final idx = normLine.indexOf(joinedPhrase, searchFrom);
@@ -895,18 +1241,47 @@ class PoetryRepository {
     return (bestVerse, matchCount);
   }
 
-  Poet _mapPoet(Row r) => Poet(
-    id: r['id'] as int,
-    eraId: r['era_id'] as int,
-    eraName: r['era_name'] as String,
-    name: r['name'] as String,
-    namePlain: r['name_plain'] as String,
-    datesHijri: r['dates_hijri'] as String,
-    datesGregorian: r['dates_gregorian'] as String,
-    bio: r['bio'] as String,
-    poemCount: r['poem_count'] as int,
-    verseCount: r['verse_count'] as int,
-  );
+  Poet _mapPoet(Row r, {bool includeBio = true}) {
+    if (_isCompactV6) {
+      String bio = '';
+      if (includeBio) {
+        try {
+          final rawBio = r['bio_z'];
+          if (rawBio is Uint8List && rawBio.isNotEmpty) {
+            bio = ArabicCodec.decodeCompressedText(rawBio);
+          }
+        } catch (_) {}
+      }
+      final plainName = r['name'] as String;
+      final vocName = (r['name_vocalized'] as String?) ?? plainName;
+      return Poet(
+        id: r['id'] as int,
+        eraId: r['era_id'] as int,
+        eraName: r['era_name'] as String,
+        name: vocName,
+        namePlain: plainName,
+        datesHijri: (r['dates_hijri'] as String?) ?? '',
+        datesGregorian: (r['dates_gregorian'] as String?) ?? '',
+        bio: bio,
+        poemCount: r['poem_count'] as int,
+        verseCount: r['verse_count'] as int,
+        nickname: (r['nickname'] as String?) ?? '',
+      );
+    }
+
+    return Poet(
+      id: r['id'] as int,
+      eraId: r['era_id'] as int,
+      eraName: r['era_name'] as String,
+      name: r['name'] as String,
+      namePlain: r['name_plain'] as String,
+      datesHijri: r['dates_hijri'] as String,
+      datesGregorian: r['dates_gregorian'] as String,
+      bio: includeBio ? (r['bio'] as String) : '',
+      poemCount: r['poem_count'] as int,
+      verseCount: r['verse_count'] as int,
+    );
+  }
 
   PoemSummary _mapPoemSummary(Row r) => PoemSummary(
     id: r['id'] as int,

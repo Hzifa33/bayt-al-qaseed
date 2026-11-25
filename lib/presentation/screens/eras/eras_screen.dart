@@ -10,9 +10,11 @@ import '../../../data/models/poet.dart';
 import '../../providers/app_providers.dart';
 import '../../providers/database_providers.dart';
 import '../../providers/user_data_providers.dart';
+import 'feelings_screen.dart';
 import 'meter_poems_screen.dart';
 import 'poet_detail_screen.dart';
 import 'poets_screen.dart';
+import 'theme_poems_screen.dart';
 
 class ErasScreen extends ConsumerStatefulWidget {
   const ErasScreen({super.key});
@@ -22,19 +24,21 @@ class ErasScreen extends ConsumerStatefulWidget {
 }
 
 class _ErasScreenState extends ConsumerState<ErasScreen>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tabCtrl;
+    with TickerProviderStateMixin {
+  TabController? _tabCtrl;
+  int _tabCount = 3;
   String _poetFilter = '';
   PoetSortBy _poetSort = PoetSortBy.poemsDesc;
   final TextEditingController _poetSearchCtrl = TextEditingController();
   final FocusNode _poetSearchFocus = FocusNode();
 
-  @override
-  void initState() {
-    super.initState();
-    _tabCtrl = TabController(length: 3, vsync: this);
-    _tabCtrl.addListener(() {
-      if (_tabCtrl.indexIsChanging) {
+  void _ensureTabController(int count) {
+    if (_tabCtrl != null && _tabCount == count) return;
+    _tabCtrl?.dispose();
+    _tabCount = count;
+    _tabCtrl = TabController(length: count, vsync: this);
+    _tabCtrl!.addListener(() {
+      if (_tabCtrl!.indexIsChanging) {
         BaytNav.unfocus();
       }
     });
@@ -42,7 +46,7 @@ class _ErasScreenState extends ConsumerState<ErasScreen>
 
   @override
   void dispose() {
-    _tabCtrl.dispose();
+    _tabCtrl?.dispose();
     _poetSearchCtrl.dispose();
     _poetSearchFocus.dispose();
     super.dispose();
@@ -53,27 +57,50 @@ class _ErasScreenState extends ConsumerState<ErasScreen>
     final p = context.palette;
     final eras = ref.watch(erasProvider);
     final meters = ref.watch(metersProvider);
+    final themes = ref.watch(themesProvider);
+    final feelings = ref.watch(feelingsTreeProvider);
+    final hasExpandedTabs = themes.isNotEmpty && feelings.isNotEmpty;
+    _ensureTabController(hasExpandedTabs ? 5 : 3);
     final favPoetIds = ref.watch(userDataProvider).favoritePoetIds;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('الدواوين والعصور'),
+        title: Text(
+          hasExpandedTabs ? 'الموسوعة والدواوين' : 'الدواوين والعصور',
+        ),
         bottom: TabBar(
           controller: _tabCtrl,
+          isScrollable: hasExpandedTabs,
+          tabAlignment: hasExpandedTabs
+              ? TabAlignment.start
+              : TabAlignment.fill,
           indicatorColor: p.accent,
           labelColor: p.accent,
           unselectedLabelColor: p.inkMuted,
           dividerColor: p.hairline,
-          tabs: const [
-            Tab(
+          tabs: [
+            const Tab(
               icon: Icon(Icons.hourglass_bottom_rounded, size: 17),
               text: 'العصور',
             ),
-            Tab(
+            const Tab(
               icon: Icon(Icons.history_edu_rounded, size: 17),
               text: 'الشعراء',
             ),
-            Tab(icon: Icon(Icons.waves_rounded, size: 17), text: 'البحور'),
+            const Tab(
+              icon: Icon(Icons.waves_rounded, size: 17),
+              text: 'البحور',
+            ),
+            if (hasExpandedTabs) ...[
+              const Tab(
+                icon: Icon(Icons.category_outlined, size: 17),
+                text: 'الأغراض',
+              ),
+              const Tab(
+                icon: Icon(Icons.psychology_outlined, size: 17),
+                text: 'المشاعر',
+              ),
+            ],
           ],
         ),
       ),
@@ -331,6 +358,105 @@ class _ErasScreenState extends ConsumerState<ErasScreen>
               );
             },
           ),
+
+          if (hasExpandedTabs) ...[
+            // 4. Poetic Themes Directory (الأغراض الشعرية)
+            ListView.separated(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 102),
+              itemCount: themes.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 9),
+              itemBuilder: (context, i) {
+                final th = themes[i];
+                return InkWell(
+                  onTap: () => BaytNav.pushEditorial(
+                    context,
+                    ThemePoemsScreen(theme: th),
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 15,
+                      vertical: 13,
+                    ),
+                    decoration: BoxDecoration(
+                      color: p.surfaceElevated,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: p.hairline),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: p.accentSoft,
+                            borderRadius: BorderRadius.circular(11),
+                          ),
+                          child: Icon(
+                            Icons.category_outlined,
+                            size: 19,
+                            color: p.accent,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                th.name,
+                                style: TextStyle(
+                                  fontFamily: AppFonts.ruqaa,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w700,
+                                  color: p.ink,
+                                ),
+                              ),
+                              Text(
+                                th.subtitle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: p.accentSoft,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '${ArabicNormalizer.toArabicNumber(th.poemCount)} قصيدة',
+                            style: TextStyle(
+                              fontFamily: AppFonts.ui,
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                              color: p.accent,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          size: 14,
+                          color: p.inkMuted,
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+
+            // 5. Hierarchical Feelings Explorer (عجلة المشاعر وتقسيماتها)
+            FeelingsExplorerView(roots: feelings),
+          ],
         ],
       ),
     );

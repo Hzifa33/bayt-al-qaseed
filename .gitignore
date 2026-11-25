@@ -41,6 +41,10 @@ android/key.properties
 tool/bayt_al_qaseed.db
 tool/*.db
 
+# Expanded corpus asset is hosted on GitHub Releases (corpus-expanded-v1) for CI
+assets/db/bayt_qafiyah_merged.db.gz
+/qafiyah_db/
+
 # Raw unoptimized source images in repo root (optimized WebP assets live in assets/images/)
 /images/
 

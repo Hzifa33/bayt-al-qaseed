@@ -29,7 +29,12 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/db/bayt_al_qaseed.db.gz
+    - path: assets/db/bayt_al_qaseed.db.gz
+      flavors:
+        - standard
+    - path: assets/db/bayt_qafiyah_merged.db.gz
+      flavors:
+        - expanded
     - assets/images/parchment_texture.webp
     - assets/images/calligraphy_bg.webp
 

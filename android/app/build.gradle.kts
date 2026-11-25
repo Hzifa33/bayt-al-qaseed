@@ -20,6 +20,23 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["appName"] = "بيت القصيد"
+    }
+
+    flavorDimensions += "edition"
+    productFlavors {
+        create("standard") {
+            dimension = "edition"
+            applicationId = "com.baytalqaseed.app"
+            manifestPlaceholders["appName"] = "بيت القصيد"
+        }
+        create("expanded") {
+            dimension = "edition"
+            applicationId = "com.baytalqaseed.expanded"
+            versionCode = 2
+            versionName = "2.0.0"
+            manifestPlaceholders["appName"] = "بيت القصيد الموسّعة"
+        }
     }
 
     buildTypes {

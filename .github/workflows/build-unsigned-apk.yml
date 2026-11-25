@@ -49,6 +49,13 @@ jobs:
           fi
           chmod +x "$GITHUB_WORKSPACE/android/gradlew"
 
+      - name: Ensure placeholder exists for expanded-only asset during standard build
+        run: |
+          mkdir -p assets/db
+          if [ ! -f assets/db/bayt_qafiyah_merged.db.gz ]; then
+            touch assets/db/bayt_qafiyah_merged.db.gz
+          fi
+
       - name: Install Flutter dependencies
         run: flutter pub get
 
@@ -65,23 +72,22 @@ jobs:
         run: |
           mkdir -p dist
 
-          # 1. Build Universal Release APK (arm64-v8a + armeabi-v7a)
-          flutter build apk --release --target-platform android-arm64,android-arm || true
-          if [ -f build/app/outputs/apk/release/app-release-unsigned.apk ]; then
-            cp build/app/outputs/apk/release/app-release-unsigned.apk dist/raw-universal.apk
-          elif [ -f build/app/outputs/flutter-apk/app-release.apk ]; then
-            cp build/app/outputs/flutter-apk/app-release.apk dist/raw-universal.apk
+          # 1. Build Universal Release APK (standard flavor: arm64-v8a + armeabi-v7a)
+          flutter build apk --release --flavor standard --dart-define=EDITION=standard --target-platform android-arm64,android-arm || true
+          UNI_RAW=$(find build/app/outputs -name "*standard-release*.apk" | grep -v "arm64\|armeabi" | head -n 1)
+          if [ -n "$UNI_RAW" ] && [ -f "$UNI_RAW" ]; then
+            cp "$UNI_RAW" dist/raw-universal.apk
           else
-            echo "ERROR: No universal release APK was produced!"
+            echo "ERROR: No universal standard release APK was produced!"
             find build/app/outputs -maxdepth 4 -ls || true
             exit 1
           fi
 
-          # 2. Build Split-per-ABI Release APKs (arm64-v8a & armeabi-v7a)
-          flutter build apk --release --split-per-abi --target-platform android-arm64,android-arm || true
+          # 2. Build Split-per-ABI Release APKs (standard flavor: arm64-v8a & armeabi-v7a)
+          flutter build apk --release --flavor standard --dart-define=EDITION=standard --split-per-abi --target-platform android-arm64,android-arm || true
           find build/app/outputs -name "*.apk" -ls
-          ARM64_RAW=$(find build/app/outputs -name "*arm64-v8a*release*.apk" | head -n 1)
-          ARM7_RAW=$(find build/app/outputs -name "*armeabi-v7a*release*.apk" | head -n 1)
+          ARM64_RAW=$(find build/app/outputs -name "*arm64-v8a*standard-release*.apk" -o -name "*standard*arm64-v8a*release*.apk" | head -n 1)
+          ARM7_RAW=$(find build/app/outputs -name "*armeabi-v7a*standard-release*.apk" -o -name "*standard*armeabi-v7a*release*.apk" | head -n 1)
           if [ -z "$ARM64_RAW" ] || [ -z "$ARM7_RAW" ]; then
             echo "ERROR: Missing split ABI APKs (ARM64=$ARM64_RAW, ARM7=$ARM7_RAW)!"
             exit 1

@@ -20,6 +20,7 @@ class Poet {
     required this.bio,
     required this.poemCount,
     required this.verseCount,
+    this.nickname = '',
   });
 
   final int id;
@@ -32,6 +33,7 @@ class Poet {
   final String bio;
   final int poemCount;
   final int verseCount;
+  final String nickname;
 
   String get formattedDates {
     if (datesHijri.isNotEmpty && datesGregorian.isNotEmpty) {

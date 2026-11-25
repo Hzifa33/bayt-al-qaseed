@@ -16,7 +16,9 @@ import '../../providers/database_providers.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/user_data_providers.dart';
 import '../about/about_screen.dart';
+import '../eras/feelings_screen.dart';
 import '../eras/meter_poems_screen.dart';
+import '../eras/theme_poems_screen.dart';
 import '../reader/poem_reader_screen.dart';
 import '../studio/poetry_card_studio_screen.dart';
 import 'masterpieces_screen.dart';
@@ -73,6 +75,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final settings = ref.watch(readerSettingsProvider);
     final stats = ref.watch(libraryStatsProvider);
     final meters = ref.watch(metersProvider);
+    final themes = ref.watch(themesProvider);
+    final feelings = ref.watch(feelingsTreeProvider);
     final allMasterpieces = ref.watch(masterpiecesProvider);
     final userData = ref.watch(userDataProvider);
     final featured = _customFeatured ?? ref.watch(verseOfTheDayProvider);
@@ -243,6 +247,127 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
           ),
+
+          // 3b. Expanded Edition: Feelings & Themes Quick Discovery Strip
+          if (feelings.isNotEmpty) ...[
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(18, 18, 18, 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.psychology_outlined,
+                          size: 18,
+                          color: p.accent,
+                        ),
+                        const SizedBox(width: 7),
+                        Text(
+                          'تصفّح حسب الشعور',
+                          style: Theme.of(context).textTheme.headlineMedium,
+                        ),
+                      ],
+                    ),
+                    Text(
+                      '${ArabicNormalizer.toArabicNumber(stats.feelingCount)} شعوراً',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: p.accent,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height: 44,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: feelings.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (context, i) {
+                    final f = feelings[i];
+                    return ActionChip(
+                      avatar: Icon(
+                        Icons.auto_awesome_outlined,
+                        size: 15,
+                        color: p.accent,
+                      ),
+                      label: Text(
+                        f.name,
+                        style: TextStyle(
+                          fontFamily: AppFonts.ui,
+                          fontWeight: FontWeight.w600,
+                          color: p.ink,
+                        ),
+                      ),
+                      onPressed: () {
+                        HapticFeedback.selectionClick();
+                        BaytNav.pushEditorial(
+                          context,
+                          FeelingDetailScreen(rootFeeling: f),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
+
+          if (themes.isNotEmpty) ...[
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(18, 16, 18, 8),
+                child: Row(
+                  children: [
+                    Icon(Icons.category_outlined, size: 17, color: p.accent),
+                    const SizedBox(width: 7),
+                    Text(
+                      'الأغراض الشعرية',
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height: 40,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: themes.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 7),
+                  itemBuilder: (context, i) {
+                    final th = themes[i];
+                    return ActionChip(
+                      label: Text(
+                        '${th.name} (${ArabicNormalizer.toArabicNumber(th.poemCount)})',
+                        style: TextStyle(
+                          fontFamily: AppFonts.ui,
+                          fontSize: 12,
+                          color: p.ink,
+                        ),
+                      ),
+                      onPressed: () {
+                        HapticFeedback.selectionClick();
+                        BaytNav.pushEditorial(
+                          context,
+                          ThemePoemsScreen(theme: th),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
 
           // 4. Refined Compact Curated Masterpieces («عيونُ القصيد الخالدة»)
           if (allMasterpieces.isNotEmpty) ...[
