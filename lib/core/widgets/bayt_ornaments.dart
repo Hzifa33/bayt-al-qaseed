@@ -3,7 +3,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../constants/app_constants.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_typography.dart';
 import '../utils/arabic_normalizer.dart';
@@ -16,7 +15,6 @@ class BaytEmblem extends StatelessWidget {
     this.backgroundColor,
     this.goldColor,
     this.nibColor,
-    this.showExpandedBadge,
   });
 
   final double size;
@@ -24,13 +22,9 @@ class BaytEmblem extends StatelessWidget {
   final Color? goldColor;
   final Color? nibColor;
 
-  /// Shows the Expanded Edition (+) corner badge; defaults to [AppConstants.isExpanded].
-  final bool? showExpandedBadge;
-
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    final expandedBadge = showExpandedBadge ?? AppConstants.isExpanded;
     return SizedBox(
       width: size,
       height: size,
@@ -40,7 +34,6 @@ class BaytEmblem extends StatelessWidget {
           gold: goldColor ?? p.accent,
           nib: nibColor ?? p.ink,
           hairline: p.hairline,
-          showPlusBadge: expandedBadge,
         ),
       ),
     );
@@ -53,14 +46,12 @@ class _BaytEmblemPainter extends CustomPainter {
     required this.gold,
     required this.nib,
     required this.hairline,
-    required this.showPlusBadge,
   });
 
   final Color bg;
   final Color gold;
   final Color nib;
   final Color hairline;
-  final bool showPlusBadge;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -130,44 +121,13 @@ class _BaytEmblemPainter extends CustomPainter {
       size.width * 0.036,
       Paint()..color = gold,
     );
-
-    // Expanded Edition (+) badge in top-left corner (visually prominent in RTL)
-    if (showPlusBadge) {
-      final badgeR = size.width * 0.175;
-      final badgeCenter = Offset(size.width * 0.82, size.height * 0.18);
-      // Outer ring matching backdrop for crisp separation
-      canvas.drawCircle(
-        badgeCenter,
-        badgeR + size.width * 0.036,
-        Paint()..color = bg,
-      );
-      // Accent circle
-      canvas.drawCircle(badgeCenter, badgeR, Paint()..color = gold);
-      // Crisp '+' cross
-      final arm = badgeR * 0.56;
-      final plusPaint = Paint()
-        ..color = bg
-        ..strokeWidth = math.max(1.5, size.width * 0.048)
-        ..strokeCap = StrokeCap.round;
-      canvas.drawLine(
-        Offset(badgeCenter.dx - arm, badgeCenter.dy),
-        Offset(badgeCenter.dx + arm, badgeCenter.dy),
-        plusPaint,
-      );
-      canvas.drawLine(
-        Offset(badgeCenter.dx, badgeCenter.dy - arm),
-        Offset(badgeCenter.dx, badgeCenter.dy + arm),
-        plusPaint,
-      );
-    }
   }
 
   @override
   bool shouldRepaint(covariant _BaytEmblemPainter oldDelegate) =>
       oldDelegate.bg != bg ||
       oldDelegate.gold != gold ||
-      oldDelegate.nib != nib ||
-      oldDelegate.showPlusBadge != showPlusBadge;
+      oldDelegate.nib != nib;
 }
 
 /// Editorial circular badge displaying a poem's single-letter rhyme (حرف الروي)
@@ -289,18 +249,6 @@ class _MaterialYouIconPainter extends CustomPainter {
 /// poetesses or a classic person icon for male poets.
 class PoetGender {
   PoetGender._();
-
-  /// Legacy v5 poet IDs (only valid in Standard Edition where IDs are fixed).
-  static const Set<int> _legacyFemalePoetIds = {
-    16, // الخنساء
-    149, // جليلة بنت مرة
-    165, // ليلى العفيفة
-    859, // ليلى الأخيلية
-    1024, // عائشة التيمورية
-    1544, // رابعة العدوية
-    10035, // صفية بنت ثعلبة
-    10048, // صفية بنت عبد المطلب
-  };
 
   static const Set<String> _maleExceptions = {
     'مجنون ليلى',
@@ -686,11 +634,6 @@ class PoetGender {
   };
 
   static bool isFemale({int? poetId, String? poetName}) {
-    if (!AppConstants.isExpanded &&
-        poetId != null &&
-        _legacyFemalePoetIds.contains(poetId)) {
-      return true;
-    }
     if (poetName == null || poetName.isEmpty) return false;
     final clean = ArabicNormalizer.stripDiacritics(poetName).trim();
     if (clean.isEmpty) return false;

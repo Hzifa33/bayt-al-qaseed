@@ -4,9 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>بيت القصيد — الموسوعة الشعرية العربية الشاملة</title>
-  <meta name="description" content="تطبيق بيت القصيد بنسختيه القياسية والموسّعة (الموسوعة): أكثر من ٥٫٦ مليون بيتٍ شعري و٣٣٨ ألف قصيدة لـ ١٧٬٢٤٤ شاعراً مع عجلة المشاعر والأغراض الشعرية دون إنترنت." />
+  <meta name="description" content="تطبيق بيت القصيد: الموسوعة الشعرية العربية الشاملة دون اتصال بالإنترنت — ١٧٬٢٤٤ شاعراً، ٣٣٨ ألف قصيدة، وأكثر من ٥٫٦ مليون بيتٍ مع أطلس المشاعر والأغراض بتجربة قراءة تحريرية فاخرة." />
   <meta property="og:title" content="بيت القصيد — الموسوعة الشعرية العربية الشاملة" />
-  <meta property="og:description" content="أكثر من ٥٬٦٢٦٬٣٣٦ بيتاً شعرياً و٣٣٨٬١٣٤ قصيدة لـ ١٧٬٢٤٤ شاعراً في تطبيق أندرويد مجاني يعمل دون إنترنت." />
+  <meta property="og:description" content="أكثر من ٥٬٦٢٦٬٣٣٦ بيتاً شعرياً و٣٣٨٬١٣٤ قصيدة لـ ١٧٬٢٤٤ شاعراً عبر ١٣ عصراً و١٢٧ شعوراً في تطبيق أندرويد مجاني يعمل دون إنترنت." />
   <meta property="og:image" content="https://hzifa33.com/bayt-al-qaseed/assets/hero-banner.png" />
   <meta property="og:type" content="website" />
   <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
@@ -273,10 +273,10 @@
 
     .hero h1 {
       font-family: 'Aref Ruqaa', serif;
-      font-size: clamp(1.75rem, 3.4vw, 3.15rem);
-      line-height: 1.32;
+      font-size: clamp(2.15rem, 4.8vw, 4.2rem);
+      line-height: 1.3;
       color: var(--ink);
-      margin-bottom: 14px;
+      margin-bottom: 16px;
     }
 
     .hero h1 span {
@@ -445,7 +445,7 @@
     }
 
     .stat-num {
-      font-size: clamp(1.12rem, 0.94rem + 1vw, 1.82rem);
+      font-size: clamp(1.32rem, 1.05rem + 1.25vw, 2.15rem);
       font-weight: 700;
       color: var(--accent);
       font-variant-numeric: tabular-nums;
@@ -453,155 +453,33 @@
     }
 
     .stat-label {
-      font-size: clamp(0.75rem, 0.7rem + 0.22vw, 0.9rem);
+      font-size: clamp(0.78rem, 0.73rem + 0.26vw, 0.95rem);
       color: var(--ink-muted);
-      margin-top: 4px;
+      margin-top: 5px;
       font-weight: 500;
     }
 
     /* Section Headings */
-    .section { padding: clamp(22px, 4vw, 40px) 0; }
+    .section { padding: clamp(26px, 4.5vw, 44px) 0; }
 
     .section-head {
       text-align: center;
       max-width: 680px;
-      margin: 0 auto clamp(20px, 3.5vw, 32px);
+      margin: 0 auto clamp(24px, 4vw, 38px);
     }
 
     .section-head h2 {
       font-family: 'Aref Ruqaa', serif;
-      font-size: clamp(1.38rem, 2.5vw, 2.15rem);
+      font-size: clamp(1.75rem, 3.4vw, 2.85rem);
       line-height: 1.35;
       color: var(--ink);
-      margin-bottom: 8px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 9px;
-      flex-wrap: wrap;
+      margin-bottom: 10px;
     }
 
     .section-head p {
       color: var(--ink-muted);
-      font-size: clamp(0.86rem, 0.82rem + 0.25vw, 1rem);
-      line-height: 1.8;
-    }
-
-    /* Editions Comparison Grid */
-    .editions-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: clamp(14px, 2.4vw, 22px);
-    }
-
-    .edition-card {
-      background: var(--surface-elevated);
-      border: 1px solid var(--hairline);
-      border-radius: clamp(16px, 2.4vw, 22px);
-      padding: clamp(18px, 3vw, 28px) clamp(16px, 2.6vw, 24px);
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-      box-shadow: 0 10px 28px -18px rgba(0, 0, 0, 0.14);
-    }
-
-    .edition-card.featured {
-      border-color: var(--accent);
-      background: linear-gradient(180deg, var(--accent-soft), var(--surface-elevated) 42%);
-    }
-
-    .edition-header {
-      display: flex;
-      align-items: flex-start;
-      gap: 12px;
-    }
-
-    .edition-icon {
-      width: 42px;
-      height: 42px;
-      border-radius: 12px;
-      background: var(--accent-soft);
-      color: var(--accent);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-    }
-
-    .edition-title {
-      font-family: 'Aref Ruqaa', serif;
-      font-size: clamp(1.22rem, 1.9vw, 1.6rem);
-      line-height: 1.28;
-      color: var(--ink);
-    }
-
-    .edition-pkg {
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 0.76rem;
-      color: var(--accent);
-      direction: ltr;
-      display: inline-block;
-      margin-top: 2px;
-    }
-
-    .taxonomy-list {
-      list-style: none;
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 8px 12px;
-      margin-top: 4px;
-    }
-
-    .taxonomy-list li {
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      font-size: clamp(0.8rem, 0.77rem + 0.18vw, 0.9rem);
-      color: var(--ink-muted);
-      line-height: 1.45;
-    }
-
-    .taxonomy-list li strong {
-      color: var(--ink);
-      font-weight: 700;
-    }
-
-    .taxonomy-list svg {
-      color: var(--accent);
-      flex-shrink: 0;
-    }
-
-    .dl-group-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 8px 14px;
-      padding-bottom: 12px;
-      border-bottom: 1px solid var(--hairline);
-      margin-bottom: 16px;
-    }
-
-    .dl-group-title {
-      display: inline-flex;
-      align-items: center;
-      gap: 9px;
-      font-family: 'Aref Ruqaa', serif;
-      font-size: clamp(1.2rem, 2vw, 1.62rem);
-      color: var(--ink);
-      line-height: 1.3;
-    }
-
-    .dl-group-title svg { color: var(--accent); flex-shrink: 0; }
-
-    .dl-group-meta {
-      font-size: clamp(0.78rem, 0.75rem + 0.18vw, 0.88rem);
-      color: var(--ink-muted);
-    }
-
-    @media (max-width: 760px) {
-      .editions-grid { grid-template-columns: 1fr; }
-      .taxonomy-list { grid-template-columns: 1fr; }
+      font-size: clamp(0.9rem, 0.84rem + 0.34vw, 1.06rem);
+      line-height: 1.82;
     }
 
     /* App Preview Frame */
@@ -807,12 +685,11 @@
         <img class="brand-logo" src="assets/favicon.svg" alt="شعار بيت القصيد" />
         <div>
           <div class="brand-title">بيت القصيد</div>
-          <div class="brand-sub">ديوان الشعر العربي</div>
+          <div class="brand-sub">الموسوعة الشعرية الشاملة</div>
         </div>
       </a>
 
       <div class="nav-links">
-        <a href="#editions">النسختان</a>
         <a href="#preview">الواجهات</a>
         <a href="#features">المزايا</a>
         <a href="#download">التحميل</a>
@@ -825,7 +702,7 @@
             <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
           </svg>
         </button>
-        <a class="btn-primary" href="#download">تحميل التطبيق</a>
+        <a class="btn-primary" href="#download">تحميل v1.0.0</a>
       </div>
     </nav>
   </header>
@@ -835,19 +712,19 @@
     <section class="hero">
       <div>
         <div class="badge-pill">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-          <span>الإصدار v1.0.0 — النسخة الموسّعة والقياسية دون إنترنت</span>
+          <span>✦</span>
+          <span>الإصدار الرسمي 1.0.0 — يعمل بالكامل دون إنترنت</span>
         </div>
-        <h1>موسوعة <span>الشعر العربي</span> بين يديك</h1>
+        <h1>أوسع خزانة <span>للشعر العربي</span> بين يديك</h1>
         <p class="lead">
-          تطبيقٌ أدبيٌّ عربيٌّ صُمّم لقراءة الشعر بسكينةٍ ووضوح؛ يتوفّر الآن بنسختين مستقلّتين قابلتين للتثبيت معاً: <strong>النسخة الموسّعة «الموسوعة»</strong> بأكثر من <strong>٥٫٦ مليون بيتٍ شعري</strong> و<strong>١٢٧ شعوراً</strong> و<strong>١٠ أغراض</strong>، و<strong>النسخة القياسية الخفيفة</strong>.
+          تطبيقٌ أدبيٌّ عربيٌّ صُمّم لقراءة الشعر بسكينةٍ ووضوح؛ يجمع أكثر من <strong>٥٫٦ مليون بيتٍ شعري</strong> و<strong>٣٣٨ ألف قصيدة</strong> لـ <strong>١٧٬٢٤٤ شاعراً</strong> عبر ١٣ عصراً أدبياً، مع أطلس المشاعر (١٢٧ شعوراً)، والأغراض الشعرية، والبحث الفوري، واستوديو تصميم البطاقات.
         </p>
         <div class="hero-cta">
-          <a class="btn-primary" href="https://github.com/Hzifa33/bayt-al-qaseed/releases/download/v1.0.0/BaytAlQaseed-Expanded-v1.0.0-arm64-v8a.apk">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            <span>تحميل النسخة الموسّعة (ARM8)</span>
+          <a class="btn-primary" href="https://github.com/Hzifa33/bayt-al-qaseed/releases/download/v1.0.0/BaytAlQaseed-v1.0.0-arm64-v8a.apk">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span>تحميل لأندرويد (ARM8)</span>
           </a>
-          <a class="btn-outline" href="#editions">مقارنة النسختين والتصنيفات</a>
+          <a class="btn-outline" href="#download">جميع النسخ الموقّعة</a>
         </div>
         <div class="hero-meta">
           <span>✓ مجاني ومفتوح المصدر</span>
@@ -880,80 +757,22 @@
     </section>
 
     <!-- Corpus Numbers -->
-    <section class="stats-strip" aria-label="إحصاءات الموسوعة">
+    <section class="stats-strip" aria-label="إحصاءات الديوان">
       <div class="stat-card">
         <div class="stat-num">٥٬٦٢٦٬٣٣٦</div>
-        <div class="stat-label">بيتاً شعرياً (الموسّعة)</div>
+        <div class="stat-label">بيتاً شعرياً</div>
       </div>
       <div class="stat-card">
         <div class="stat-num">٣٣٨٬١٣٤</div>
-        <div class="stat-label">قصيدة منقّحة بلا تكرار</div>
+        <div class="stat-label">قصيدة كاملة</div>
       </div>
       <div class="stat-card">
         <div class="stat-num">١٧٬٢٤٤</div>
-        <div class="stat-label">شاعراً عبر ١٣ عصراً</div>
+        <div class="stat-label">شاعراً وشاعرة</div>
       </div>
       <div class="stat-card">
         <div class="stat-num">١٢٧</div>
-        <div class="stat-label">شعوراً و١٠ أغراض شعرية</div>
-      </div>
-    </section>
-
-    <!-- Editions & Taxonomies Breakdown -->
-    <section class="section" id="editions">
-      <div class="section-head">
-        <h2>نسختان مستقلّتان لتناسب كلّ قارئ</h2>
-        <p>تُثبّت النسخة الموسّعة والقياسية جنباً إلى جنب على الهاتف نفسه دون أيّ تعارض، ولكلّ نسخةٍ معرّف حزمةٍ وتصنيفاتها الكاملة.</p>
-      </div>
-
-      <div class="editions-grid">
-        <!-- Expanded Edition Card -->
-        <article class="edition-card featured">
-          <div class="edition-header">
-            <div class="edition-icon">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-            </div>
-            <div>
-              <div class="edition-title">النسخة الموسّعة — «الموسوعة» (v1.0.0)</div>
-              <span class="edition-pkg">com.baytalqaseed.expanded • ~164 MB DB</span>
-            </div>
-          </div>
-          <p class="apk-desc">الموسوعة العربية الأشمل دون إنترنت؛ تدمج قافية وبيت القصيد بعد إزالة التكرار واختيار النسخة الأجود تشكيلاً واكتمالاً مع تصنيفٍ عروضيٍّ آلي.</p>
-          <ul class="taxonomy-list">
-            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="20 6 9 17 4 12"/></svg><span><strong>٥٬٦٢٦٬٣٣٦</strong> بيتاً مشكولاً</span></li>
-            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="20 6 9 17 4 12"/></svg><span><strong>٣٣٨٬١٣٤</strong> قصيدة منقّحة</span></li>
-            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="20 6 9 17 4 12"/></svg><span><strong>١٧٬٢٤٤</strong> شاعراً وشاعرة</span></li>
-            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="20 6 9 17 4 12"/></svg><span><strong>١٣ عصراً</strong> (مع المخضرم والمعاصر)</span></li>
-            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="20 6 9 17 4 12"/></svg><span><strong>٤٧ بحراً</strong> (عمودي، حر، نبطي)</span></li>
-            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="20 6 9 17 4 12"/></svg><span><strong>٣٣ قافية</strong> مكتملة ١٠٠٪</span></li>
-            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="20 6 9 17 4 12"/></svg><span><strong>١٠ أغراض</strong> شعرية مستقلة</span></li>
-            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="20 6 9 17 4 12"/></svg><span><strong>١٢٧ شعوراً</strong> في ٧ عائلات هرمية</span></li>
-          </ul>
-        </article>
-
-        <!-- Standard Edition Card -->
-        <article class="edition-card">
-          <div class="edition-header">
-            <div class="edition-icon">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-            </div>
-            <div>
-              <div class="edition-title">النسخة القياسية الخفيفة (v1.0.0)</div>
-              <span class="edition-pkg">com.baytalqaseed.app • ~82 MB DB</span>
-            </div>
-          </div>
-          <p class="apk-desc">ديوانٌ منتقى وخفيف الحجم لأشهر فحول الشعر العربي، مناسبٌ للهواتف محدودة المساحة مع بحثٍ فوري في كامل الأبيات.</p>
-          <ul class="taxonomy-list">
-            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="20 6 9 17 4 12"/></svg><span><strong>١٬١٦٢٬١١٩</strong> بيتاً شعرياً</span></li>
-            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="20 6 9 17 4 12"/></svg><span><strong>٩٠٬٢٣٨</strong> قصيدة كاملة</span></li>
-            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="20 6 9 17 4 12"/></svg><span><strong>٥٤٢</strong> شاعراً وشاعرة</span></li>
-            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="20 6 9 17 4 12"/></svg><span><strong>١١ عصراً</strong> أدبياً</span></li>
-            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="20 6 9 17 4 12"/></svg><span><strong>٢٧ بحراً</strong> عروضياً</span></li>
-            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="20 6 9 17 4 12"/></svg><span><strong>٣١ قافية</strong> مصنّفة</span></li>
-            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="20 6 9 17 4 12"/></svg><span><strong>١٧٢</strong> من عيون القصيد</span></li>
-            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="20 6 9 17 4 12"/></svg><span>بحث FTS5 في كامل الأبيات</span></li>
-          </ul>
-        </article>
+        <div class="stat-label">شعوراً و١٠ أغراض</div>
       </div>
     </section>
 
@@ -996,8 +815,8 @@
           <div class="feature-icon">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
           </div>
-          <h3>عيونُ القصيد الخالدة</h3>
-          <p>نافذةٌ مستقلةٌ تجمع ١٧٢ قصيدةً من أمهات الشعر العربي: المعلّقات العشر، الرثاء الخالد، روائع الغزل، والحكمة واللاميات والسينيات.</p>
+          <h3>أطلسُ المشاعر والأغراض الشعرية</h3>
+          <p>استكشف ١٢٧ شعوراً متفرّعاً من ٧ مشاعر كبرى مع انتقالٍ مباشر إلى البيت المعنيّ داخل القصيدة، إلى جانب ١٠ أغراضٍ شعرية و١٧٢ قصيدةً من عيون القصيد الخالدة.</p>
         </article>
 
         <article class="feature-card">
@@ -1029,83 +848,38 @@
     <!-- Download Section -->
     <section class="section" id="download">
       <div class="download-box">
-        <div class="section-head" style="margin-bottom: 24px;">
-          <h2>تحميل الحزم الموقّعة (v1.0.0)</h2>
-          <p>جميع الحزم موقّعة رقمياً وجاهزة للتثبيت المباشر على أندرويد؛ اختر النسخة والمعمارية المناسبة لجهازك.</p>
+        <div class="section-head" style="margin-bottom: 12px;">
+          <h2>تحميل تطبيق بيت القصيد</h2>
+          <p>الإصدار الرسمي <strong>v1.0.0</strong> — جميع الحزم موقّعة رقمياً وجاهزة للتثبيت المباشر على أندرويد.</p>
         </div>
 
-        <div class="dl-group-head">
-          <div class="dl-group-title">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-            <span>النسخة الموسّعة — «الموسوعة» (v1.0.0)</span>
-          </div>
-          <span class="dl-group-meta">com.baytalqaseed.expanded • ٥٫٦ مليون بيت</span>
-        </div>
-
-        <div class="download-grid" style="margin-top: 0; margin-bottom: 32px;">
+        <div class="download-grid">
           <div class="apk-card recommended">
             <div>
               <span class="rec-tag">موصى به لمعظم الهواتف</span>
-              <div class="apk-title">الموسّعة ARM8 (64-bit)</div>
-              <span class="apk-arch">arm64-v8a • ~185 MB</span>
-              <p class="apk-desc" style="margin-top: 8px;">الأسرع أداءً والأقل حجماً على هواتف أندرويد الحديثة مع كامل الموسوعة أوفلاين.</p>
+              <div class="apk-title">نسخة ARM8 (64-bit)</div>
+              <span class="apk-arch">arm64-v8a • ~188 MB</span>
+              <p class="apk-desc" style="margin-top: 10px;">الأخف حجماً والأسرع أداءً على جميع هواتف أندرويد الحديثة بمعالجات 64-bit.</p>
             </div>
-            <a class="btn-primary" href="https://github.com/Hzifa33/bayt-al-qaseed/releases/download/v1.0.0/BaytAlQaseed-Expanded-v1.0.0-arm64-v8a.apk">تحميل Expanded ARM8</a>
+            <a class="btn-primary" href="https://github.com/Hzifa33/bayt-al-qaseed/releases/download/v1.0.0/BaytAlQaseed-v1.0.0-arm64-v8a.apk">تحميل ARM8 APK</a>
           </div>
 
           <div class="apk-card">
             <div>
-              <div class="apk-title">الموسّعة ARM7 (32-bit)</div>
-              <span class="apk-arch">armeabi-v7a • ~183 MB</span>
-              <p class="apk-desc" style="margin-top: 8px;">مخصّصة للهواتف والأجهزة الأقدم ذات المعالجات 32-bit.</p>
+              <div class="apk-title">نسخة ARM7 (32-bit)</div>
+              <span class="apk-arch">armeabi-v7a • ~186 MB</span>
+              <p class="apk-desc" style="margin-top: 10px;">نسخة مخصّصة وخفيفة للأجهزة والهواتف الأقدم ذات المعالجات 32-bit.</p>
             </div>
-            <a class="btn-outline" href="https://github.com/Hzifa33/bayt-al-qaseed/releases/download/v1.0.0/BaytAlQaseed-Expanded-v1.0.0-armeabi-v7a.apk">تحميل Expanded ARM7</a>
+            <a class="btn-outline" href="https://github.com/Hzifa33/bayt-al-qaseed/releases/download/v1.0.0/BaytAlQaseed-v1.0.0-armeabi-v7a.apk">تحميل ARM7 APK</a>
           </div>
 
           <div class="apk-card">
             <div>
-              <div class="apk-title">الموسّعة الشاملة (Universal)</div>
-              <span class="apk-arch">arm64 + armv7 • ~205 MB</span>
-              <p class="apk-desc" style="margin-top: 8px;">حزمة واحدة متكاملة متوافقة مع جميع معماريات أندرويد.</p>
+              <div class="apk-title">النسخة الشاملة (Universal)</div>
+              <span class="apk-arch">arm64 + armv7 • ~206 MB</span>
+              <p class="apk-desc" style="margin-top: 10px;">حزمة واحدة متكاملة تعمل على جميع معماريات أندرويد إن لم تكن متأكداً من نوع جهازك.</p>
             </div>
-            <a class="btn-outline" href="https://github.com/Hzifa33/bayt-al-qaseed/releases/download/v1.0.0/BaytAlQaseed-Expanded-v1.0.0-universal.apk">تحميل Expanded Universal</a>
-          </div>
-        </div>
-
-        <div class="dl-group-head">
-          <div class="dl-group-title">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-            <span>النسخة القياسية الخفيفة — «بيت القصيد» (v1.0.0)</span>
-          </div>
-          <span class="dl-group-meta">com.baytalqaseed.app • ١٫١٦ مليون بيت</span>
-        </div>
-
-        <div class="download-grid" style="margin-top: 0;">
-          <div class="apk-card">
-            <div>
-              <div class="apk-title">القياسية ARM8 (64-bit)</div>
-              <span class="apk-arch">arm64-v8a • ~106 MB</span>
-              <p class="apk-desc" style="margin-top: 8px;">الأخف حجماً للهواتف الحديثة ذات المعالجات 64-bit.</p>
-            </div>
-            <a class="btn-outline" href="https://github.com/Hzifa33/bayt-al-qaseed/releases/download/v1.0.0/BaytAlQaseed-v1.0.0-arm64-v8a.apk">تحميل Standard ARM8</a>
-          </div>
-
-          <div class="apk-card">
-            <div>
-              <div class="apk-title">القياسية ARM7 (32-bit)</div>
-              <span class="apk-arch">armeabi-v7a • ~104 MB</span>
-              <p class="apk-desc" style="margin-top: 8px;">مخصّصة للهواتف الأقدم ذات المعالجات 32-bit.</p>
-            </div>
-            <a class="btn-outline" href="https://github.com/Hzifa33/bayt-al-qaseed/releases/download/v1.0.0/BaytAlQaseed-v1.0.0-armeabi-v7a.apk">تحميل Standard ARM7</a>
-          </div>
-
-          <div class="apk-card">
-            <div>
-              <div class="apk-title">القياسية الشاملة (Universal)</div>
-              <span class="apk-arch">arm64 + armv7 • ~125 MB</span>
-              <p class="apk-desc" style="margin-top: 8px;">حزمة واحدة تعمل على جميع معماريات أندرويد.</p>
-            </div>
-            <a class="btn-outline" href="https://github.com/Hzifa33/bayt-al-qaseed/releases/download/v1.0.0/BaytAlQaseed-v1.0.0-universal.apk">تحميل Standard Universal</a>
+            <a class="btn-outline" href="https://github.com/Hzifa33/bayt-al-qaseed/releases/download/v1.0.0/BaytAlQaseed-v1.0.0-universal.apk">تحميل Universal APK</a>
           </div>
         </div>
       </div>

@@ -119,32 +119,7 @@ class _SplashInitScreenState extends ConsumerState<SplashInitScreen>
                       ),
                     ),
                   ),
-                  if (AppConstants.isExpanded) ...[
-                    const SizedBox(height: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: p.accentSoft,
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(
-                          color: p.accent.withValues(alpha: 0.35),
-                          width: 0.85,
-                        ),
-                      ),
-                      child: Text(
-                        'النسخة الموسّعة',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: p.accent,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 11.5,
-                        ),
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   Text(
                     'ديوانُ الشعر العربي من الجاهلية إلى العصر الحديث',
                     textAlign: TextAlign.center,

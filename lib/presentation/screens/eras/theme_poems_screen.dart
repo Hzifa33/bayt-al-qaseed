@@ -153,29 +153,39 @@ class _ThemePoemsScreenState extends ConsumerState<ThemePoemsScreen> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      Text(
-                                        poem.title,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontFamily: AppFonts.scheherazade,
-                                          fontSize: 17.5,
-                                          color: p.ink,
-                                          height: 1.4,
+                                      FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        alignment:
+                                            AlignmentDirectional.centerStart,
+                                        child: Text(
+                                          poem.title,
+                                          maxLines: 1,
+                                          style: TextStyle(
+                                            fontFamily: AppFonts.scheherazade,
+                                            fontSize: 17.5,
+                                            color: p.ink,
+                                            height: 1.4,
+                                          ),
                                         ),
                                       ),
                                       const SizedBox(height: 2),
                                       Row(
                                         children: [
                                           Expanded(
-                                            child: Text(
-                                              '${poem.poetName}  •  ${poem.eraName}  •  ${poem.meterName}',
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .labelSmall
-                                                  ?.copyWith(color: p.inkMuted),
+                                            child: FittedBox(
+                                              fit: BoxFit.scaleDown,
+                                              alignment: AlignmentDirectional
+                                                  .centerStart,
+                                              child: Text(
+                                                '${poem.poetName}  •  ${poem.eraName}  •  ${poem.meterName}',
+                                                maxLines: 1,
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .labelSmall
+                                                    ?.copyWith(
+                                                      color: p.inkMuted,
+                                                    ),
+                                              ),
                                             ),
                                           ),
                                           const SizedBox(width: 8),

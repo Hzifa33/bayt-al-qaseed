@@ -18,25 +18,9 @@ android {
         applicationId = "com.baytalqaseed.app"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
-        versionCode = flutter.versionCode
-        versionName = flutter.versionName
+        versionCode = 1
+        versionName = "1.0.0"
         manifestPlaceholders["appName"] = "بيت القصيد"
-    }
-
-    flavorDimensions += "edition"
-    productFlavors {
-        create("standard") {
-            dimension = "edition"
-            applicationId = "com.baytalqaseed.app"
-            manifestPlaceholders["appName"] = "بيت القصيد"
-        }
-        create("expanded") {
-            dimension = "edition"
-            applicationId = "com.baytalqaseed.expanded"
-            versionCode = 1
-            versionName = "1.0.0"
-            manifestPlaceholders["appName"] = "بيت القصيد"
-        }
     }
 
     buildTypes {

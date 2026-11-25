@@ -39,7 +39,7 @@ void main() {
       expect(restored, equals(sample));
     });
 
-    test('PoetryRepository seamlessly reads Compact v6 blocks, themes, and feelings', () {
+    test('PoetryRepository seamlessly reads Compact v6 blocks, themes, and feelings', () async {
       final tempDir = Directory.systemTemp.createTempSync('bayt_v6_test_');
       final dbPath = '${tempDir.path}/v6_test.db';
       try {
@@ -137,6 +137,16 @@ void main() {
         expect(tree.length, equals(1));
         expect(tree.first.children.length, equals(1));
         expect(repo.getPoemsByFeeling(tree.first).isNotEmpty, isTrue);
+
+        final feelingHits = await repo.getFeelingVerseHitsAsync(tree.first);
+        expect(feelingHits.hits.length, equals(1));
+        expect(feelingHits.totalMatchedPoems, greaterThanOrEqualTo(1));
+        expect(feelingHits.hits.first.matchedVerseIndex, equals(1));
+        expect(feelingHits.hits.first.matchedSadr, contains('سُرورٌ'));
+
+        final asyncPoets = await repo.getPoetsAsync(limit: 10, offset: 0);
+        expect(asyncPoets.length, equals(1));
+        expect(asyncPoets.first.name, equals('مارية الرفاعي'));
 
         final searchRes = repo.search(rawQuery: 'منحتك');
         expect(searchRes.poems.length, equals(1));

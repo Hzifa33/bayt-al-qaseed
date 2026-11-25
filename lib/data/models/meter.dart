@@ -69,6 +69,52 @@ class Feeling {
   bool get isRoot => parentSlug == null || parentSlug!.isEmpty;
 }
 
+/// A pinpoint verse matched inside a poem for a specific emotion or sub-feeling,
+/// enabling direct jump & highlight inside [PoemReaderScreen].
+class FeelingVerseHit {
+  const FeelingVerseHit({
+    required this.poemId,
+    required this.poetId,
+    required this.poetName,
+    required this.eraName,
+    required this.meterName,
+    required this.rhymeName,
+    required this.title,
+    required this.verseCount,
+    required this.matchedVerseIndex,
+    required this.matchedSadr,
+    required this.matchedAjuz,
+    this.matchedExtraHemistichs = const [],
+    this.matchedKeyword = '',
+  });
+
+  final int poemId;
+  final int poetId;
+  final String poetName;
+  final String eraName;
+  final String meterName;
+  final String rhymeName;
+  final String title;
+  final int verseCount;
+  final int matchedVerseIndex;
+  final String matchedSadr;
+  final String matchedAjuz;
+  final List<String> matchedExtraHemistichs;
+  final String matchedKeyword;
+}
+
+class FeelingSearchResult {
+  const FeelingSearchResult({
+    required this.hits,
+    required this.totalMatchedPoems,
+    required this.hasMore,
+  });
+
+  final List<FeelingVerseHit> hits;
+  final int totalMatchedPoems;
+  final bool hasMore;
+}
+
 class LibraryStats {
   const LibraryStats({
     required this.eraCount,

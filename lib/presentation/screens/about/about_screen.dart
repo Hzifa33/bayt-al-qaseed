@@ -99,7 +99,7 @@ class AboutScreen extends ConsumerWidget {
                   horizontalPadding: 28,
                 ),
                 Text(
-                  'خزانةٌ أدبيةٌ جامعةٌ لعيون الشعر العربي عبر أحدَ عشرَ عصراً، صُمّمت لتكون رفيقاً هادئاً للقارئ، نقيةً من الإعلانات ومشتّتات القراءة، وتعمل بالكامل دون حاجةٍ إلى اتصال.',
+                  'الموسوعةُ الشعريةُ العربيةُ الشاملة عبر ثلاثةَ عشرَ عصراً أدبياً؛ صُمّمت لتكون رفيقاً هادئاً للقارئ، نقيةً من الإعلانات ومشتّتات القراءة، وتعمل بالكامل دون حاجةٍ إلى اتصال.',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyMedium
                       ?.copyWith(color: p.inkMuted, height: 1.85),
@@ -229,13 +229,17 @@ class _MiniMetric extends StatelessWidget {
     return Expanded(
       child: Column(
         children: [
-          Text(
-            value,
-            style: TextStyle(
-              fontFamily: AppFonts.ui,
-              fontSize: 16.5,
-              fontWeight: FontWeight.w700,
-              color: p.ink,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              value,
+              maxLines: 1,
+              style: TextStyle(
+                fontFamily: AppFonts.ui,
+                fontSize: 16.5,
+                fontWeight: FontWeight.w700,
+                color: p.ink,
+              ),
             ),
           ),
           Text(label, style: Theme.of(context).textTheme.labelSmall),

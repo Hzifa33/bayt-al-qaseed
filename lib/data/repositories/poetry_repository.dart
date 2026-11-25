@@ -215,6 +215,319 @@ class PoetryRepository {
     return roots.map(buildNode).toList(growable: false);
   }
 
+  /// Background-isolate emotion verse finder: returns exact matching verses
+  /// (with verse index & matched keyword) and real corpus match count without
+  /// ever blocking the UI thread.
+  Future<FeelingSearchResult> getFeelingVerseHitsAsync(
+    Feeling feeling, {
+    String? rootSlug,
+    int limit = 30,
+    int offset = 0,
+  }) async {
+    final effectiveRoot = rootSlug ?? feeling.slug;
+    final dbPath = _corpus.dbPath;
+    if (dbPath == null) {
+      return _findFeelingVerseHits(
+        feelingId: feeling.id,
+        slug: feeling.slug,
+        name: feeling.name,
+        rootSlug: effectiveRoot,
+        limit: limit,
+        offset: offset,
+      );
+    }
+    try {
+      return await Isolate.run(
+        () => _runFeelingVerseHitsInIsolate(
+          dbPath,
+          feeling.id,
+          feeling.slug,
+          feeling.name,
+          effectiveRoot,
+          limit,
+          offset,
+        ),
+      );
+    } catch (_) {
+      return _findFeelingVerseHits(
+        feelingId: feeling.id,
+        slug: feeling.slug,
+        name: feeling.name,
+        rootSlug: effectiveRoot,
+        limit: limit,
+        offset: offset,
+      );
+    }
+  }
+
+  static FeelingSearchResult _runFeelingVerseHitsInIsolate(
+    String dbPath,
+    int feelingId,
+    String slug,
+    String name,
+    String rootSlug,
+    int limit,
+    int offset,
+  ) {
+    final db = PoetryDatabase.openPath(dbPath);
+    try {
+      final repo = PoetryRepository(db);
+      return repo._findFeelingVerseHits(
+        feelingId: feelingId,
+        slug: slug,
+        name: name,
+        rootSlug: rootSlug,
+        limit: limit,
+        offset: offset,
+      );
+    } finally {
+      db.dispose();
+    }
+  }
+
+  FeelingSearchResult _findFeelingVerseHits({
+    required int feelingId,
+    required String slug,
+    required String name,
+    required String rootSlug,
+    int limit = 30,
+    int offset = 0,
+  }) {
+    final keywords = FeelingLexicon.keywordsFor(slug, name);
+    final normKeywords = keywords
+        .map(ArabicNormalizer.normalize)
+        .where((k) => k.isNotEmpty)
+        .toList(growable: false);
+    final themeSlugs = FeelingLexicon.themeSlugsFor(slug, rootSlug);
+    final bodyCols = _isCompactV6 ? 'p.block_id, p.offset, p.length' : 'p.body';
+
+    final hits = <FeelingVerseHit>[];
+    final seenIds = <int>{};
+    int totalMatched = 0;
+    final candidateFetch = limit + 14;
+
+    void processRows(ResultSet rows) {
+      for (final r in rows) {
+        if (hits.length >= limit) break;
+        final poemId = r['id'] as int;
+        if (!seenIds.add(poemId)) continue;
+        final body = _readPoemBody(r);
+        final verses = Verse.parseBody(body);
+        if (verses.isEmpty) continue;
+
+        Verse bestVerse = verses.first;
+        String bestKw = '';
+        var bestScore = -1;
+
+        for (final v in verses) {
+          final normLine = v.isMukhammas
+              ? ArabicNormalizer.normalize(v.allHemistichs.join(' '))
+              : ArabicNormalizer.normalize('${v.sadr} ${v.ajuz}');
+          if (normLine.isEmpty) continue;
+          final padded = ' $normLine ';
+          var score = 0;
+          String hitKw = '';
+          for (final kw in normKeywords) {
+            if (padded.contains(' $kw ') || padded.contains(' ال$kw ')) {
+              score += 120;
+              if (hitKw.isEmpty) hitKw = kw;
+            } else if (normLine.contains(kw)) {
+              score += 55;
+              if (hitKw.isEmpty) hitKw = kw;
+            }
+          }
+          if (score > bestScore) {
+            bestScore = score;
+            bestVerse = v;
+            bestKw = hitKw;
+          }
+          if (bestScore >= 240) break;
+        }
+
+        hits.add(
+          FeelingVerseHit(
+            poemId: poemId,
+            poetId: r['poet_id'] as int,
+            poetName: r['poet_name'] as String,
+            eraName: r['era_name'] as String,
+            meterName: r['meter_name'] as String,
+            rhymeName: r['rhyme_name'] as String,
+            title: r['title'] as String,
+            verseCount: verses.length,
+            matchedVerseIndex: bestVerse.index,
+            matchedSadr: bestVerse.sadr,
+            matchedAjuz: bestVerse.ajuz,
+            matchedExtraHemistichs: bestVerse.extraHemistichs,
+            matchedKeyword: bestKw,
+          ),
+        );
+      }
+    }
+
+    // 1. Pinpoint FTS5 matches ranked by bm25
+    if (keywords.isNotEmpty) {
+      final ftsTable = _isCompactV6 ? 'poems_title_fts' : 'poems_fts';
+      final ftsExpr = keywords.map((k) => '$k*').join(' OR ');
+      final orderSql = _isCompactV6
+          ? 'bm25(poems_title_fts), p.has_diacritics DESC, p.verse_count DESC'
+          : 'bm25(poems_fts, 3.0, 1.0, 1.5), p.verse_count DESC';
+      try {
+        final cntRow = _db.select(
+          'SELECT COUNT(*) AS c FROM $ftsTable WHERE $ftsTable MATCH ?',
+          [ftsExpr],
+        );
+        totalMatched = (cntRow.first['c'] as int?) ?? 0;
+
+        if (totalMatched > offset) {
+          final rows = _db.select(
+            '''
+            SELECT p.id, p.poet_id, $_poetDisplayCol AS poet_name,
+                   e.name AS era_name, m.name AS meter_name,
+                   $_rhymeDisplayCol AS rhyme_name,
+                   p.title, p.verse_count, $bodyCols
+            FROM $ftsTable f
+            JOIN poems p ON p.id = f.rowid
+            JOIN poets pt ON pt.id = p.poet_id
+            JOIN eras e ON e.id = p.era_id
+            JOIN meters m ON m.id = p.meter_id
+            JOIN rhymes r ON r.id = p.rhyme_id
+            WHERE $ftsTable MATCH ?
+            ORDER BY $orderSql
+            LIMIT ? OFFSET ?
+            ''',
+            [ftsExpr, candidateFetch, offset],
+          );
+          processRows(rows);
+        }
+      } catch (_) {}
+    }
+
+    // 2. Deterministic feeling-seeded thematic supplementation if needed
+    if (hits.length < limit && _hasThemesTable && themeSlugs.isNotEmpty) {
+      final ph = List.filled(themeSlugs.length, '?').join(',');
+      if (totalMatched < limit) {
+        final themeCntRow = _db.select(
+          'SELECT SUM(poem_count) AS c FROM themes WHERE slug IN ($ph)',
+          themeSlugs,
+        );
+        final themeTotal = (themeCntRow.first['c'] as int?) ?? 0;
+        if (themeTotal > totalMatched) totalMatched = themeTotal;
+      }
+      final feelingSeedOffset = (feelingId * 37) % 900;
+      final themeOffset = offset + feelingSeedOffset;
+      var rows = _db.select(
+        '''
+        SELECT p.id, p.poet_id, $_poetDisplayCol AS poet_name,
+               e.name AS era_name, m.name AS meter_name,
+               $_rhymeDisplayCol AS rhyme_name,
+               p.title, p.verse_count, $bodyCols
+        FROM poems p
+        JOIN themes t ON t.id = p.theme_id
+        JOIN poets pt ON pt.id = p.poet_id
+        JOIN eras e ON e.id = p.era_id
+        JOIN meters m ON m.id = p.meter_id
+        JOIN rhymes r ON r.id = p.rhyme_id
+        WHERE t.slug IN ($ph)
+        ORDER BY p.has_diacritics DESC, p.verse_count DESC, p.id ASC
+        LIMIT ? OFFSET ?
+        ''',
+        [...themeSlugs, (limit - hits.length) + 12, themeOffset],
+      );
+      if (rows.isEmpty && offset == 0 && feelingSeedOffset > 0) {
+        rows = _db.select(
+          '''
+          SELECT p.id, p.poet_id, $_poetDisplayCol AS poet_name,
+                 e.name AS era_name, m.name AS meter_name,
+                 $_rhymeDisplayCol AS rhyme_name,
+                 p.title, p.verse_count, $bodyCols
+          FROM poems p
+          JOIN themes t ON t.id = p.theme_id
+          JOIN poets pt ON pt.id = p.poet_id
+          JOIN eras e ON e.id = p.era_id
+          JOIN meters m ON m.id = p.meter_id
+          JOIN rhymes r ON r.id = p.rhyme_id
+          WHERE t.slug IN ($ph)
+          ORDER BY p.has_diacritics DESC, p.verse_count DESC, p.id ASC
+          LIMIT ? OFFSET 0
+          ''',
+          [...themeSlugs, (limit - hits.length) + 12],
+        );
+      }
+      processRows(rows);
+    }
+
+    if (totalMatched < hits.length) totalMatched = hits.length;
+    return FeelingSearchResult(
+      hits: hits,
+      totalMatchedPoems: totalMatched,
+      hasMore: hits.length >= limit && (offset + hits.length) < totalMatched,
+    );
+  }
+
+  /// Background-isolate paginated poets directory query for 120fps scrolling & search.
+  Future<List<Poet>> getPoetsAsync({
+    int? eraId,
+    String? filterQuery,
+    PoetSortBy sortBy = PoetSortBy.poemsDesc,
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    final dbPath = _corpus.dbPath;
+    if (dbPath == null) {
+      return getPoets(
+        eraId: eraId,
+        filterQuery: filterQuery,
+        sortBy: sortBy,
+        limit: limit,
+        offset: offset,
+      );
+    }
+    final sortIdx = sortBy.index;
+    try {
+      return await Isolate.run(
+        () => _runPoetsInIsolate(
+          dbPath,
+          eraId,
+          filterQuery,
+          sortIdx,
+          limit,
+          offset,
+        ),
+      );
+    } catch (_) {
+      return getPoets(
+        eraId: eraId,
+        filterQuery: filterQuery,
+        sortBy: sortBy,
+        limit: limit,
+        offset: offset,
+      );
+    }
+  }
+
+  static List<Poet> _runPoetsInIsolate(
+    String dbPath,
+    int? eraId,
+    String? filterQuery,
+    int sortIndex,
+    int limit,
+    int offset,
+  ) {
+    final db = PoetryDatabase.openPath(dbPath);
+    try {
+      final repo = PoetryRepository(db);
+      return repo.getPoets(
+        eraId: eraId,
+        filterQuery: filterQuery,
+        sortBy: PoetSortBy.values[sortIndex],
+        limit: limit,
+        offset: offset,
+      );
+    } finally {
+      db.dispose();
+    }
+  }
+
   /// Fetches poems matching a specific feeling using pinpoint Arabic lexical FTS5
   /// ranking (bm25) + deterministic feeling-specific thematic supplementation so
   /// every root, branch, and sub-feeling surfaces its own distinct, relevant poems.

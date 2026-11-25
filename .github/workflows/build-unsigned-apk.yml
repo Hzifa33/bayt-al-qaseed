@@ -1,4 +1,4 @@
-name: Build & Sign Release APKs
+name: Build & Sign Official Release APKs (v1.0.0)
 
 on:
   push:
@@ -12,13 +12,24 @@ permissions:
   contents: write
 
 jobs:
-  build-unsigned-apk:
-    name: Analyze, Test, Build & Sign Release APKs (Universal + ARM8 + ARM7)
+  build-release-apks:
+    name: Analyze, Test, Build & Sign Official APKs (Universal + ARM8 + ARM7)
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Download Official Corpus Asset (v6 — 338,134 poems · 5.62M verses)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p assets/db
+          gh release download corpus-expanded-v1 \
+            -p "bayt_qafiyah_merged.db.gz" \
+            -D assets/db/ \
+            --clobber
+          ls -lh assets/db/bayt_qafiyah_merged.db.gz
 
       - name: Set up Java 17
         uses: actions/setup-java@v5
@@ -49,20 +60,13 @@ jobs:
           fi
           chmod +x "$GITHUB_WORKSPACE/android/gradlew"
 
-      - name: Ensure placeholder exists for expanded-only asset during standard build
-        run: |
-          mkdir -p assets/db
-          if [ ! -f assets/db/bayt_qafiyah_merged.db.gz ]; then
-            touch assets/db/bayt_qafiyah_merged.db.gz
-          fi
-
       - name: Install Flutter dependencies
         run: flutter pub get
 
       - name: Run Flutter static analysis
         run: flutter analyze
 
-      - name: Run unit & FTS5 database tests
+      - name: Run unit & corpus tests
         run: flutter test
 
       - name: Build & Sign Universal, ARM64 (arm8) & ARMv7 (arm7) Release APKs
@@ -72,22 +76,22 @@ jobs:
         run: |
           mkdir -p dist
 
-          # 1. Build Universal Release APK (standard flavor: arm64-v8a + armeabi-v7a)
-          flutter build apk --release --flavor standard --dart-define=EDITION=standard --target-platform android-arm64,android-arm || true
-          UNI_RAW=$(find build/app/outputs -name "*standard-release*.apk" | grep -v "arm64\|armeabi" | head -n 1)
+          # 1. Universal Release APK (arm64-v8a + armeabi-v7a)
+          flutter build apk --release --target-platform android-arm64,android-arm || true
+          UNI_RAW=$(find build/app/outputs -name "*release*.apk" | grep -v "arm64\|armeabi" | head -n 1)
           if [ -n "$UNI_RAW" ] && [ -f "$UNI_RAW" ]; then
             cp "$UNI_RAW" dist/raw-universal.apk
           else
-            echo "ERROR: No universal standard release APK was produced!"
+            echo "ERROR: No universal release APK was produced!"
             find build/app/outputs -maxdepth 4 -ls || true
             exit 1
           fi
 
-          # 2. Build Split-per-ABI Release APKs (standard flavor: arm64-v8a & armeabi-v7a)
-          flutter build apk --release --flavor standard --dart-define=EDITION=standard --split-per-abi --target-platform android-arm64,android-arm || true
+          # 2. Split-per-ABI Release APKs (arm64-v8a & armeabi-v7a)
+          flutter build apk --release --split-per-abi --target-platform android-arm64,android-arm || true
           find build/app/outputs -name "*.apk" -ls
-          ARM64_RAW=$(find build/app/outputs -name "*arm64-v8a*standard-release*.apk" -o -name "*standard*arm64-v8a*release*.apk" | head -n 1)
-          ARM7_RAW=$(find build/app/outputs -name "*armeabi-v7a*standard-release*.apk" -o -name "*standard*armeabi-v7a*release*.apk" | head -n 1)
+          ARM64_RAW=$(find build/app/outputs -name "*arm64-v8a*release*.apk" | head -n 1)
+          ARM7_RAW=$(find build/app/outputs -name "*armeabi-v7a*release*.apk" | head -n 1)
           if [ -z "$ARM64_RAW" ] || [ -z "$ARM7_RAW" ]; then
             echo "ERROR: Missing split ABI APKs (ARM64=$ARM64_RAW, ARM7=$ARM7_RAW)!"
             exit 1
@@ -95,7 +99,6 @@ jobs:
           cp "$ARM64_RAW" dist/raw-arm64-v8a.apk
           cp "$ARM7_RAW" dist/raw-armeabi-v7a.apk
 
-          # Locate Android build-tools zipalign & apksigner
           BUILD_TOOLS_DIR=$(ls -d "$ANDROID_HOME/build-tools/"* | sort -V | tail -n 1)
           ZIPALIGN="$BUILD_TOOLS_DIR/zipalign"
           APKSIGNER="$BUILD_TOOLS_DIR/apksigner"
@@ -134,7 +137,7 @@ jobs:
           ls -lh dist/BaytAlQaseed-v1.0.0-*.apk
           for APK in dist/BaytAlQaseed-v1.0.0-universal.apk dist/BaytAlQaseed-v1.0.0-arm64-v8a.apk dist/BaytAlQaseed-v1.0.0-armeabi-v7a.apk; do
             echo "=== Checking assets in $APK ==="
-            unzip -l "$APK" | grep -E "bayt_al_qaseed\.db\.gz|libsqlite3\.so|libapp\.so|ArefRuqaa|ReemKufi|Amiri|parchment_texture\.webp|calligraphy_bg\.webp"
+            unzip -l "$APK" | grep -E "bayt_qafiyah_merged\.db\.gz|libsqlite3\.so|libapp\.so|ArefRuqaa|ReemKufi|Amiri|parchment_texture\.webp|calligraphy_bg\.webp"
           done
 
       - name: Upload Signed Release APK Artifacts
@@ -147,37 +150,38 @@ jobs:
             dist/BaytAlQaseed-v1.0.0-armeabi-v7a.apk
           retention-days: 90
 
-      - name: Publish Signed Standard APKs to Unified GitHub Release (v1.0.0)
+      - name: Publish Signed Official APKs to GitHub Release (v1.0.0)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="v1.0.0"
           printf '%s\n' \
-            "الإصدار الرسمي الموقّع **1.0.0** من تطبيق **بيت القصيد** بنسختيه القياسية والموسّعة (٦ ملفات APK موقّعة)." \
+            "الإصدار الرسمي الموقّع **1.0.0** من تطبيق **بيت القصيد** — الموسوعة الشعرية العربية الشاملة دون اتصال بالإنترنت." \
             "" \
-            "### 1. النسخة القياسية (\`com.baytalqaseed.app\`) — ٨٦ ألف قصيدة · ١٫٦ مليون بيت" \
-            "- \`BaytAlQaseed-v1.0.0-arm64-v8a.apk\` — نسخة **ARM8 (64-bit)** (موصى بها لمعظم الهواتف الحديثة)." \
+            "يضمّ **٥٬٦٢٦٬٣٣٦ بيتاً شعرياً** و**٣٣٨٬١٣٤ قصيدة** لـ **١٧٬٢٤٤ شاعراً وشاعرة** عبر **١٣ عصراً أدبياً** و**٤٧ بحراً** و**١٠ أغراض شعرية** و**أطلس ١٢٧ شعوراً** مع انتقال مباشر إلى البيت المطابق داخل القصيدة." \
+            "" \
+            "### النسخ الموقّعة المتوفرة للتثبيت المباشر:" \
+            "- \`BaytAlQaseed-v1.0.0-arm64-v8a.apk\` — نسخة **ARM8 (64-bit)** (موصى بها لمعظم الهواتف الحديثة — حجم أصغر وأداء مثالي)." \
             "- \`BaytAlQaseed-v1.0.0-armeabi-v7a.apk\` — نسخة **ARM7 (32-bit)** (للهواتف الأقدم)." \
-            "- \`BaytAlQaseed-v1.0.0-universal.apk\` — النسخة **الشاملة (Universal)**." \
-            "" \
-            "### 2. النسخة الموسّعة (\`com.baytalqaseed.expanded\`) — ٣٣٨ ألف قصيدة · ٥٫٦ مليون بيت · ١٢٧ شعوراً · ١٠ أغراض" \
-            "- \`BaytAlQaseed-Expanded-v1.0.0-arm64-v8a.apk\` — نسخة **ARM8 (64-bit)** (موصى بها لمعظم الهواتف الحديثة)." \
-            "- \`BaytAlQaseed-Expanded-v1.0.0-armeabi-v7a.apk\` — نسخة **ARM7 (32-bit)** (للهواتف الأقدم)." \
-            "- \`BaytAlQaseed-Expanded-v1.0.0-universal.apk\` — النسخة **الشاملة (Universal)**." \
+            "- \`BaytAlQaseed-v1.0.0-universal.apk\` — النسخة **الشاملة (Universal)** المتوافقة مع جميع معماريات أندرويد." \
             > dist/release_notes.md
 
           if gh release view "$TAG" >/dev/null 2>&1; then
+            # Clean any legacy Expanded-prefixed assets from v1.0.0
+            for OLD in BaytAlQaseed-Expanded-v1.0.0-arm64-v8a.apk BaytAlQaseed-Expanded-v1.0.0-armeabi-v7a.apk BaytAlQaseed-Expanded-v1.0.0-universal.apk; do
+              gh release delete-asset "$TAG" "$OLD" --yes >/dev/null 2>&1 || true
+            done
             gh release upload "$TAG" \
               dist/BaytAlQaseed-v1.0.0-universal.apk \
               dist/BaytAlQaseed-v1.0.0-arm64-v8a.apk \
               dist/BaytAlQaseed-v1.0.0-armeabi-v7a.apk \
               --clobber
-            gh release edit "$TAG" --title "بيت القصيد v1.0.0 (النسخة القياسية + الموسّعة)" --notes-file dist/release_notes.md
+            gh release edit "$TAG" --title "بيت القصيد v1.0.0" --notes-file dist/release_notes.md
           else
             gh release create "$TAG" \
               dist/BaytAlQaseed-v1.0.0-universal.apk \
               dist/BaytAlQaseed-v1.0.0-arm64-v8a.apk \
               dist/BaytAlQaseed-v1.0.0-armeabi-v7a.apk \
-              --title "بيت القصيد v1.0.0 (النسخة القياسية + الموسّعة)" \
+              --title "بيت القصيد v1.0.0" \
               --notes-file dist/release_notes.md
           fi

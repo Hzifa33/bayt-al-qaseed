@@ -21,7 +21,6 @@ import '../eras/meter_poems_screen.dart';
 import '../eras/theme_poems_screen.dart';
 import '../reader/poem_reader_screen.dart';
 import '../studio/poetry_card_studio_screen.dart';
-import '../../widgets/expanded_edition_intro_dialog.dart';
 import 'masterpieces_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -50,18 +49,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   FeaturedVerse? _customFeatured;
   String _selectedCategory = 'الكل';
-
-  @override
-  void initState() {
-    super.initState();
-    if (!AppConstants.isExpanded) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          ExpandedEditionIntroDialog.showOnceIfNeeded(context);
-        }
-      });
-    }
-  }
 
   void _shuffleFeaturedVerse() {
     HapticFeedback.selectionClick();
