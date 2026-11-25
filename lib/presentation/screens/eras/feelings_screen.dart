@@ -7,6 +7,7 @@ import '../../../core/animations/bayt_transitions.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/arabic_normalizer.dart';
+import '../../../core/widgets/bayt_ornaments.dart';
 import '../../../data/models/meter.dart';
 import '../../../data/models/poem.dart';
 import '../../providers/database_providers.dart';
@@ -168,6 +169,7 @@ class FeelingDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _FeelingDetailScreenState extends ConsumerState<FeelingDetailScreen> {
+  final ScrollController _scrollCtrl = ScrollController();
   Feeling? _selectedBranch;
   late Feeling _activeFeeling;
   final List<PoemSummary> _poems = [];
@@ -184,8 +186,21 @@ class _FeelingDetailScreenState extends ConsumerState<FeelingDetailScreen> {
     });
   }
 
+  @override
+  void dispose() {
+    _scrollCtrl.dispose();
+    super.dispose();
+  }
+
   void _selectFeeling(Feeling target, {Feeling? branch}) {
+    if (target.slug == _activeFeeling.slug &&
+        branch?.slug == _selectedBranch?.slug) {
+      return;
+    }
     HapticFeedback.selectionClick();
+    if (_scrollCtrl.hasClients) {
+      _scrollCtrl.jumpTo(0);
+    }
     setState(() {
       _selectedBranch = branch;
       _activeFeeling = target;
@@ -228,6 +243,11 @@ class _FeelingDetailScreenState extends ConsumerState<FeelingDetailScreen> {
     final accent = _feelingAccent(widget.rootFeeling.slug, p.accent);
     final branches = widget.rootFeeling.children;
     final subLeaves = _selectedBranch?.children ?? const <Feeling>[];
+    final breadcrumb = _selectedBranch == null
+        ? widget.rootFeeling.name
+        : _activeFeeling.slug == _selectedBranch!.slug
+        ? '${widget.rootFeeling.name}  ›  ${_selectedBranch!.name}'
+        : '${widget.rootFeeling.name}  ›  ${_selectedBranch!.name}  ›  ${_activeFeeling.name}';
 
     return Scaffold(
       appBar: AppBar(
@@ -237,6 +257,8 @@ class _FeelingDetailScreenState extends ConsumerState<FeelingDetailScreen> {
           children: [
             Text(
               'مشاعر ${widget.rootFeeling.name}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontFamily: AppFonts.ruqaa,
                 fontSize: 21,
@@ -246,9 +268,9 @@ class _FeelingDetailScreenState extends ConsumerState<FeelingDetailScreen> {
               ),
             ),
             Text(
-              _activeFeeling.slug == widget.rootFeeling.slug
-                  ? 'جميع التفرعات (${ArabicNormalizer.toArabicNumber(widget.rootFeeling.verseCount)} بيتاً)'
-                  : '${_activeFeeling.name}  •  ${ArabicNormalizer.toArabicNumber(_activeFeeling.verseCount)} بيتاً',
+              '$breadcrumb  •  ${ArabicNormalizer.toArabicNumber(_activeFeeling.verseCount)} بيتاً',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.labelSmall
                   ?.copyWith(fontSize: 10.5, color: accent),
             ),
@@ -304,13 +326,29 @@ class _FeelingDetailScreenState extends ConsumerState<FeelingDetailScreen> {
                     padding: const EdgeInsets.only(left: 6),
                     child: FilterChip(
                       selected: selected,
+                      selectedColor: accent.withValues(alpha: 0.18),
+                      checkmarkColor: accent,
                       visualDensity: VisualDensity.compact,
                       label: Text(
                         '${leaf.name} (${ArabicNormalizer.toArabicNumber(leaf.verseCount)})',
-                        style: const TextStyle(fontSize: 11.5),
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: selected
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          color: selected ? accent : p.ink,
+                        ),
                       ),
-                      onSelected: (_) =>
-                          _selectFeeling(leaf, branch: _selectedBranch),
+                      onSelected: (_) {
+                        if (selected && _selectedBranch != null) {
+                          _selectFeeling(
+                            _selectedBranch!,
+                            branch: _selectedBranch,
+                          );
+                        } else {
+                          _selectFeeling(leaf, branch: _selectedBranch);
+                        }
+                      },
                     ),
                   );
                 }).toList(),
@@ -328,8 +366,18 @@ class _FeelingDetailScreenState extends ConsumerState<FeelingDetailScreen> {
                         strokeWidth: 2.2,
                       ),
                     )
+                  : _poems.isEmpty
+                  ? Center(
+                      key: const ValueKey('empty'),
+                      child: Text(
+                        'لا توجد قصائد مطابقة لهذا التفرّع حالياً',
+                        style: Theme.of(context).textTheme.bodySmall
+                            ?.copyWith(color: p.inkMuted),
+                      ),
+                    )
                   : ListView.separated(
                       key: ValueKey(_activeFeeling.slug),
+                      controller: _scrollCtrl,
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
                       itemCount: _poems.length + (_hasMore ? 1 : 0),
                       separatorBuilder: (_, __) => const SizedBox(height: 6),
@@ -354,7 +402,7 @@ class _FeelingDetailScreenState extends ConsumerState<FeelingDetailScreen> {
                           borderRadius: BorderRadius.circular(13),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 13,
+                              horizontal: 12,
                               vertical: 9,
                             ),
                             decoration: BoxDecoration(
@@ -365,43 +413,55 @@ class _FeelingDetailScreenState extends ConsumerState<FeelingDetailScreen> {
                                 width: 0.85,
                               ),
                             ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            child: Row(
                               children: [
-                                Text(
-                                  poem.title,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontFamily: AppFonts.scheherazade,
-                                    fontSize: 17.5,
-                                    color: p.ink,
-                                    height: 1.4,
-                                  ),
+                                PoemRhymeBadge(
+                                  rhymeName: poem.rhymeName,
+                                  accentColor: accent,
                                 ),
-                                const SizedBox(height: 3),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        '${poem.poetName}  •  ${poem.eraName}  •  ${poem.meterName}',
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        poem.title,
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .labelSmall
-                                            ?.copyWith(color: p.inkMuted),
+                                        style: TextStyle(
+                                          fontFamily: AppFonts.scheherazade,
+                                          fontSize: 17.5,
+                                          color: p.ink,
+                                          height: 1.4,
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      '${ArabicNormalizer.toArabicNumber(poem.verseCount)} بيت',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .labelSmall
-                                          ?.copyWith(color: accent),
-                                    ),
-                                  ],
+                                      const SizedBox(height: 2),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              '${poem.poetName}  •  ${poem.eraName}  •  ${poem.meterName}',
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .labelSmall
+                                                  ?.copyWith(color: p.inkMuted),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            '${ArabicNormalizer.toArabicNumber(poem.verseCount)} بيت',
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .labelSmall
+                                                ?.copyWith(color: accent),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ],
                             ),

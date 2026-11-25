@@ -6,6 +6,7 @@ import 'package:sqlite3/sqlite3.dart';
 
 import '../../core/utils/arabic_codec.dart';
 import '../../core/utils/arabic_normalizer.dart';
+import '../../core/utils/feeling_lexicon.dart';
 import '../datasources/poetry_database.dart';
 import '../models/era.dart';
 import '../models/meter.dart';
@@ -37,6 +38,7 @@ class PoetryRepository {
   bool get hasFeelings => _hasFeelingsTable;
 
   String get _poetDisplayCol => _isCompactV6 ? 'pt.name' : 'pt.name_plain';
+  String get _rhymeDisplayCol => _isCompactV6 ? 'r.letter' : 'r.name';
 
   bool _tableExists(String name) {
     final rows = _db.select(
@@ -213,7 +215,9 @@ class PoetryRepository {
     return roots.map(buildNode).toList(growable: false);
   }
 
-  /// Fetches poems matching a specific feeling using curated theme + Arabic lexical mapping.
+  /// Fetches poems matching a specific feeling using pinpoint Arabic lexical FTS5
+  /// ranking (bm25) + deterministic feeling-specific thematic supplementation so
+  /// every root, branch, and sub-feeling surfaces its own distinct, relevant poems.
   List<PoemSummary> getPoemsByFeeling(
     Feeling feeling, {
     String? rootSlug,
@@ -221,24 +225,29 @@ class PoetryRepository {
     int offset = 0,
   }) {
     final effectiveRoot = rootSlug ?? feeling.slug;
-    final keywords = _feelingKeywords(
+    final keywords = FeelingLexicon.keywordsFor(feeling.slug, feeling.name);
+    final themeSlugs = FeelingLexicon.themeSlugsFor(
       feeling.slug,
       effectiveRoot,
-      feeling.name,
     );
-    final themeSlugs = _feelingThemeSlugs(feeling.slug, effectiveRoot);
 
-    // 1. Try FTS5 title search with feeling keywords first for pinpoint relevance
+    final results = <PoemSummary>[];
+    final seenIds = <int>{};
+
+    // 1. Pinpoint FTS5 title search ranked by bm25 relevance for THIS exact sub-feeling
     if (keywords.isNotEmpty) {
       final ftsTable = _isCompactV6 ? 'poems_title_fts' : 'poems_fts';
       final ftsExpr = keywords.map((k) => '$k*').join(' OR ');
+      final orderSql = _isCompactV6
+          ? 'bm25(poems_title_fts), p.has_diacritics DESC, p.verse_count DESC'
+          : 'bm25(poems_fts, 3.0, 1.0, 1.5), p.verse_count DESC';
       try {
         final rows = _db.select(
           '''
           SELECT p.id, p.poet_id, $_poetDisplayCol AS poet_name,
                  p.era_id, e.name AS era_name,
                  p.meter_id, m.name AS meter_name,
-                 p.rhyme_id, r.name AS rhyme_name,
+                 p.rhyme_id, $_rhymeDisplayCol AS rhyme_name,
                  p.title, p.verse_count, p.has_diacritics, p.is_free_verse
           FROM $ftsTable f
           JOIN poems p ON p.id = f.rowid
@@ -247,28 +256,39 @@ class PoetryRepository {
           JOIN meters m ON m.id = p.meter_id
           JOIN rhymes r ON r.id = p.rhyme_id
           WHERE $ftsTable MATCH ?
-          ORDER BY p.has_diacritics DESC, p.verse_count DESC
+          ORDER BY $orderSql
           LIMIT ? OFFSET ?
           ''',
           [ftsExpr, limit, offset],
         );
-        if (rows.isNotEmpty) {
-          return rows.map(_mapPoemSummary).toList();
+        for (final r in rows) {
+          final item = _mapPoemSummary(r);
+          if (seenIds.add(item.id)) {
+            results.add(item);
+          }
         }
       } catch (_) {
-        // Fall through to theme-based query
+        // Fall through to theme-based supplementation
       }
     }
 
-    // 2. Fallback to curated thematic poetry matching this emotion family
+    if (results.length >= limit) {
+      return results;
+    }
+
+    // 2. Supplement/fallback with deterministic feeling-seeded thematic poems
+    // so niche sub-feelings always show rich, distinct poetry without repeating
+    // the exact same top poems of sibling sub-feelings.
     if (_hasThemesTable && themeSlugs.isNotEmpty) {
+      final remaining = limit - results.length;
       final ph = List.filled(themeSlugs.length, '?').join(',');
-      final rows = _db.select(
+      final feelingSeedOffset = (feeling.id * 37) % 900;
+      var rows = _db.select(
         '''
         SELECT p.id, p.poet_id, $_poetDisplayCol AS poet_name,
                p.era_id, e.name AS era_name,
                p.meter_id, m.name AS meter_name,
-               p.rhyme_id, r.name AS rhyme_name,
+               p.rhyme_id, $_rhymeDisplayCol AS rhyme_name,
                p.title, p.verse_count, p.has_diacritics, p.is_free_verse
         FROM poems p
         JOIN themes t ON t.id = p.theme_id
@@ -277,58 +297,42 @@ class PoetryRepository {
         JOIN meters m ON m.id = p.meter_id
         JOIN rhymes r ON r.id = p.rhyme_id
         WHERE t.slug IN ($ph)
-        ORDER BY p.has_diacritics DESC, p.verse_count DESC
+        ORDER BY p.has_diacritics DESC, p.verse_count DESC, p.id ASC
         LIMIT ? OFFSET ?
         ''',
-        [...themeSlugs, limit, offset],
+        [...themeSlugs, remaining + 12, offset + feelingSeedOffset],
       );
-      return rows.map(_mapPoemSummary).toList();
+      if (rows.isEmpty && offset == 0 && feelingSeedOffset > 0) {
+        rows = _db.select(
+          '''
+          SELECT p.id, p.poet_id, $_poetDisplayCol AS poet_name,
+                 p.era_id, e.name AS era_name,
+                 p.meter_id, m.name AS meter_name,
+                 p.rhyme_id, $_rhymeDisplayCol AS rhyme_name,
+                 p.title, p.verse_count, p.has_diacritics, p.is_free_verse
+          FROM poems p
+          JOIN themes t ON t.id = p.theme_id
+          JOIN poets pt ON pt.id = p.poet_id
+          JOIN eras e ON e.id = p.era_id
+          JOIN meters m ON m.id = p.meter_id
+          JOIN rhymes r ON r.id = p.rhyme_id
+          WHERE t.slug IN ($ph)
+          ORDER BY p.has_diacritics DESC, p.verse_count DESC, p.id ASC
+          LIMIT ? OFFSET 0
+          ''',
+          [...themeSlugs, remaining + 12],
+        );
+      }
+      for (final r in rows) {
+        if (results.length >= limit) break;
+        final item = _mapPoemSummary(r);
+        if (seenIds.add(item.id)) {
+          results.add(item);
+        }
+      }
     }
 
-    return const [];
-  }
-
-  List<String> _feelingKeywords(String slug, String rootSlug, String name) {
-    const specific = <String, List<String>>{
-      'alsurur': ['سرور', 'فرح', 'بشر', 'سعد', 'انس', 'هناء', 'بهج'],
-      'almarah': ['مرح', 'طرب', 'لهو', 'ضحك', 'نشو'],
-      'alsabwa': ['صبو', 'هوي', 'شوق', 'غرام', 'عشق', 'حب', 'وجد'],
-      'alrida': ['رضا', 'قناع', 'سكين', 'اطمئن'],
-      'albahja': ['بهج', 'سرور', 'اشراق', 'ربيع', 'زهر'],
-      'alfakhr': ['فخر', 'مجد', 'عز', 'شرف', 'سيف', 'كرم', 'نصر'],
-      'alhuzn': ['حزن', 'دمع', 'بكا', 'اسي', 'لوع', 'فراق', 'شجن', 'رثا'],
-      'altaajjub': ['عجب', 'عجيب', 'دهش', 'يا ليت', 'سبحان'],
-      'alghadab': ['غضب', 'ثأر', 'سخط', 'غيظ', 'حرب', 'عدو'],
-      'alkhawf': ['خوف', 'رهب', 'وجل', 'خشيه', 'حذر', 'هول'],
-      'alishmizaz': ['ذم', 'قبح', 'بخل', 'لؤم', 'غدر', 'خيان'],
-      'aldiq': ['ضيق', 'هم', 'غم', 'كرب', 'شكو', 'سأم', 'ملل'],
-    };
-    if (specific.containsKey(slug)) return specific[slug]!;
-    final normName = ArabicNormalizer.normalize(name);
-    final stem = normName.startsWith('ال') && normName.length > 4
-        ? normName.substring(2)
-        : normName;
-    final rootWords = specific[rootSlug] ?? const <String>[];
-    return [if (stem.length >= 3) stem, ...rootWords.take(4)];
-  }
-
-  List<String> _feelingThemeSlugs(String slug, String rootSlug) {
-    if (slug == 'alfakhr' || slug == 'alzafar' || slug == 'alitidad') {
-      return const ['alhamasa', 'almadih'];
-    }
-    if (slug == 'alsabwa' || slug == 'almarah') {
-      return const ['alnasib', 'alwasf'];
-    }
-    return switch (rootSlug) {
-      'alsurur' => const ['alnasib', 'almadih', 'alwasf'],
-      'alhuzn' => const ['alritha', 'alitab', 'alzuhd'],
-      'alghadab' => const ['alhija', 'alhamasa', 'alitab'],
-      'alkhawf' => const ['alzuhd', 'alhikma'],
-      'alishmizaz' => const ['alhija', 'alitab'],
-      'altaajjub' => const ['alhikma', 'alwasf'],
-      'aldiq' => const ['alitab', 'alzuhd', 'alritha'],
-      _ => const ['alhikma', 'alnasib'],
-    };
+    return results;
   }
 
   List<PoemSummary> getPoemsByTheme(
@@ -342,7 +346,7 @@ class PoetryRepository {
       SELECT p.id, p.poet_id, $_poetDisplayCol AS poet_name,
              p.era_id, e.name AS era_name,
              p.meter_id, m.name AS meter_name,
-             p.rhyme_id, r.name AS rhyme_name,
+             p.rhyme_id, $_rhymeDisplayCol AS rhyme_name,
              p.title, p.verse_count, p.has_diacritics, p.is_free_verse
       FROM poems p
       JOIN poets pt ON pt.id = p.poet_id
@@ -403,7 +407,7 @@ class PoetryRepository {
         SELECT p.id, p.poet_id, $_poetDisplayCol AS poet_name,
                p.era_id, e.name AS era_name,
                p.meter_id, m.name AS meter_name,
-               p.rhyme_id, r.name AS rhyme_name,
+               p.rhyme_id, $_rhymeDisplayCol AS rhyme_name,
                p.title, p.verse_count, p.has_diacritics, p.is_free_verse
         FROM poems p
         JOIN poets pt ON pt.id = p.poet_id
@@ -448,7 +452,7 @@ class PoetryRepository {
       SELECT p.id, p.poet_id, $_poetDisplayCol AS poet_name,
              p.era_id, e.name AS era_name,
              p.meter_id, m.name AS meter_name,
-             p.rhyme_id, r.name AS rhyme_name,
+             p.rhyme_id, $_rhymeDisplayCol AS rhyme_name,
              p.title, p.verse_count, p.has_diacritics, p.is_free_verse
       FROM poems p
       JOIN poets pt ON pt.id = p.poet_id
@@ -647,7 +651,7 @@ class PoetryRepository {
     }
 
     final orderBy = switch (sortBy) {
-      PoemSortBy.rhyme => 'r.name ASC, p.verse_count DESC',
+      PoemSortBy.rhyme => '$_rhymeDisplayCol ASC, p.verse_count DESC',
       PoemSortBy.meter => 'm.name ASC, p.verse_count DESC',
       PoemSortBy.versesDesc => 'p.verse_count DESC, p.id ASC',
       PoemSortBy.versesAsc => 'p.verse_count ASC, p.id ASC',
@@ -659,7 +663,7 @@ class PoetryRepository {
       SELECT p.id, p.poet_id, $_poetDisplayCol AS poet_name,
              p.era_id, e.name AS era_name,
              p.meter_id, m.name AS meter_name,
-             p.rhyme_id, r.name AS rhyme_name,
+             p.rhyme_id, $_rhymeDisplayCol AS rhyme_name,
              p.title, p.verse_count, p.has_diacritics, p.is_free_verse
       FROM poems p
       JOIN poets pt ON pt.id = p.poet_id
@@ -685,7 +689,7 @@ class PoetryRepository {
       SELECT p.id, p.poet_id, $_poetDisplayCol AS poet_name,
              p.era_id, e.name AS era_name,
              p.meter_id, m.name AS meter_name,
-             p.rhyme_id, r.name AS rhyme_name,
+             p.rhyme_id, $_rhymeDisplayCol AS rhyme_name,
              p.title, p.verse_count, p.has_diacritics, p.is_free_verse
       FROM poems p
       JOIN poets pt ON pt.id = p.poet_id
@@ -723,7 +727,7 @@ class PoetryRepository {
       SELECT p.id, p.poet_id, $_poetDisplayCol AS poet_name,
              p.era_id, e.name AS era_name,
              p.meter_id, m.name AS meter_name,
-             p.rhyme_id, r.name AS rhyme_name,
+             p.rhyme_id, $_rhymeDisplayCol AS rhyme_name,
              p.title, p.verse_count, p.has_diacritics, p.is_free_verse
       FROM poems p
       JOIN poets pt ON pt.id = p.poet_id
@@ -746,7 +750,7 @@ class PoetryRepository {
       SELECT p.id, p.poet_id, $_poetDisplayCol AS poet_name,
              p.era_id, e.name AS era_name,
              p.meter_id, m.name AS meter_name,
-             p.rhyme_id, r.name AS rhyme_name,
+             p.rhyme_id, $_rhymeDisplayCol AS rhyme_name,
              p.meter_note, p.title, p.verse_count,
              p.has_diacritics, p.is_free_verse, $bodyCols
       FROM poems p
@@ -953,7 +957,7 @@ class PoetryRepository {
       }
       poemRows = _db.select('''
         SELECT p.id, p.poet_id, $_poetDisplayCol AS poet_name,
-               e.name AS era_name, m.name AS meter_name, r.name AS rhyme_name,
+               e.name AS era_name, m.name AS meter_name, $_rhymeDisplayCol AS rhyme_name,
                p.title, p.verse_count, $bodyCols
         FROM poems p
         JOIN poets pt ON pt.id = p.poet_id
@@ -1005,7 +1009,7 @@ class PoetryRepository {
       poemRows = _db.select(
         '''
         SELECT p.id, p.poet_id, $_poetDisplayCol AS poet_name,
-               e.name AS era_name, m.name AS meter_name, r.name AS rhyme_name,
+               e.name AS era_name, m.name AS meter_name, $_rhymeDisplayCol AS rhyme_name,
                p.title, p.verse_count, $bodyCols
         FROM $ftsTable f
         JOIN poems p ON p.id = f.rowid

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../constants/app_constants.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_typography.dart';
 import '../utils/arabic_normalizer.dart';
@@ -15,6 +16,7 @@ class BaytEmblem extends StatelessWidget {
     this.backgroundColor,
     this.goldColor,
     this.nibColor,
+    this.showExpandedBadge,
   });
 
   final double size;
@@ -22,9 +24,13 @@ class BaytEmblem extends StatelessWidget {
   final Color? goldColor;
   final Color? nibColor;
 
+  /// Shows the Expanded Edition (+) corner badge; defaults to [AppConstants.isExpanded].
+  final bool? showExpandedBadge;
+
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
+    final expandedBadge = showExpandedBadge ?? AppConstants.isExpanded;
     return SizedBox(
       width: size,
       height: size,
@@ -34,6 +40,7 @@ class BaytEmblem extends StatelessWidget {
           gold: goldColor ?? p.accent,
           nib: nibColor ?? p.ink,
           hairline: p.hairline,
+          showPlusBadge: expandedBadge,
         ),
       ),
     );
@@ -46,12 +53,14 @@ class _BaytEmblemPainter extends CustomPainter {
     required this.gold,
     required this.nib,
     required this.hairline,
+    required this.showPlusBadge,
   });
 
   final Color bg;
   final Color gold;
   final Color nib;
   final Color hairline;
+  final bool showPlusBadge;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -121,13 +130,96 @@ class _BaytEmblemPainter extends CustomPainter {
       size.width * 0.036,
       Paint()..color = gold,
     );
+
+    // Expanded Edition (+) badge in top-left corner (visually prominent in RTL)
+    if (showPlusBadge) {
+      final badgeR = size.width * 0.175;
+      final badgeCenter = Offset(size.width * 0.82, size.height * 0.18);
+      // Outer ring matching backdrop for crisp separation
+      canvas.drawCircle(
+        badgeCenter,
+        badgeR + size.width * 0.036,
+        Paint()..color = bg,
+      );
+      // Accent circle
+      canvas.drawCircle(badgeCenter, badgeR, Paint()..color = gold);
+      // Crisp '+' cross
+      final arm = badgeR * 0.56;
+      final plusPaint = Paint()
+        ..color = bg
+        ..strokeWidth = math.max(1.5, size.width * 0.048)
+        ..strokeCap = StrokeCap.round;
+      canvas.drawLine(
+        Offset(badgeCenter.dx - arm, badgeCenter.dy),
+        Offset(badgeCenter.dx + arm, badgeCenter.dy),
+        plusPaint,
+      );
+      canvas.drawLine(
+        Offset(badgeCenter.dx, badgeCenter.dy - arm),
+        Offset(badgeCenter.dx, badgeCenter.dy + arm),
+        plusPaint,
+      );
+    }
   }
 
   @override
   bool shouldRepaint(covariant _BaytEmblemPainter oldDelegate) =>
       oldDelegate.bg != bg ||
       oldDelegate.gold != gold ||
-      oldDelegate.nib != nib;
+      oldDelegate.nib != nib ||
+      oldDelegate.showPlusBadge != showPlusBadge;
+}
+
+/// Editorial circular badge displaying a poem's single-letter rhyme (حرف الروي)
+/// when available, or a refined book/quill icon for multi-rhyme / unspecified poems.
+class PoemRhymeBadge extends StatelessWidget {
+  const PoemRhymeBadge({
+    super.key,
+    required this.rhymeName,
+    this.size = 31,
+    this.accentColor,
+  });
+
+  final String rhymeName;
+  final double size;
+  final Color? accentColor;
+
+  static bool hasSingleRhymeLetter(String rhyme) {
+    final clean = rhyme.trim();
+    return clean.isNotEmpty &&
+        clean.length <= 2 &&
+        clean != '؟' &&
+        clean != '-';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final fg = accentColor ?? p.accent;
+    final isSingle = hasSingleRhymeLetter(rhymeName);
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: p.surface,
+        shape: BoxShape.circle,
+        border: Border.all(color: p.hairline, width: 0.85),
+      ),
+      child: isSingle
+          ? Text(
+              rhymeName.trim(),
+              style: TextStyle(
+                fontFamily: AppFonts.ruqaa,
+                fontSize: size * 0.49,
+                color: fg,
+                fontWeight: FontWeight.w700,
+                height: 1.0,
+              ),
+            )
+          : Icon(Icons.auto_stories_outlined, size: size * 0.48, color: fg),
+    );
+  }
 }
 
 /// Custom 4-petal Material You dynamic palette icon.
@@ -192,13 +284,14 @@ class _MaterialYouIconPainter extends CustomPainter {
       old.color != color || old.filled != filled;
 }
 
-/// Identifies female Arab poets (الشاعرات) across the 542-poet corpus and
-/// renders a custom veiled woman (امرأة محجبة) icon for poetesses or a classic
-/// person icon for male poets.
+/// Identifies female Arab & international poets (الشاعرات) across both Standard
+/// and Expanded corpora, rendering a custom veiled woman (امرأة محجبة) icon for
+/// poetesses or a classic person icon for male poets.
 class PoetGender {
   PoetGender._();
 
-  static const Set<int> femalePoetIds = {
+  /// Legacy v5 poet IDs (only valid in Standard Edition where IDs are fixed).
+  static const Set<int> _legacyFemalePoetIds = {
     16, // الخنساء
     149, // جليلة بنت مرة
     165, // ليلى العفيفة
@@ -219,29 +312,458 @@ class PoetGender {
     'البراق بن روحان',
     'عبد الله بن الزبعرى',
     'عميرة بن جعل التغلبي',
+    'تأبط شرا',
+    'الشنفرى',
+    'أبو العلاء المعري',
+  };
+
+  /// Classical & modern male first names ending in ة (must NOT be classified as female).
+  static const Set<String> _maleTaaMarbutaFirstNames = {
+    'أسامة',
+    'اسامة',
+    'حمزة',
+    'معاوية',
+    'عنترة',
+    'طرفة',
+    'حذيفة',
+    'طلحة',
+    'قتيبة',
+    'عقبة',
+    'عكرمة',
+    'ربيعة',
+    'عبيدة',
+    'عروة',
+    'علقمة',
+    'مسلمة',
+    'ثعلبة',
+    'شعبة',
+    'أمية',
+    'امية',
+    'عتبة',
+    'شيبة',
+    'خليفة',
+    'عطية',
+    'جمعة',
+    'سلامة',
+    'بركة',
+    'حنظلة',
+    'مغيرة',
+    'ضمرة',
+    'عميرة',
+    'عمارة',
+    'بشامة',
+    'أرطاة',
+    'ارطاة',
+    'قبيصة',
+    'حارثة',
+    'زرعة',
+    'جهيمة',
+    'أذينة',
+    'اذينة',
+    'وهبة',
+    'نضلة',
+    'عبادة',
+    'قتادة',
+    'سبرة',
+    'فروة',
+    'مرة',
+    'حجلة',
+    'غاضرة',
+    'شبيبة',
+    'خصيفة',
+    'طليحة',
+  };
+
+  /// Comprehensive curated set of unambiguously female Arabic & world poet first names.
+  static const Set<String> _femaleFirstNames = {
+    'مارية',
+    'ماري',
+    'ماريا',
+    'مارينا',
+    'مريم',
+    'مريام',
+    'آسية',
+    'اسية',
+    'فاطمة',
+    'عائشة',
+    'خديجة',
+    'زينب',
+    'سلمى',
+    'سلمي',
+    'ليلى',
+    'ليلي',
+    'لبنى',
+    'لبني',
+    'بثينة',
+    'سكينة',
+    'رابعة',
+    'صفية',
+    'حفصة',
+    'جويرية',
+    'أسماء',
+    'اسماء',
+    'أروى',
+    'اروى',
+    'هند',
+    'دعد',
+    'سعاد',
+    'سعدى',
+    'فدوى',
+    'فدوي',
+    'نازك',
+    'مي',
+    'ميادة',
+    'ندى',
+    'ندي',
+    'نهى',
+    'هدى',
+    'منى',
+    'مها',
+    'رشا',
+    'رنا',
+    'ريم',
+    'ريما',
+    'ديما',
+    'ديمة',
+    'لينا',
+    'لين',
+    'نورة',
+    'نورا',
+    'نوال',
+    'منال',
+    'آمال',
+    'امال',
+    'أمل',
+    'امل',
+    'أحلام',
+    'احلام',
+    'إلهام',
+    'الهام',
+    'ابتسام',
+    'انتصار',
+    'إيمان',
+    'ايمان',
+    'آمنة',
+    'امنة',
+    'أمينة',
+    'امينة',
+    'حليمة',
+    'كريمة',
+    'لطيفة',
+    'شريفة',
+    'جميلة',
+    'نبيلة',
+    'بديعة',
+    'سميرة',
+    'منيرة',
+    'أميرة',
+    'اميرة',
+    'عبير',
+    'غادة',
+    'وفاء',
+    'هيفاء',
+    'شيماء',
+    'آلاء',
+    'الاء',
+    'سارة',
+    'سارا',
+    'سمر',
+    'سحر',
+    'سمية',
+    'رقية',
+    'عاتكة',
+    'تماضر',
+    'جليلة',
+    'عمرة',
+    'عفراء',
+    'عزة',
+    'علية',
+    'عنان',
+    'حمدة',
+    'حمدونة',
+    'نزهون',
+    'ياسمين',
+    'ياسمينة',
+    'فرح',
+    'ملاك',
+    'حنان',
+    'جنان',
+    'إيناس',
+    'ايناس',
+    'ميسون',
+    'ميساء',
+    'لمياء',
+    'لميس',
+    'لجين',
+    'تسنيم',
+    'سجى',
+    'ضحى',
+    'شذى',
+    'ربى',
+    'تقوى',
+    'تقى',
+    'نجوى',
+    'سلوى',
+    'ذكرى',
+    'بشرى',
+    'يسرى',
+    'يسرا',
+    'دينا',
+    'دانية',
+    'دانا',
+    'تالا',
+    'تالة',
+    'يارا',
+    'تارا',
+    'لارا',
+    'سيلين',
+    'جودي',
+    'شهد',
+    'وعد',
+    'رغد',
+    'رهف',
+    'غيداء',
+    'حسناء',
+    'زهراء',
+    'نجلاء',
+    'سمراء',
+    'علياء',
+    'صفاء',
+    'سناء',
+    'ثناء',
+    'رجاء',
+    'هناء',
+    'ولاء',
+    'دعاء',
+    'نداء',
+    'إسراء',
+    'اسراء',
+    'مروة',
+    'نجاة',
+    'حياة',
+    'وداد',
+    'إخلاص',
+    'اخلاص',
+    'أفراح',
+    'افراح',
+    'أفنان',
+    'افنان',
+    'أريج',
+    'اريج',
+    'عايدة',
+    'ماجدة',
+    'ساجدة',
+    'خالدة',
+    'راشدة',
+    'ناهدة',
+    'ناهد',
+    'زاهدة',
+    'عابدة',
+    'حامدة',
+    'شاهدة',
+    'ماهرة',
+    'طاهرة',
+    'زهرة',
+    'وردة',
+    'سوسن',
+    'نرجس',
+    'نسرين',
+    'شيرين',
+    'نيفين',
+    'سيرين',
+    'دارين',
+    'كارين',
+    'نادين',
+    'نرمين',
+    'سيلفيا',
+    'إيميلي',
+    'إميلي',
+    'اميلي',
+    'آنا',
+    'إليزابيث',
+    'فيرجينيا',
+    'سابفو',
+    'سافو',
+    'خولة',
+    'عبلة',
+    'أميمة',
+    'اميمة',
+    'أمامة',
+    'امامة',
+    'بدرية',
+    'فوزية',
+    'نادية',
+    'شادية',
+    'راوية',
+    'سامية',
+    'صافية',
+    'غالية',
+    'عالية',
+    'دالية',
+    'هالة',
+    'نبال',
+    'ختام',
+    'هيام',
+    'وئام',
+    'باسمة',
+    'بسمة',
+    'رحمة',
+    'نعمة',
+    'همسة',
+    'نسمة',
+    'أسمهان',
+    'اسمهان',
+    'بلقيس',
+    'ظبية',
+    'عفاف',
+    'عواطف',
+    'فريدة',
+    'كوكب',
+    'لبيبة',
+    'محاسن',
+    'مديحة',
+    'مفيدة',
+    'منتهى',
+    'مهجة',
+    'نجيبة',
+    'نزيهة',
+    'نعمات',
+    'نهلة',
+    'هبة',
+    'وجدان',
+    'وديعة',
+    'ولادة',
+    'الخرنق',
+    'الخنساء',
+    'الشيماء',
+    'الفارعة',
+    'الزرقاء',
+    'العالية',
+    'حبيبة',
+    'شمس',
+    'قمرية',
+    'سلافة',
+    'سلاف',
+    'رندة',
+    'رند',
+    'خلود',
+    'عنود',
+    'العنود',
+    'الجوهرة',
+    'جوهرة',
+    'نوف',
+    'العنقاء',
+    'لطوف',
+    'شوقية',
+    'درية',
+    'سميحة',
+    'صباح',
+    'نجاح',
+    'فاتن',
+    'سهام',
+    'إكرام',
+    'اكرام',
+    'انعام',
+    'إنعام',
+    'نعمت',
+    'عصمت',
+    'حكمت',
+    'ثريا',
+    'الثريا',
+    'رتيبة',
+    'صديقة',
+    'رشيدة',
+    'سعيدة',
+    'سالمة',
+    'سلمية',
+    'نجمة',
+    'نديمة',
+    'حورية',
+    'نورية',
+    'فاطمه',
+    'عائشه',
+    'ماريه',
   };
 
   static bool isFemale({int? poetId, String? poetName}) {
-    if (poetId != null && femalePoetIds.contains(poetId)) return true;
+    if (!AppConstants.isExpanded &&
+        poetId != null &&
+        _legacyFemalePoetIds.contains(poetId)) {
+      return true;
+    }
     if (poetName == null || poetName.isEmpty) return false;
     final clean = ArabicNormalizer.stripDiacritics(poetName).trim();
+    if (clean.isEmpty) return false;
     if (_maleExceptions.contains(clean)) return false;
+
+    // Unmistakable male patronymics & titles
     if (clean.contains(' بن ') ||
         clean.startsWith('أبو ') ||
         clean.startsWith('ابو ') ||
-        clean.startsWith('ابن ')) {
+        clean.startsWith('ابن ') ||
+        clean.startsWith('أبي ') ||
+        clean.startsWith('ابي ') ||
+        clean.startsWith('الشيخ ') ||
+        clean.startsWith('الأمير ') ||
+        clean.startsWith('الامير ') ||
+        clean.startsWith('الإمام ') ||
+        clean.startsWith('الامام ') ||
+        clean.startsWith('الملك ') ||
+        clean.startsWith('السيد ') ||
+        clean.startsWith('الشاعر ') ||
+        clean.startsWith('ماريو ')) {
       return false;
     }
-    return clean.contains('بنت ') ||
+
+    // Explicit female markers & titles
+    if (clean.contains(' بنت ') ||
+        clean.startsWith('بنت ') ||
+        clean.contains(' ابنة ') ||
+        clean.startsWith('ابنة ') ||
+        clean.startsWith('أم ') ||
+        clean.startsWith('ام ') ||
+        clean.contains('الشاعرة') ||
+        clean.startsWith('الأميرة ') ||
+        clean.startsWith('الاميرة ') ||
+        clean.startsWith('الشيخة ') ||
+        clean.startsWith('السيدة ') ||
+        clean.startsWith('الملكة ') ||
         clean.contains('الخنساء') ||
-        clean.contains('ليلى الأخيلية') ||
-        clean.contains('ليلى العفيفة') ||
-        clean.contains('عائشة التيمورية') ||
-        clean.contains('رابعة العدوية') ||
-        clean.contains('ولادة') ||
-        clean.contains('نازك الملائكة') ||
-        clean.contains('فدوى طوقان') ||
-        clean.contains('الشاعرة');
+        clean.contains('ولادة بنت') ||
+        clean.startsWith('ولادة ')) {
+      return true;
+    }
+
+    // Strip leading honorific abbreviations like "د." / "أ."
+    var normalized = clean;
+    for (final prefix in const [
+      'د. ',
+      'د.',
+      'أ. ',
+      'ا. ',
+      'أ.د. ',
+      'الآنسة ',
+    ]) {
+      if (normalized.startsWith(prefix)) {
+        normalized = normalized.substring(prefix.length).trim();
+      }
+    }
+    if (normalized.isEmpty) return false;
+
+    final firstWord = normalized.split(RegExp(r'\s+')).first;
+    if (_femaleFirstNames.contains(firstWord)) {
+      return true;
+    }
+
+    // Classical/modern Arabic first names ending in ة (excluding the closed male set)
+    if (firstWord.length >= 3 &&
+        firstWord.endsWith('ة') &&
+        !firstWord.startsWith('ال') &&
+        !_maleTaaMarbutaFirstNames.contains(firstWord)) {
+      return true;
+    }
+
+    return false;
   }
 }
 

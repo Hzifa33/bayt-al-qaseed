@@ -35,7 +35,7 @@ android {
             applicationId = "com.baytalqaseed.expanded"
             versionCode = 1
             versionName = "1.0.0"
-            manifestPlaceholders["appName"] = "بيت القصيد الموسّعة"
+            manifestPlaceholders["appName"] = "بيت القصيد"
         }
     }
 

@@ -3,6 +3,8 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:bayt_al_qaseed/core/utils/arabic_codec.dart';
+import 'package:bayt_al_qaseed/core/utils/feeling_lexicon.dart';
+import 'package:bayt_al_qaseed/core/widgets/bayt_ornaments.dart';
 import 'package:bayt_al_qaseed/data/datasources/poetry_database.dart';
 import 'package:bayt_al_qaseed/data/repositories/poetry_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -125,6 +127,7 @@ void main() {
         expect(poem, isNotNull);
         expect(poem!.verses.length, equals(2));
         expect(poem.verses.first.sadr, contains('هندٌ'));
+        expect(poem.rhymeName, equals('ت'));
 
         final themes = repo.getThemes();
         expect(themes.length, equals(1));
@@ -141,6 +144,36 @@ void main() {
       } finally {
         tempDir.deleteSync(recursive: true);
       }
+    });
+
+    test('PoetGender accurately classifies female and male Arab poets', () {
+      expect(PoetGender.isFemale(poetName: 'مارية الرفاعي'), isTrue);
+      expect(PoetGender.isFemale(poetName: 'ماري عجمي'), isTrue);
+      expect(PoetGender.isFemale(poetName: 'آسية العماري'), isTrue);
+      expect(PoetGender.isFemale(poetName: 'نازك الملائكة'), isTrue);
+      expect(PoetGender.isFemale(poetName: 'فدوى طوقان'), isTrue);
+      expect(PoetGender.isFemale(poetName: 'سعاد الصباح'), isTrue);
+      expect(PoetGender.isFemale(poetName: 'الخنساء'), isTrue);
+
+      expect(PoetGender.isFemale(poetName: 'حذيفة العماري'), isFalse);
+      expect(PoetGender.isFemale(poetName: 'عنترة بن شداد'), isFalse);
+      expect(PoetGender.isFemale(poetName: 'أسامة بن منقذ'), isFalse);
+      expect(PoetGender.isFemale(poetName: 'حمزة شحاتة'), isFalse);
+      expect(PoetGender.isFemale(poetName: 'ماريو ريلي'), isFalse);
+    });
+
+    test('FeelingLexicon & PoemRhymeBadge handle sub-feelings and rhymes', () {
+      final k1 = FeelingLexicon.keywordsFor('alsabwa', 'الصبوة');
+      final k2 = FeelingLexicon.keywordsFor('alabath', 'العبث');
+      expect(k1, isNotEmpty);
+      expect(k2, isNotEmpty);
+      expect(k1.first, isNot(equals(k2.first)));
+
+      expect(PoemRhymeBadge.hasSingleRhymeLetter('ر'), isTrue);
+      expect(PoemRhymeBadge.hasSingleRhymeLetter('ة'), isTrue);
+      expect(PoemRhymeBadge.hasSingleRhymeLetter('متعددة'), isFalse);
+      expect(PoemRhymeBadge.hasSingleRhymeLetter('غير محددة'), isFalse);
+      expect(PoemRhymeBadge.hasSingleRhymeLetter(''), isFalse);
     });
   });
 }

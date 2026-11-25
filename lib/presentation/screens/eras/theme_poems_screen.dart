@@ -6,6 +6,7 @@ import '../../../core/animations/bayt_transitions.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/arabic_normalizer.dart';
+import '../../../core/widgets/bayt_ornaments.dart';
 import '../../../data/models/meter.dart';
 import '../../../data/models/poem.dart';
 import '../../providers/database_providers.dart';
@@ -132,7 +133,7 @@ class _ThemePoemsScreenState extends ConsumerState<ThemePoemsScreen> {
                           borderRadius: BorderRadius.circular(13),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 13,
+                              horizontal: 12,
                               vertical: 9,
                             ),
                             decoration: BoxDecoration(
@@ -143,43 +144,52 @@ class _ThemePoemsScreenState extends ConsumerState<ThemePoemsScreen> {
                                 width: 0.85,
                               ),
                             ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            child: Row(
                               children: [
-                                Text(
-                                  poem.title,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontFamily: AppFonts.scheherazade,
-                                    fontSize: 17.5,
-                                    color: p.ink,
-                                    height: 1.4,
-                                  ),
-                                ),
-                                const SizedBox(height: 3),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        '${poem.poetName}  •  ${poem.eraName}  •  ${poem.meterName}',
+                                PoemRhymeBadge(rhymeName: poem.rhymeName),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        poem.title,
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .labelSmall
-                                            ?.copyWith(color: p.inkMuted),
+                                        style: TextStyle(
+                                          fontFamily: AppFonts.scheherazade,
+                                          fontSize: 17.5,
+                                          color: p.ink,
+                                          height: 1.4,
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      '${ArabicNormalizer.toArabicNumber(poem.verseCount)} بيت',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .labelSmall
-                                          ?.copyWith(color: p.accent),
-                                    ),
-                                  ],
+                                      const SizedBox(height: 2),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              '${poem.poetName}  •  ${poem.eraName}  •  ${poem.meterName}',
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .labelSmall
+                                                  ?.copyWith(color: p.inkMuted),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            '${ArabicNormalizer.toArabicNumber(poem.verseCount)} بيت',
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .labelSmall
+                                                ?.copyWith(color: p.accent),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ],
                             ),

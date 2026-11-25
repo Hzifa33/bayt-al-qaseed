@@ -659,29 +659,8 @@ class _PoetDetailScreenState extends ConsumerState<PoetDetailScreen> {
                                       ),
                                       child: Row(
                                         children: [
-                                          Container(
-                                            width: 31,
-                                            height: 31,
-                                            alignment: Alignment.center,
-                                            decoration: BoxDecoration(
-                                              color: p.surface,
-                                              shape: BoxShape.circle,
-                                              border: Border.all(
-                                                color: p.hairline,
-                                                width: 0.85,
-                                              ),
-                                            ),
-                                            child: Text(
-                                              poem.rhymeName.length <= 2
-                                                  ? poem.rhymeName
-                                                  : '۞',
-                                              style: TextStyle(
-                                                fontFamily: AppFonts.ruqaa,
-                                                fontSize: 15,
-                                                color: p.accent,
-                                                fontWeight: FontWeight.w700,
-                                              ),
-                                            ),
+                                          PoemRhymeBadge(
+                                            rhymeName: poem.rhymeName,
                                           ),
                                           const SizedBox(width: 10),
                                           Expanded(

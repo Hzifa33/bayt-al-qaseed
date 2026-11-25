@@ -9,12 +9,10 @@ class AppConstants {
 
   static const bool isExpanded = edition == 'expanded';
 
-  static const String appName = isExpanded
-      ? 'بيت القصيد — الموسوعة'
-      : 'بيت القصيد';
+  static const String appName = 'بيت القصيد';
 
   static const String appTagline = isExpanded
-      ? 'الموسوعة الشعرية العربية الشاملة'
+      ? 'الموسوعة الشعرية الشاملة'
       : 'ديوان الشعر العربي';
 
   static const String appVersion = '1.0.0';
@@ -23,6 +21,8 @@ class AppConstants {
   static const String developerWebsite = 'https://hzifa33.com';
   static const String repositoryUrl =
       'https://github.com/Hzifa33/bayt-al-qaseed';
+  static const String expandedReleaseUrl =
+      'https://hzifa33.com/bayt-al-qaseed/#download';
 
   static const String corpusAssetPath = isExpanded
       ? 'assets/db/bayt_qafiyah_merged.db.gz'

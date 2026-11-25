@@ -147,18 +147,23 @@ jobs:
             dist/BaytAlQaseed-v1.0.0-armeabi-v7a.apk
           retention-days: 90
 
-      - name: Publish Signed APKs ONLY to GitHub Release (v1.0.0)
+      - name: Publish Signed Standard APKs to Unified GitHub Release (v1.0.0)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="v1.0.0"
           printf '%s\n' \
-            "الإصدار الرسمي الموقّع **1.0.0** من تطبيق **بيت القصيد** (ديوان الشعر العربي)." \
+            "الإصدار الرسمي الموقّع **1.0.0** من تطبيق **بيت القصيد** بنسختيه القياسية والموسّعة (٦ ملفات APK موقّعة)." \
             "" \
-            "### النسخ الموقّعة المتوفرة للتثبيت المباشر:" \
-            "- \`BaytAlQaseed-v1.0.0-arm64-v8a.apk\` — نسخة **ARM8 (64-bit)** (موصى بها لمعظم الهواتف الحديثة — حجم أصغر وأداء مثالي)." \
+            "### 1. النسخة القياسية (\`com.baytalqaseed.app\`) — ٨٦ ألف قصيدة · ١٫٦ مليون بيت" \
+            "- \`BaytAlQaseed-v1.0.0-arm64-v8a.apk\` — نسخة **ARM8 (64-bit)** (موصى بها لمعظم الهواتف الحديثة)." \
             "- \`BaytAlQaseed-v1.0.0-armeabi-v7a.apk\` — نسخة **ARM7 (32-bit)** (للهواتف الأقدم)." \
-            "- \`BaytAlQaseed-v1.0.0-universal.apk\` — النسخة **الشاملة (Universal)** المتوافقة مع جميع معماريات أندرويد." \
+            "- \`BaytAlQaseed-v1.0.0-universal.apk\` — النسخة **الشاملة (Universal)**." \
+            "" \
+            "### 2. النسخة الموسّعة (\`com.baytalqaseed.expanded\`) — ٣٣٨ ألف قصيدة · ٥٫٦ مليون بيت · ١٢٧ شعوراً · ١٠ أغراض" \
+            "- \`BaytAlQaseed-Expanded-v1.0.0-arm64-v8a.apk\` — نسخة **ARM8 (64-bit)** (موصى بها لمعظم الهواتف الحديثة)." \
+            "- \`BaytAlQaseed-Expanded-v1.0.0-armeabi-v7a.apk\` — نسخة **ARM7 (32-bit)** (للهواتف الأقدم)." \
+            "- \`BaytAlQaseed-Expanded-v1.0.0-universal.apk\` — النسخة **الشاملة (Universal)**." \
             > dist/release_notes.md
 
           if gh release view "$TAG" >/dev/null 2>&1; then
@@ -167,12 +172,12 @@ jobs:
               dist/BaytAlQaseed-v1.0.0-arm64-v8a.apk \
               dist/BaytAlQaseed-v1.0.0-armeabi-v7a.apk \
               --clobber
-            gh release edit "$TAG" --title "بيت القصيد v1.0.0" --notes-file dist/release_notes.md
+            gh release edit "$TAG" --title "بيت القصيد v1.0.0 (النسخة القياسية + الموسّعة)" --notes-file dist/release_notes.md
           else
             gh release create "$TAG" \
               dist/BaytAlQaseed-v1.0.0-universal.apk \
               dist/BaytAlQaseed-v1.0.0-arm64-v8a.apk \
               dist/BaytAlQaseed-v1.0.0-armeabi-v7a.apk \
-              --title "بيت القصيد v1.0.0" \
+              --title "بيت القصيد v1.0.0 (النسخة القياسية + الموسّعة)" \
               --notes-file dist/release_notes.md
           fi

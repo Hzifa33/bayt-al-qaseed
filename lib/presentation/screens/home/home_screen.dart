@@ -21,6 +21,7 @@ import '../eras/meter_poems_screen.dart';
 import '../eras/theme_poems_screen.dart';
 import '../reader/poem_reader_screen.dart';
 import '../studio/poetry_card_studio_screen.dart';
+import '../../widgets/expanded_edition_intro_dialog.dart';
 import 'masterpieces_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -49,6 +50,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   FeaturedVerse? _customFeatured;
   String _selectedCategory = 'الكل';
+
+  @override
+  void initState() {
+    super.initState();
+    if (!AppConstants.isExpanded) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ExpandedEditionIntroDialog.showOnceIfNeeded(context);
+        }
+      });
+    }
+  }
 
   void _shuffleFeaturedVerse() {
     HapticFeedback.selectionClick();
@@ -97,7 +110,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             titleSpacing: 16,
             centerTitle: false,
             title: Row(
-              mainAxisSize: MainAxisSize.min,
               children: [
                 GestureDetector(
                   onTap: () => BaytNav.pushDrop(
@@ -108,26 +120,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   child: const BaytEmblem(size: 36),
                 ),
                 const SizedBox(width: 10),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      AppConstants.appName,
-                      style: TextStyle(
-                        fontFamily: AppFonts.ruqaa,
-                        fontSize: 24,
-                        fontWeight: FontWeight.w700,
-                        color: p.ink,
-                        height: 1.2,
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        AppConstants.appName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: AppFonts.ruqaa,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          color: p.ink,
+                          height: 1.2,
+                        ),
                       ),
-                    ),
-                    Text(
-                      AppConstants.appTagline,
-                      style: Theme.of(context).textTheme.labelSmall
-                          ?.copyWith(color: p.accent, fontSize: 10.5),
-                    ),
-                  ],
+                      Text(
+                        AppConstants.appTagline,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelSmall
+                            ?.copyWith(color: p.accent, fontSize: 10.2),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
