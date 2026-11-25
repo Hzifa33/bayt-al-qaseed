@@ -301,16 +301,18 @@ class PoetryRepository {
     final themeSlugs = FeelingLexicon.themeSlugsFor(slug, rootSlug);
     final bodyCols = _isCompactV6 ? 'p.block_id, p.offset, p.length' : 'p.body';
 
-    final hits = <FeelingVerseHit>[];
+    final classicalHits = <FeelingVerseHit>[];
+    final freeVerseHits = <FeelingVerseHit>[];
     final seenIds = <int>{};
     int totalMatched = 0;
-    final candidateFetch = limit + 14;
+    final candidateFetch = limit + 18;
 
     void processRows(ResultSet rows) {
       for (final r in rows) {
-        if (hits.length >= limit) break;
+        if ((classicalHits.length + freeVerseHits.length) >= limit) break;
         final poemId = r['id'] as int;
         if (!seenIds.add(poemId)) continue;
+        final isFree = (r['is_free_verse'] as int? ?? 0) == 1;
         final body = _readPoemBody(r);
         final verses = Verse.parseBody(body);
         if (verses.isEmpty) continue;
@@ -325,7 +327,7 @@ class PoetryRepository {
               : ArabicNormalizer.normalize('${v.sadr} ${v.ajuz}');
           if (normLine.isEmpty) continue;
           final padded = ' $normLine ';
-          var score = 0;
+          var score = (v.sadr.isNotEmpty && v.ajuz.isNotEmpty) ? 15 : 0;
           String hitKw = '';
           for (final kw in normKeywords) {
             if (padded.contains(' $kw ') || padded.contains(' ال$kw ')) {
@@ -341,36 +343,39 @@ class PoetryRepository {
             bestVerse = v;
             bestKw = hitKw;
           }
-          if (bestScore >= 240) break;
+          if (bestScore >= 255) break;
         }
 
-        hits.add(
-          FeelingVerseHit(
-            poemId: poemId,
-            poetId: r['poet_id'] as int,
-            poetName: r['poet_name'] as String,
-            eraName: r['era_name'] as String,
-            meterName: r['meter_name'] as String,
-            rhymeName: r['rhyme_name'] as String,
-            title: r['title'] as String,
-            verseCount: verses.length,
-            matchedVerseIndex: bestVerse.index,
-            matchedSadr: bestVerse.sadr,
-            matchedAjuz: bestVerse.ajuz,
-            matchedExtraHemistichs: bestVerse.extraHemistichs,
-            matchedKeyword: bestKw,
-          ),
+        final hit = FeelingVerseHit(
+          poemId: poemId,
+          poetId: r['poet_id'] as int,
+          poetName: r['poet_name'] as String,
+          eraName: r['era_name'] as String,
+          meterName: r['meter_name'] as String,
+          rhymeName: r['rhyme_name'] as String,
+          title: r['title'] as String,
+          verseCount: verses.length,
+          matchedVerseIndex: bestVerse.index,
+          matchedSadr: bestVerse.sadr,
+          matchedAjuz: bestVerse.ajuz,
+          matchedExtraHemistichs: bestVerse.extraHemistichs,
+          matchedKeyword: bestKw,
         );
+        if (isFree) {
+          freeVerseHits.add(hit);
+        } else {
+          classicalHits.add(hit);
+        }
       }
     }
 
-    // 1. Pinpoint FTS5 matches ranked by bm25
+    // 1. Pinpoint FTS5 matches ranked with classical poetry FIRST and free verse LAST
     if (keywords.isNotEmpty) {
       final ftsTable = _isCompactV6 ? 'poems_title_fts' : 'poems_fts';
       final ftsExpr = keywords.map((k) => '$k*').join(' OR ');
       final orderSql = _isCompactV6
-          ? 'bm25(poems_title_fts), p.has_diacritics DESC, p.verse_count DESC'
-          : 'bm25(poems_fts, 3.0, 1.0, 1.5), p.verse_count DESC';
+          ? 'p.is_free_verse ASC, bm25(poems_title_fts), p.has_diacritics DESC, p.verse_count DESC'
+          : 'p.is_free_verse ASC, bm25(poems_fts, 3.0, 1.0, 1.5), p.verse_count DESC';
       try {
         final cntRow = _db.select(
           'SELECT COUNT(*) AS c FROM $ftsTable WHERE $ftsTable MATCH ?',
@@ -384,7 +389,7 @@ class PoetryRepository {
             SELECT p.id, p.poet_id, $_poetDisplayCol AS poet_name,
                    e.name AS era_name, m.name AS meter_name,
                    $_rhymeDisplayCol AS rhyme_name,
-                   p.title, p.verse_count, $bodyCols
+                   p.title, p.verse_count, p.is_free_verse, $bodyCols
             FROM $ftsTable f
             JOIN poems p ON p.id = f.rowid
             JOIN poets pt ON pt.id = p.poet_id
@@ -402,8 +407,9 @@ class PoetryRepository {
       } catch (_) {}
     }
 
-    // 2. Deterministic feeling-seeded thematic supplementation if needed
-    if (hits.length < limit && _hasThemesTable && themeSlugs.isNotEmpty) {
+    // 2. Deterministic feeling-seeded thematic supplementation (classical FIRST, free verse LAST)
+    final collected = classicalHits.length + freeVerseHits.length;
+    if (collected < limit && _hasThemesTable && themeSlugs.isNotEmpty) {
       final ph = List.filled(themeSlugs.length, '?').join(',');
       if (totalMatched < limit) {
         final themeCntRow = _db.select(
@@ -420,7 +426,7 @@ class PoetryRepository {
         SELECT p.id, p.poet_id, $_poetDisplayCol AS poet_name,
                e.name AS era_name, m.name AS meter_name,
                $_rhymeDisplayCol AS rhyme_name,
-               p.title, p.verse_count, $bodyCols
+               p.title, p.verse_count, p.is_free_verse, $bodyCols
         FROM poems p
         JOIN themes t ON t.id = p.theme_id
         JOIN poets pt ON pt.id = p.poet_id
@@ -428,10 +434,10 @@ class PoetryRepository {
         JOIN meters m ON m.id = p.meter_id
         JOIN rhymes r ON r.id = p.rhyme_id
         WHERE t.slug IN ($ph)
-        ORDER BY p.has_diacritics DESC, p.verse_count DESC, p.id ASC
+        ORDER BY p.is_free_verse ASC, p.has_diacritics DESC, p.verse_count DESC, p.id ASC
         LIMIT ? OFFSET ?
         ''',
-        [...themeSlugs, (limit - hits.length) + 12, themeOffset],
+        [...themeSlugs, (limit - collected) + 12, themeOffset],
       );
       if (rows.isEmpty && offset == 0 && feelingSeedOffset > 0) {
         rows = _db.select(
@@ -439,7 +445,7 @@ class PoetryRepository {
           SELECT p.id, p.poet_id, $_poetDisplayCol AS poet_name,
                  e.name AS era_name, m.name AS meter_name,
                  $_rhymeDisplayCol AS rhyme_name,
-                 p.title, p.verse_count, $bodyCols
+                 p.title, p.verse_count, p.is_free_verse, $bodyCols
           FROM poems p
           JOIN themes t ON t.id = p.theme_id
           JOIN poets pt ON pt.id = p.poet_id
@@ -447,15 +453,16 @@ class PoetryRepository {
           JOIN meters m ON m.id = p.meter_id
           JOIN rhymes r ON r.id = p.rhyme_id
           WHERE t.slug IN ($ph)
-          ORDER BY p.has_diacritics DESC, p.verse_count DESC, p.id ASC
+          ORDER BY p.is_free_verse ASC, p.has_diacritics DESC, p.verse_count DESC, p.id ASC
           LIMIT ? OFFSET 0
           ''',
-          [...themeSlugs, (limit - hits.length) + 12],
+          [...themeSlugs, (limit - collected) + 12],
         );
       }
       processRows(rows);
     }
 
+    final hits = [...classicalHits, ...freeVerseHits];
     if (totalMatched < hits.length) totalMatched = hits.length;
     return FeelingSearchResult(
       hits: hits,

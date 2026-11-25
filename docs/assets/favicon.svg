@@ -1,8 +1,23 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
-  <rect width="128" height="128" rx="30" fill="#181511" stroke="#C8A25F" stroke-width="3"/>
-  <rect x="29" y="29" width="70" height="70" fill="none" stroke="#C8A25F" stroke-width="3.2"/>
-  <rect x="29" y="29" width="70" height="70" fill="none" stroke="#C8A25F" stroke-width="3.2" transform="rotate(45 64 64)"/>
-  <path d="M64 30 L81 69 L64 98 L47 69 Z" fill="#F5EFE3"/>
-  <line x1="64" y1="62" x2="64" y2="96" stroke="#181511" stroke-width="3"/>
-  <circle cx="64" cy="61" r="4.5" fill="#C8A25F"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="108" height="108">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="44%" r="65%">
+      <stop offset="0%" stop-color="#2A241B"/>
+      <stop offset="58%" stop-color="#191611"/>
+      <stop offset="100%" stop-color="#0E0C09"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#EAD096"/>
+      <stop offset="52%" stop-color="#C9A663"/>
+      <stop offset="100%" stop-color="#9B773A"/>
+    </linearGradient>
+  </defs>
+  <rect width="108" height="108" rx="26" fill="url(#bg)"/>
+  <circle cx="54" cy="54" r="39" fill="none" stroke="#332A1E" stroke-width="1.1"/>
+  <rect x="29" y="29" width="50" height="50" fill="none" stroke="url(#gold)" stroke-width="2.7"/>
+  <polygon points="54,18.7 89.3,54 54,89.3 18.7,54" fill="none" stroke="url(#gold)" stroke-width="2.7"/>
+  <polygon points="54,31 64.5,55.8 54,75.5" fill="#F5EFE2"/>
+  <polygon points="54,31 43.5,55.8 54,75.5" fill="#DFD3BE"/>
+  <rect x="53.1" y="51.5" width="1.8" height="23.2" fill="#16130E"/>
+  <circle cx="54" cy="49.2" r="3.4" fill="#D9B774"/>
+  <circle cx="53.1" cy="48.2" r="1.0" fill="#FFF5DD"/>
 </svg>

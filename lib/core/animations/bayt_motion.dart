@@ -1,38 +1,36 @@
 import 'package:flutter/material.dart';
 
-/// Motion design tokens & micro-interaction primitives for «بيت القصيد».
+/// Snappy, modern editorial motion tokens & micro-interaction primitives for «بيت القصيد».
 ///
-/// Built on refined editorial motion physics:
-/// - Smooth quintic ease-out entrances (zero jarring bounce on everyday UI)
-/// - 20-25% shorter exits for crisp responsiveness
-/// - Tactile 0.97 press scale (never tweens while held)
-/// - 30ms staggered viewport entrances (capped so deep scrolling never stalls)
-/// - Popovers starting at 0.95 scale at 180-220ms
+/// Tuned for crisp 120fps responsiveness:
+/// - Fast cubic ease-out entrances with zero sluggish asymptotic tail
+/// - 25% shorter exits so back navigation feels instantaneous
+/// - Tactile 0.975 press feedback
+/// - Lightweight 16ms viewport stagger capped at 5 items
 class BaytMotion {
   BaytMotion._();
 
-  /// Smooth decelerating ease-out curve for entrances & reveals.
-  static const Curve easeOut = Cubic(0.16, 1.0, 0.3, 1.0);
+  /// Crisp decelerating ease-out curve for entrances & reveals.
+  static const Curve easeOut = Curves.easeOutCubic;
 
   /// Balanced ease-in-out curve for positional moves & layout morphs.
-  static const Curve move = Cubic(0.4, 0.0, 0.2, 1.0);
+  static const Curve move = Curves.easeInOutCubic;
 
-  /// Crisp accelerating curve for exits (paired with 20% shorter durations).
-  static const Curve exit = Cubic(0.4, 0.0, 1.0, 1.0);
+  /// Fast accelerating curve for exits.
+  static const Curve exit = Curves.easeInCubic;
 
-  static const Duration fast = Duration(milliseconds: 160);
-  static const Duration popover = Duration(milliseconds: 210);
-  static const Duration enter = Duration(milliseconds: 340);
-  static const Duration exitShort = Duration(milliseconds: 260);
+  static const Duration fast = Duration(milliseconds: 110);
+  static const Duration popover = Duration(milliseconds: 145);
+  static const Duration enter = Duration(milliseconds: 180);
+  static const Duration exitShort = Duration(milliseconds: 135);
 }
 
-/// Tactile press-feedback wrapper scaling cleanly to 0.97 on press down
-/// without bouncing or tweening while held.
+/// Tactile press-feedback wrapper scaling cleanly to 0.975 on press down.
 class BaytPressable extends StatefulWidget {
   const BaytPressable({
     super.key,
     required this.child,
-    this.scaleDown = 0.97,
+    this.scaleDown = 0.975,
     this.enabled = true,
   });
 
@@ -62,8 +60,8 @@ class _BaytPressableState extends State<BaytPressable> {
       child: AnimatedScale(
         scale: _pressed ? widget.scaleDown : 1.0,
         duration: _pressed
-            ? const Duration(milliseconds: 95)
-            : const Duration(milliseconds: 175),
+            ? const Duration(milliseconds: 70)
+            : const Duration(milliseconds: 120),
         curve: BaytMotion.easeOut,
         child: widget.child,
       ),
@@ -71,14 +69,13 @@ class _BaytPressableState extends State<BaytPressable> {
   }
 }
 
-/// Gentle 30ms staggered list row entrance capped to the initial viewport rows
-/// so deep scrolling through thousands of poems remains 100% instantaneous.
+/// Ultra-light 16ms staggered entrance capped to the top 5 viewport rows.
 class BaytStaggeredItem extends StatefulWidget {
   const BaytStaggeredItem({
     super.key,
     required this.index,
     required this.child,
-    this.maxStaggerItems = 8,
+    this.maxStaggerItems = 5,
   });
 
   final int index;
@@ -101,17 +98,17 @@ class _BaytStaggeredItemState extends State<BaytStaggeredItem>
     if (widget.index < widget.maxStaggerItems) {
       final ctrl = AnimationController(
         vsync: this,
-        duration: const Duration(milliseconds: 280),
+        duration: const Duration(milliseconds: 160),
       );
       _ctrl = ctrl;
       final curved = CurvedAnimation(parent: ctrl, curve: BaytMotion.easeOut);
       _fade = curved;
       _slide = Tween<Offset>(
-        begin: const Offset(0, 0.055),
+        begin: const Offset(0, 0.025),
         end: Offset.zero,
       ).animate(curved);
 
-      final delayMs = widget.index * 30;
+      final delayMs = widget.index * 16;
       if (delayMs == 0) {
         ctrl.forward();
       } else {
@@ -141,13 +138,12 @@ class _BaytStaggeredItemState extends State<BaytStaggeredItem>
   }
 }
 
-/// Smooth crossfade + subtle scale morph for toggling icons (search/close,
-/// favorite/unfavorite, bookmark/unbookmark) with confirmation pulse on active.
+/// Crisp crossfade + subtle scale morph for toggling icons.
 class BaytIconMorph extends StatelessWidget {
   const BaytIconMorph({
     super.key,
     required this.icon,
-    this.duration = const Duration(milliseconds: 200),
+    this.duration = const Duration(milliseconds: 135),
   });
 
   final Widget icon;
@@ -163,7 +159,7 @@ class BaytIconMorph extends StatelessWidget {
         return FadeTransition(
           opacity: anim,
           child: ScaleTransition(
-            scale: Tween<double>(begin: 0.84, end: 1.0).animate(anim),
+            scale: Tween<double>(begin: 0.88, end: 1.0).animate(anim),
             child: child,
           ),
         );

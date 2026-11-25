@@ -105,7 +105,7 @@ class FeelingsExplorerView extends StatelessWidget {
               crossAxisCount: 2,
               crossAxisSpacing: 10,
               mainAxisSpacing: 10,
-              childAspectRatio: 0.96,
+              childAspectRatio: 0.94,
             ),
             delegate: SliverChildBuilderDelegate(
               (context, i) => _EmotionAtlasCard(feeling: rest[i]),
@@ -133,151 +133,206 @@ class _EmotionAtlasCard extends StatelessWidget {
       (acc, c) => acc + c.children.length,
     );
 
-    return InkWell(
-      onTap: () {
-        HapticFeedback.selectionClick();
-        BaytNav.pushEditorial(
-          context,
-          FeelingDetailScreen(rootFeeling: feeling),
-        );
-      },
-      borderRadius: BorderRadius.circular(18),
-      child: Container(
-        padding: EdgeInsets.all(isHero ? 16 : 13),
-        decoration: BoxDecoration(
-          color: p.surfaceElevated,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: accent.withValues(alpha: 0.28),
-            width: 0.95,
+    return BaytPressable(
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          BaytNav.pushEditorial(
+            context,
+            FeelingDetailScreen(rootFeeling: feeling),
+          );
+        },
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: p.surfaceElevated,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: accent.withValues(alpha: 0.26),
+              width: 0.95,
+            ),
+            gradient: LinearGradient(
+              begin: Alignment.topRight,
+              end: Alignment.bottomLeft,
+              colors: [
+                accent.withValues(alpha: 0.13),
+                p.surfaceElevated,
+                p.surfaceElevated,
+              ],
+              stops: const [0.0, 0.55, 1.0],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: accent.withValues(alpha: 0.07),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
           ),
-          gradient: LinearGradient(
-            begin: Alignment.topRight,
-            end: Alignment.bottomLeft,
-            colors: [accent.withValues(alpha: 0.11), p.surfaceElevated],
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: isHero ? 42 : 36,
-                  height: isHero ? 42 : 36,
-                  decoration: BoxDecoration(
-                    color: accent.withValues(alpha: 0.16),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+          child: Stack(
+            children: [
+              Positioned(
+                left: -18,
+                bottom: -18,
+                child: IgnorePointer(
                   child: Icon(
                     _feelingIcon(feeling.slug),
-                    color: accent,
-                    size: isHero ? 21 : 18,
+                    size: isHero ? 88 : 68,
+                    color: accent.withValues(alpha: 0.06),
                   ),
                 ),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: accent.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    '${ArabicNormalizer.toArabicNumber(totalNuances)} فرعاً',
-                    style: TextStyle(
-                      fontFamily: AppFonts.ui,
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w700,
-                      color: accent,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: isHero ? 12 : 10),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: AlignmentDirectional.centerStart,
-              child: Text(
-                feeling.name,
-                maxLines: 1,
-                style: TextStyle(
-                  fontFamily: AppFonts.ruqaa,
-                  fontSize: isHero ? 24 : 21,
-                  fontWeight: FontWeight.w700,
-                  color: p.ink,
-                  height: 1.2,
-                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              _feelingMotto(feeling.slug),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                fontSize: isHero ? 12 : 11,
-                color: p.inkMuted,
-                height: 1.45,
-              ),
-            ),
-            if (isHero && feeling.children.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: feeling.children.take(6).map((c) {
-                  return Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 9,
-                      vertical: 3,
+              Padding(
+                padding: EdgeInsets.all(isHero ? 16 : 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: isHero ? 42 : 36,
+                          height: isHero ? 42 : 36,
+                          decoration: BoxDecoration(
+                            color: accent.withValues(alpha: 0.16),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: accent.withValues(alpha: 0.30),
+                              width: 0.9,
+                            ),
+                          ),
+                          child: Icon(
+                            _feelingIcon(feeling.slug),
+                            color: accent,
+                            size: isHero ? 20 : 17.5,
+                          ),
+                        ),
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: p.surface.withValues(alpha: 0.9),
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(
+                              color: accent.withValues(alpha: 0.24),
+                              width: 0.75,
+                            ),
+                          ),
+                          child: Text(
+                            '${ArabicNormalizer.toArabicNumber(totalNuances)} فرعاً',
+                            style: TextStyle(
+                              fontFamily: AppFonts.ui,
+                              fontSize: 10.2,
+                              fontWeight: FontWeight.w700,
+                              color: accent,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    decoration: BoxDecoration(
-                      color: p.surface.withValues(alpha: 0.85),
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(
-                        color: accent.withValues(alpha: 0.25),
-                        width: 0.8,
-                      ),
-                    ),
-                    child: Text(
-                      c.name,
-                      style: Theme.of(context).textTheme.labelSmall
-                          ?.copyWith(color: p.ink, fontSize: 10.8),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ] else ...[
-              const Spacer(),
-              Row(
-                children: [
-                  Expanded(
-                    child: FittedBox(
+                    SizedBox(height: isHero ? 12 : 10),
+                    FittedBox(
                       fit: BoxFit.scaleDown,
                       alignment: AlignmentDirectional.centerStart,
                       child: Text(
-                        feeling.children.take(3).map((e) => e.name).join(' · '),
+                        feeling.name,
                         maxLines: 1,
                         style: TextStyle(
-                          fontFamily: AppFonts.ui,
-                          fontSize: 10.2,
-                          color: accent,
-                          fontWeight: FontWeight.w600,
+                          fontFamily: AppFonts.ruqaa,
+                          fontSize: isHero ? 25 : 21.5,
+                          fontWeight: FontWeight.w700,
+                          color: p.ink,
+                          height: 1.2,
                         ),
                       ),
                     ),
-                  ),
-                  Icon(
-                    Icons.arrow_back_ios_new_rounded,
-                    size: 12,
-                    color: accent,
-                  ),
-                ],
+                    const SizedBox(height: 4),
+                    Text(
+                      _feelingMotto(feeling.slug),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontSize: isHero ? 12 : 11,
+                        color: p.inkMuted,
+                        height: 1.45,
+                      ),
+                    ),
+                    if (isHero && feeling.children.isNotEmpty) ...[
+                      const SizedBox(height: 11),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: feeling.children.take(6).map((c) {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 3.5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: p.surface.withValues(alpha: 0.92),
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(
+                                color: accent.withValues(alpha: 0.24),
+                                width: 0.8,
+                              ),
+                            ),
+                            child: Text(
+                              c.name,
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(color: p.ink, fontSize: 10.8),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ] else ...[
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.only(top: 6),
+                        decoration: BoxDecoration(
+                          border: Border(
+                            top: BorderSide(
+                              color: accent.withValues(alpha: 0.14),
+                              width: 0.8,
+                            ),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: AlignmentDirectional.centerStart,
+                                child: Text(
+                                  feeling.children
+                                      .take(3)
+                                      .map((e) => e.name)
+                                      .join(' · '),
+                                  maxLines: 1,
+                                  style: TextStyle(
+                                    fontFamily: AppFonts.ui,
+                                    fontSize: 10.3,
+                                    color: accent,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(
+                              Icons.arrow_back_ios_new_rounded,
+                              size: 11.5,
+                              color: accent,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -460,7 +515,6 @@ class _FeelingDetailScreenState extends ConsumerState<FeelingDetailScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Tier 1: Branch Pill Rail
                 if (branches.isNotEmpty)
                   SizedBox(
                     height: 46,
@@ -489,10 +543,8 @@ class _FeelingDetailScreenState extends ConsumerState<FeelingDetailScreen> {
                       ],
                     ),
                   ),
-
-                // Tier 2: Expandable Sub-Nuance Matrix (all visible cleanly at once!)
                 AnimatedSize(
-                  duration: const Duration(milliseconds: 240),
+                  duration: const Duration(milliseconds: 170),
                   curve: BaytMotion.easeOut,
                   child: subLeaves.isNotEmpty
                       ? Padding(
@@ -557,7 +609,7 @@ class _FeelingDetailScreenState extends ConsumerState<FeelingDetailScreen> {
                                       borderRadius: BorderRadius.circular(999),
                                       child: AnimatedContainer(
                                         duration: const Duration(
-                                          milliseconds: 180,
+                                          milliseconds: 140,
                                         ),
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 11,
@@ -636,7 +688,7 @@ class _FeelingDetailScreenState extends ConsumerState<FeelingDetailScreen> {
                       cacheExtent: 650,
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 30),
                       itemCount: _hits.length + (_loadingMore ? 1 : 0),
-                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                      separatorBuilder: (_, __) => const SizedBox(height: 11),
                       itemBuilder: (context, i) {
                         if (i >= _hits.length) {
                           return Padding(
@@ -701,7 +753,7 @@ class _MoodBranchPill extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(999),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 190),
+          duration: const Duration(milliseconds: 145),
           curve: BaytMotion.easeOut,
           padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 6),
           decoration: BoxDecoration(
@@ -746,6 +798,8 @@ class _MoodBranchPill extends StatelessWidget {
   }
 }
 
+/// Manuscript-style Emotion Verse Card — clean editorial framing with top
+/// diamond ornament, balanced centered couplet, and zero heavy side borders.
 class _FeelingVerseCard extends StatelessWidget {
   const _FeelingVerseCard({
     required this.hit,
@@ -762,129 +816,179 @@ class _FeelingVerseCard extends StatelessWidget {
     final p = context.palette;
     final verseNum = ArabicNormalizer.toArabicNumber(hit.matchedVerseIndex + 1);
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 11),
-        decoration: BoxDecoration(
-          color: p.surfaceElevated,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: p.hairline, width: 0.9),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Exact Matched Verse Quote (never truncated!)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(11),
-                border: Border(right: BorderSide(color: accent, width: 2.6)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+    return BaytPressable(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 13, 16, 12),
+          decoration: BoxDecoration(
+            color: p.surfaceElevated,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: accent.withValues(alpha: 0.22),
+              width: 0.9,
+            ),
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [accent.withValues(alpha: 0.045), p.surfaceElevated],
+              stops: const [0.0, 0.45],
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Subtle manuscript top ornament divider
+              Row(
                 children: [
-                  if (hit.matchedSadr.isNotEmpty)
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: AlignmentDirectional.centerStart,
-                      child: Text(
-                        hit.matchedSadr,
-                        maxLines: 1,
-                        style: TextStyle(
-                          fontFamily: AppFonts.scheherazade,
-                          fontSize: 18.5,
-                          color: p.ink,
-                          height: 1.55,
-                        ),
+                  Expanded(
+                    child: Container(
+                      height: 0.7,
+                      color: accent.withValues(alpha: 0.18),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: Container(
+                      width: 6,
+                      height: 6,
+                      transform: Matrix4.rotationZ(0.785398),
+                      transformAlignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: accent.withValues(alpha: 0.55),
+                        borderRadius: BorderRadius.circular(1),
                       ),
                     ),
-                  if (hit.matchedAjuz.isNotEmpty) ...[
-                    const SizedBox(height: 2),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: AlignmentDirectional.centerEnd,
-                      child: Text(
-                        hit.matchedAjuz,
-                        maxLines: 1,
-                        style: TextStyle(
-                          fontFamily: AppFonts.scheherazade,
-                          fontSize: 18.5,
-                          color: p.ink,
-                          height: 1.55,
-                        ),
-                      ),
+                  ),
+                  Expanded(
+                    child: Container(
+                      height: 0.7,
+                      color: accent.withValues(alpha: 0.18),
                     ),
-                  ],
+                  ),
                 ],
               ),
-            ),
-            const SizedBox(height: 9),
-            // Poem & Poet Footer with Rhyme Badge + Direct Verse Jump Indicator
-            Row(
-              children: [
-                PoemRhymeBadge(
-                  rhymeName: hit.rhymeName,
-                  size: 28,
-                  accentColor: accent,
-                ),
-                const SizedBox(width: 9),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: AlignmentDirectional.centerStart,
-                        child: Text(
-                          '${hit.poetName}  •  ${hit.eraName}',
-                          maxLines: 1,
-                          style: Theme.of(context).textTheme.labelMedium
-                              ?.copyWith(
-                                color: p.ink,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 12,
-                              ),
-                        ),
+              const SizedBox(height: 10),
+
+              // Centered, balanced classical couplet (zero side stripe, zero truncation!)
+              if (hit.matchedSadr.isNotEmpty)
+                Center(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      hit.matchedSadr,
+                      maxLines: 1,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontFamily: AppFonts.scheherazade,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                        color: p.ink,
+                        height: 1.55,
                       ),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: AlignmentDirectional.centerStart,
-                        child: Text(
-                          '${hit.title}  •  بحر ${hit.meterName}',
-                          maxLines: 1,
-                          style: Theme.of(context).textTheme.labelSmall
-                              ?.copyWith(color: p.inkMuted, fontSize: 10.8),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: accent.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    'البيت $verseNum',
-                    style: TextStyle(
-                      fontFamily: AppFonts.ui,
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w700,
-                      color: accent,
+              if (hit.matchedAjuz.isNotEmpty) ...[
+                const SizedBox(height: 3),
+                Center(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      hit.matchedAjuz,
+                      maxLines: 1,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontFamily: AppFonts.scheherazade,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                        color: p.ink,
+                        height: 1.55,
+                      ),
                     ),
                   ),
                 ),
               ],
-            ),
-          ],
+
+              const SizedBox(height: 12),
+
+              // Clean editorial footer
+              Container(
+                padding: const EdgeInsets.only(top: 9),
+                decoration: BoxDecoration(
+                  border: Border(
+                    top: BorderSide(color: p.hairline, width: 0.8),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    PoemRhymeBadge(
+                      rhymeName: hit.rhymeName,
+                      size: 28,
+                      accentColor: accent,
+                    ),
+                    const SizedBox(width: 9),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: AlignmentDirectional.centerStart,
+                            child: Text(
+                              '${hit.poetName}  •  ${hit.eraName}',
+                              maxLines: 1,
+                              style: Theme.of(context).textTheme.labelMedium
+                                  ?.copyWith(
+                                    color: p.ink,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 12,
+                                  ),
+                            ),
+                          ),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: AlignmentDirectional.centerStart,
+                            child: Text(
+                              '${hit.title}  •  بحر ${hit.meterName}',
+                              maxLines: 1,
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(color: p.inkMuted, fontSize: 10.6),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8.5,
+                        vertical: 3.5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: accent.withValues(alpha: 0.11),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                          color: accent.withValues(alpha: 0.22),
+                          width: 0.75,
+                        ),
+                      ),
+                      child: Text(
+                        'البيت $verseNum',
+                        style: TextStyle(
+                          fontFamily: AppFonts.ui,
+                          fontSize: 10.2,
+                          fontWeight: FontWeight.w700,
+                          color: accent,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

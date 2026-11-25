@@ -99,11 +99,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             title: Row(
               children: [
                 GestureDetector(
-                  onTap: () => BaytNav.pushDrop(
-                    context,
-                    const AboutScreen(),
-                    origin: const Offset(360, 48),
-                  ),
+                  onTap: () => BaytNav.pushModal(context, const AboutScreen()),
                   child: const BaytEmblem(size: 36),
                 ),
                 const SizedBox(width: 10),
@@ -148,11 +144,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               IconButton(
                 tooltip: 'عن التطبيق والمطوّر',
                 visualDensity: VisualDensity.compact,
-                onPressed: () => BaytNav.pushDrop(
-                  context,
-                  const AboutScreen(),
-                  origin: const Offset(32, 48),
-                ),
+                onPressed: () =>
+                    BaytNav.pushModal(context, const AboutScreen()),
                 icon: Icon(
                   Icons.info_outline_rounded,
                   size: 19,
@@ -192,7 +185,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         highlightMatchedVerseOnce: featured.verseIndex > 0,
                       ),
                     ),
-                    onDesignCard: () => BaytNav.pushDrop(
+                    onDesignCard: () => BaytNav.pushModal(
                       context,
                       PoetryCardStudioScreen(
                         verses: [featured.toVerse()],

@@ -66,18 +66,13 @@ class _MainShellScreenState extends State<MainShellScreen> {
               ignoring: !active,
               child: AnimatedOpacity(
                 opacity: active ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 220),
+                duration: const Duration(milliseconds: 130),
                 curve: active ? BaytMotion.easeOut : BaytMotion.exit,
-                child: AnimatedScale(
-                  scale: active ? 1.0 : 0.985,
-                  duration: const Duration(milliseconds: 240),
-                  curve: BaytMotion.easeOut,
-                  child: TickerMode(
-                    enabled: active,
-                    child: mounted
-                        ? RepaintBoundary(child: _buildTab(i))
-                        : const SizedBox.shrink(),
-                  ),
+                child: TickerMode(
+                  enabled: active,
+                  child: mounted
+                      ? RepaintBoundary(child: _buildTab(i))
+                      : const SizedBox.shrink(),
                 ),
               ),
             );
@@ -223,7 +218,7 @@ class _SculptedFloatingNavBar extends StatelessWidget {
                           behavior: HitTestBehavior.opaque,
                           onTap: () => onSelect(i),
                           child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 260),
+                            duration: const Duration(milliseconds: 165),
                             curve: BaytMotion.easeOut,
                             padding: EdgeInsets.symmetric(
                               horizontal: active ? 16 : 14,
@@ -246,7 +241,7 @@ class _SculptedFloatingNavBar extends StatelessWidget {
                                         ),
                                 ),
                                 AnimatedSize(
-                                  duration: const Duration(milliseconds: 240),
+                                  duration: const Duration(milliseconds: 155),
                                   curve: BaytMotion.easeOut,
                                   child: active
                                       ? Padding(
