@@ -263,6 +263,13 @@ class PoetGender {
     'تأبط شرا',
     'الشنفرى',
     'أبو العلاء المعري',
+    'أمل دنقل',
+    'امل دنقل',
+    'أمل الجراح',
+    'أمل جراح',
+    'صباح الحكيم',
+    'فرح أنطون',
+    'عصمت الحبروك',
   };
 
   /// Classical & modern male first names ending in ة (must NOT be classified as female).
@@ -432,7 +439,6 @@ class PoetGender {
     'نزهون',
     'ياسمين',
     'ياسمينة',
-    'فرح',
     'ملاك',
     'حنان',
     'جنان',
@@ -476,12 +482,7 @@ class PoetGender {
     'نجلاء',
     'سمراء',
     'علياء',
-    'صفاء',
-    'سناء',
-    'ثناء',
-    'رجاء',
     'هناء',
-    'ولاء',
     'دعاء',
     'نداء',
     'إسراء',
@@ -588,7 +589,6 @@ class PoetGender {
     'الزرقاء',
     'العالية',
     'حبيبة',
-    'شمس',
     'قمرية',
     'سلافة',
     'سلاف',
@@ -605,17 +605,10 @@ class PoetGender {
     'شوقية',
     'درية',
     'سميحة',
-    'صباح',
-    'نجاح',
     'فاتن',
     'سهام',
-    'إكرام',
-    'اكرام',
     'انعام',
     'إنعام',
-    'نعمت',
-    'عصمت',
-    'حكمت',
     'ثريا',
     'الثريا',
     'رتيبة',
@@ -639,8 +632,10 @@ class PoetGender {
     if (clean.isEmpty) return false;
     if (_maleExceptions.contains(clean)) return false;
 
-    // Unmistakable male patronymics & titles
+    // Unmistakable male patronymics, titles & classical "الدين" laqabs
     if (clean.contains(' بن ') ||
+        clean.contains(' الدين ') ||
+        clean.endsWith(' الدين') ||
         clean.startsWith('أبو ') ||
         clean.startsWith('ابو ') ||
         clean.startsWith('ابن ') ||

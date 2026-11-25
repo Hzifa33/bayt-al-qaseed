@@ -9,8 +9,10 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/arabic_normalizer.dart';
 import '../../../core/widgets/bayt_ornaments.dart';
 import '../../../data/models/meter.dart';
+import '../../../data/models/verse.dart';
 import '../../providers/database_providers.dart';
 import '../reader/poem_reader_screen.dart';
+import '../studio/poetry_card_studio_screen.dart';
 
 Color _feelingAccent(String rootSlug, Color fallback) => switch (rootSlug) {
   'alsurur' => const Color(0xFFB37A2A),
@@ -35,18 +37,17 @@ IconData _feelingIcon(String rootSlug) => switch (rootSlug) {
 };
 
 String _feelingMotto(String rootSlug) => switch (rootSlug) {
-  'alsurur' => 'أبيات الفرح والفخر والسكينة والودّ والأمل',
-  'alhuzn' => 'مراثي الوجد والأسى والغربة والحنين والندم',
-  'altaajjub' => 'روائع الدهشة والانبهار والحماسة والحيرة',
-  'alghadab' => 'ثورة الإباء والسخط والغيرة والعتاب والبطش',
-  'alkhawf' => 'خلجات الوجل والخشية والقلق والرهبة',
-  'alishmizaz' => 'مواقف الاستنكار واللوم والنفور والهجاء',
-  'aldiq' => 'شكوى السأم والكرب والتعب وضيق الصدر',
-  _ => 'رحلة وجدانية في عيون الشعر العربي',
+  'alsurur' => 'الفرح والفخر والسكينة والأمل',
+  'alhuzn' => 'الوجد والأسى والغربة والحنين',
+  'altaajjub' => 'الدهشة والانبهار والحماسة والحيرة',
+  'alghadab' => 'الإباء والسخط والغيرة والعتاب',
+  'alkhawf' => 'الوجل والخشية والقلق والرهبة',
+  'alishmizaz' => 'الاستنكار واللوم والنفور والهجاء',
+  'aldiq' => 'السأم والكرب والتعب وضيق الصدر',
+  _ => 'شواهد وجدانية من الشعر العربي',
 };
 
-/// Redesigned Editorial Emotion Atlas (أطلس المشاعر الشعرية):
-/// Bento grid presentation with a full-width hero card + balanced 2-column grid.
+/// Clean, minimalist Editorial Emotion Atlas (أطلس المشاعر الشعرية).
 class FeelingsExplorerView extends StatelessWidget {
   const FeelingsExplorerView({super.key, required this.roots});
 
@@ -72,40 +73,40 @@ class FeelingsExplorerView extends StatelessWidget {
                   'أطلسُ المشاعر الشعرية',
                   style: TextStyle(
                     fontFamily: AppFonts.ruqaa,
-                    fontSize: 22,
+                    fontSize: 21,
                     fontWeight: FontWeight.w700,
                     color: p.ink,
                     height: 1.25,
                   ),
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 2),
                 Text(
-                  'اختر الحالة الوجدانية لتنتقل مباشرةً إلى الأبيات المعنيّة داخل القصائد.',
+                  'اختر الشعور للانتقال مباشرةً إلى الأبيات المعنيّة.',
                   style: Theme.of(context).textTheme.bodySmall
-                      ?.copyWith(color: p.inkMuted, fontSize: 12, height: 1.5),
+                      ?.copyWith(color: p.inkMuted, fontSize: 12),
                 ),
               ],
             ),
           ),
         ),
 
-        // Full-width Hero Emotion Card
+        // Full-width featured emotion card
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 2, 16, 10),
+            padding: const EdgeInsets.fromLTRB(16, 2, 16, 9),
             child: _EmotionAtlasCard(feeling: hero, isHero: true),
           ),
         ),
 
-        // 2-Column Editorial Bento Grid for remaining 6 primary emotions
+        // Clean, compact 2-column grid for remaining 6 primary emotions
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 108),
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 104),
           sliver: SliverGrid(
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-              childAspectRatio: 0.94,
+              crossAxisSpacing: 9,
+              mainAxisSpacing: 9,
+              childAspectRatio: 1.24,
             ),
             delegate: SliverChildBuilderDelegate(
               (context, i) => _EmotionAtlasCard(feeling: rest[i]),
@@ -142,98 +143,113 @@ class _EmotionAtlasCard extends StatelessWidget {
             FeelingDetailScreen(rootFeeling: feeling),
           );
         },
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         child: Container(
-          clipBehavior: Clip.antiAlias,
+          padding: EdgeInsets.symmetric(
+            horizontal: isHero ? 15 : 13,
+            vertical: isHero ? 14 : 12,
+          ),
           decoration: BoxDecoration(
             color: p.surfaceElevated,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: accent.withValues(alpha: 0.26),
-              width: 0.95,
-            ),
-            gradient: LinearGradient(
-              begin: Alignment.topRight,
-              end: Alignment.bottomLeft,
-              colors: [
-                accent.withValues(alpha: 0.13),
-                p.surfaceElevated,
-                p.surfaceElevated,
-              ],
-              stops: const [0.0, 0.55, 1.0],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: accent.withValues(alpha: 0.07),
-                blurRadius: 16,
-                offset: const Offset(0, 6),
-              ),
-            ],
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: p.hairline, width: 0.9),
           ),
-          child: Stack(
-            children: [
-              Positioned(
-                left: -18,
-                bottom: -18,
-                child: IgnorePointer(
-                  child: Icon(
-                    _feelingIcon(feeling.slug),
-                    size: isHero ? 88 : 68,
-                    color: accent.withValues(alpha: 0.06),
-                  ),
-                ),
-              ),
-              Padding(
-                padding: EdgeInsets.all(isHero ? 16 : 14),
-                child: Column(
+          child: isHero
+              ? Row(
+                  children: [
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: accent.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        _feelingIcon(feeling.slug),
+                        color: accent,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                feeling.name,
+                                style: TextStyle(
+                                  fontFamily: AppFonts.ruqaa,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w700,
+                                  color: p.ink,
+                                  height: 1.2,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '${ArabicNormalizer.toArabicNumber(totalNuances)} فرعاً',
+                                style: Theme.of(context).textTheme.labelSmall
+                                    ?.copyWith(
+                                      color: accent,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 11,
+                                    ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _feelingMotto(feeling.slug),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  fontSize: 11.8,
+                                  color: p.inkMuted,
+                                  height: 1.4,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      size: 14,
+                      color: p.inkMuted,
+                    ),
+                  ],
+                )
+              : Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
                         Container(
-                          width: isHero ? 42 : 36,
-                          height: isHero ? 42 : 36,
+                          width: 34,
+                          height: 34,
                           decoration: BoxDecoration(
-                            color: accent.withValues(alpha: 0.16),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: accent.withValues(alpha: 0.30),
-                              width: 0.9,
-                            ),
+                            color: accent.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(10),
                           ),
                           child: Icon(
                             _feelingIcon(feeling.slug),
                             color: accent,
-                            size: isHero ? 20 : 17.5,
+                            size: 17.5,
                           ),
                         ),
                         const Spacer(),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: p.surface.withValues(alpha: 0.9),
-                            borderRadius: BorderRadius.circular(999),
-                            border: Border.all(
-                              color: accent.withValues(alpha: 0.24),
-                              width: 0.75,
-                            ),
-                          ),
-                          child: Text(
-                            '${ArabicNormalizer.toArabicNumber(totalNuances)} فرعاً',
-                            style: TextStyle(
-                              fontFamily: AppFonts.ui,
-                              fontSize: 10.2,
-                              fontWeight: FontWeight.w700,
-                              color: accent,
-                            ),
-                          ),
+                        Text(
+                          '${ArabicNormalizer.toArabicNumber(totalNuances)} فرعاً',
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(
+                                color: accent,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 10.5,
+                              ),
                         ),
                       ],
                     ),
-                    SizedBox(height: isHero ? 12 : 10),
+                    const Spacer(),
                     FittedBox(
                       fit: BoxFit.scaleDown,
                       alignment: AlignmentDirectional.centerStart,
@@ -242,97 +258,25 @@ class _EmotionAtlasCard extends StatelessWidget {
                         maxLines: 1,
                         style: TextStyle(
                           fontFamily: AppFonts.ruqaa,
-                          fontSize: isHero ? 25 : 21.5,
+                          fontSize: 20.5,
                           fontWeight: FontWeight.w700,
                           color: p.ink,
                           height: 1.2,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     Text(
                       _feelingMotto(feeling.slug),
+                      maxLines: 2,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontSize: isHero ? 12 : 11,
+                        fontSize: 11,
                         color: p.inkMuted,
-                        height: 1.45,
+                        height: 1.38,
                       ),
                     ),
-                    if (isHero && feeling.children.isNotEmpty) ...[
-                      const SizedBox(height: 11),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: feeling.children.take(6).map((c) {
-                          return Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 3.5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: p.surface.withValues(alpha: 0.92),
-                              borderRadius: BorderRadius.circular(999),
-                              border: Border.all(
-                                color: accent.withValues(alpha: 0.24),
-                                width: 0.8,
-                              ),
-                            ),
-                            child: Text(
-                              c.name,
-                              style: Theme.of(context).textTheme.labelSmall
-                                  ?.copyWith(color: p.ink, fontSize: 10.8),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ] else ...[
-                      const Spacer(),
-                      Container(
-                        padding: const EdgeInsets.only(top: 6),
-                        decoration: BoxDecoration(
-                          border: Border(
-                            top: BorderSide(
-                              color: accent.withValues(alpha: 0.14),
-                              width: 0.8,
-                            ),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: FittedBox(
-                                fit: BoxFit.scaleDown,
-                                alignment: AlignmentDirectional.centerStart,
-                                child: Text(
-                                  feeling.children
-                                      .take(3)
-                                      .map((e) => e.name)
-                                      .join(' · '),
-                                  maxLines: 1,
-                                  style: TextStyle(
-                                    fontFamily: AppFonts.ui,
-                                    fontSize: 10.3,
-                                    color: accent,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Icon(
-                              Icons.arrow_back_ios_new_rounded,
-                              size: 11.5,
-                              color: accent,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
                   ],
                 ),
-              ),
-            ],
-          ),
         ),
       ),
     );
@@ -341,7 +285,7 @@ class _EmotionAtlasCard extends StatelessWidget {
 
 /// Interactive Emotion & Direct-Verse Explorer:
 /// Features a 2-tier Mood Selector (Branch Rail + Animated Sub-Nuance Matrix)
-/// and surfaces exact matching verses that jump straight to that verse in the reader.
+/// and surfaces exact matching verses with instant Copy & Card Studio actions.
 class FeelingDetailScreen extends ConsumerStatefulWidget {
   const FeelingDetailScreen({super.key, required this.rootFeeling});
 
@@ -453,6 +397,41 @@ class _FeelingDetailScreenState extends ConsumerState<FeelingDetailScreen> {
       _hasMore = res.hasMore;
       _loadingMore = false;
     });
+  }
+
+  void _copyVerse(FeelingVerseHit hit) {
+    HapticFeedback.lightImpact();
+    final verseText = hit.matchedAjuz.isNotEmpty
+        ? '${hit.matchedSadr}\n${hit.matchedAjuz}'
+        : hit.matchedSadr;
+    Clipboard.setData(ClipboardData(text: '$verseText\n— ${hit.poetName}'));
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('نُسخ البيت إلى الحافظة'),
+          duration: Duration(milliseconds: 1400),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+  }
+
+  void _openCardStudio(FeelingVerseHit hit) {
+    HapticFeedback.selectionClick();
+    final verse = Verse(
+      index: hit.matchedVerseIndex,
+      sadr: hit.matchedSadr,
+      ajuz: hit.matchedAjuz,
+      extraHemistichs: hit.matchedExtraHemistichs,
+    );
+    BaytNav.pushModal(
+      context,
+      PoetryCardStudioScreen(
+        verses: [verse],
+        poetName: hit.poetName,
+        eraName: hit.eraName,
+      ),
+    );
   }
 
   @override
@@ -660,7 +639,7 @@ class _FeelingDetailScreenState extends ConsumerState<FeelingDetailScreen> {
             ),
           ),
 
-          // Matching Verses Feed (Direct Jump to Exact Verse in Poem!)
+          // Compact Matching Verses Feed with Direct Copy & Card Studio Actions
           Expanded(
             child: AnimatedSwitcher(
               duration: BaytMotion.popover,
@@ -686,9 +665,9 @@ class _FeelingDetailScreenState extends ConsumerState<FeelingDetailScreen> {
                       key: ValueKey(_activeFeeling.slug),
                       controller: _scrollCtrl,
                       cacheExtent: 650,
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 30),
+                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
                       itemCount: _hits.length + (_loadingMore ? 1 : 0),
-                      separatorBuilder: (_, __) => const SizedBox(height: 11),
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
                       itemBuilder: (context, i) {
                         if (i >= _hits.length) {
                           return Padding(
@@ -718,6 +697,8 @@ class _FeelingDetailScreenState extends ConsumerState<FeelingDetailScreen> {
                               highlightMatchedVerseOnce: true,
                             ),
                           ),
+                          onCopy: () => _copyVerse(hit),
+                          onDesignCard: () => _openCardStudio(hit),
                         );
                       },
                     ),
@@ -798,80 +779,41 @@ class _MoodBranchPill extends StatelessWidget {
   }
 }
 
-/// Manuscript-style Emotion Verse Card — clean editorial framing with top
-/// diamond ornament, balanced centered couplet, and zero heavy side borders.
+/// Compact, refined Emotion Verse Card with instant Copy & Card Studio actions.
 class _FeelingVerseCard extends StatelessWidget {
   const _FeelingVerseCard({
     required this.hit,
     required this.accent,
     required this.onTap,
+    required this.onCopy,
+    required this.onDesignCard,
   });
 
   final FeelingVerseHit hit;
   final Color accent;
   final VoidCallback onTap;
+  final VoidCallback onCopy;
+  final VoidCallback onDesignCard;
 
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    final verseNum = ArabicNormalizer.toArabicNumber(hit.matchedVerseIndex + 1);
 
     return BaytPressable(
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(15),
         child: Container(
-          padding: const EdgeInsets.fromLTRB(16, 13, 16, 12),
+          padding: const EdgeInsets.fromLTRB(13, 11, 13, 9),
           decoration: BoxDecoration(
             color: p.surfaceElevated,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: accent.withValues(alpha: 0.22),
-              width: 0.9,
-            ),
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [accent.withValues(alpha: 0.045), p.surfaceElevated],
-              stops: const [0.0, 0.45],
-            ),
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(color: p.hairline, width: 0.85),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Subtle manuscript top ornament divider
-              Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      height: 0.7,
-                      color: accent.withValues(alpha: 0.18),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    child: Container(
-                      width: 6,
-                      height: 6,
-                      transform: Matrix4.rotationZ(0.785398),
-                      transformAlignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: accent.withValues(alpha: 0.55),
-                        borderRadius: BorderRadius.circular(1),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Container(
-                      height: 0.7,
-                      color: accent.withValues(alpha: 0.18),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-
-              // Centered, balanced classical couplet (zero side stripe, zero truncation!)
+              // Clean centered couplet
               if (hit.matchedSadr.isNotEmpty)
                 Center(
                   child: FittedBox(
@@ -882,16 +824,15 @@ class _FeelingVerseCard extends StatelessWidget {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontFamily: AppFonts.scheherazade,
-                        fontSize: 20,
+                        fontSize: 18.5,
                         fontWeight: FontWeight.w600,
                         color: p.ink,
-                        height: 1.55,
+                        height: 1.48,
                       ),
                     ),
                   ),
                 ),
-              if (hit.matchedAjuz.isNotEmpty) ...[
-                const SizedBox(height: 3),
+              if (hit.matchedAjuz.isNotEmpty)
                 Center(
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
@@ -901,34 +842,33 @@ class _FeelingVerseCard extends StatelessWidget {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontFamily: AppFonts.scheherazade,
-                        fontSize: 20,
+                        fontSize: 18.5,
                         fontWeight: FontWeight.w600,
                         color: p.ink,
-                        height: 1.55,
+                        height: 1.48,
                       ),
                     ),
                   ),
                 ),
-              ],
 
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
 
-              // Clean editorial footer
+              // Compact footer: rhyme badge + poet + instant Copy & Card actions
               Container(
-                padding: const EdgeInsets.only(top: 9),
+                padding: const EdgeInsets.only(top: 7),
                 decoration: BoxDecoration(
                   border: Border(
-                    top: BorderSide(color: p.hairline, width: 0.8),
+                    top: BorderSide(color: p.hairline, width: 0.7),
                   ),
                 ),
                 child: Row(
                   children: [
                     PoemRhymeBadge(
                       rhymeName: hit.rhymeName,
-                      size: 28,
+                      size: 25,
                       accentColor: accent,
                     ),
-                    const SizedBox(width: 9),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -937,13 +877,13 @@ class _FeelingVerseCard extends StatelessWidget {
                             fit: BoxFit.scaleDown,
                             alignment: AlignmentDirectional.centerStart,
                             child: Text(
-                              '${hit.poetName}  •  ${hit.eraName}',
+                              hit.poetName,
                               maxLines: 1,
                               style: Theme.of(context).textTheme.labelMedium
                                   ?.copyWith(
                                     color: p.ink,
                                     fontWeight: FontWeight.w700,
-                                    fontSize: 12,
+                                    fontSize: 11.8,
                                   ),
                             ),
                           ),
@@ -951,44 +891,71 @@ class _FeelingVerseCard extends StatelessWidget {
                             fit: BoxFit.scaleDown,
                             alignment: AlignmentDirectional.centerStart,
                             child: Text(
-                              '${hit.title}  •  بحر ${hit.meterName}',
+                              '${hit.eraName}  •  بحر ${hit.meterName}',
                               maxLines: 1,
                               style: Theme.of(context).textTheme.labelSmall
-                                  ?.copyWith(color: p.inkMuted, fontSize: 10.6),
+                                  ?.copyWith(color: p.inkMuted, fontSize: 10.2),
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8.5,
-                        vertical: 3.5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: accent.withValues(alpha: 0.11),
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(
-                          color: accent.withValues(alpha: 0.22),
-                          width: 0.75,
-                        ),
-                      ),
-                      child: Text(
-                        'البيت $verseNum',
-                        style: TextStyle(
-                          fontFamily: AppFonts.ui,
-                          fontSize: 10.2,
-                          fontWeight: FontWeight.w700,
-                          color: accent,
-                        ),
-                      ),
+                    const SizedBox(width: 6),
+                    _CompactCardAction(
+                      icon: Icons.copy_rounded,
+                      tooltip: 'نسخ البيت',
+                      color: p.inkMuted,
+                      onTap: onCopy,
+                    ),
+                    const SizedBox(width: 4),
+                    _CompactCardAction(
+                      icon: Icons.palette_outlined,
+                      tooltip: 'تصميم بطاقة للبيت',
+                      color: accent,
+                      onTap: onDesignCard,
                     ),
                   ],
                 ),
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CompactCardAction extends StatelessWidget {
+  const _CompactCardAction({
+    required this.icon,
+    required this.tooltip,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          width: 30,
+          height: 30,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: p.surface,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: p.hairline, width: 0.75),
+          ),
+          child: Icon(icon, size: 15, color: color),
         ),
       ),
     );

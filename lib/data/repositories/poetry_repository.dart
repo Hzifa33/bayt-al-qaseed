@@ -18,6 +18,7 @@ import '../models/verse.dart';
 class PoetryRepository {
   PoetryRepository(this._corpus) {
     _isCompactV6 = _tableExists('content_blocks');
+    _hasBodyFts = _tableExists('poems_body_fts');
     _hasThemesTable = _tableExists('themes');
     _hasFeelingsTable = _tableExists('feelings');
   }
@@ -27,6 +28,7 @@ class PoetryRepository {
   final BlockLruCache _blockCache = BlockLruCache(capacity: 16);
 
   late final bool _isCompactV6;
+  late final bool _hasBodyFts;
   late final bool _hasThemesTable;
   late final bool _hasFeelingsTable;
   int? _cachedMaxPoemId;
@@ -1288,18 +1290,32 @@ class PoetryRepository {
         ORDER BY p.id ASC
         ''', args);
     } else {
-      final ftsQuery = _buildCandidateFtsQuery(
-        tokens: tokens,
-        matchMode: filter.matchMode,
-        matchPartialWords: filter.matchPartialWords,
-      );
+      final useBodyFts = _isCompactV6 && _hasBodyFts;
+      final ftsQuery = useBodyFts
+          ? _buildDetailNoneFtsQuery(
+              tokens: tokens,
+              matchPartialWords: filter.matchPartialWords,
+            )
+          : _buildCandidateFtsQuery(
+              tokens: tokens,
+              matchMode: filter.matchMode,
+              matchPartialWords: filter.matchPartialWords,
+            );
 
-      final candidateLimit = filter.matchMode == SearchMatchMode.exactSequence
+      final candidateLimit = useBodyFts
+          ? (targetCount * 4).clamp(420, 900)
+          : filter.matchMode == SearchMatchMode.exactSequence
           ? (targetCount * 2).clamp(260, 560)
           : (targetCount * 3).clamp(300, 620);
 
-      final ftsTable = _isCompactV6 ? 'poems_title_fts' : 'poems_fts';
-      final orderSql = _isCompactV6
+      final ftsTable = useBodyFts
+          ? 'poems_body_fts'
+          : _isCompactV6
+          ? 'poems_title_fts'
+          : 'poems_fts';
+      final orderSql = useBodyFts
+          ? 'p.is_free_verse ASC, p.has_diacritics DESC, p.verse_count DESC'
+          : _isCompactV6
           ? 'bm25(poems_title_fts), p.verse_count DESC'
           : 'bm25(poems_fts, 2.5, 1.0, 1.5)';
 
@@ -1357,8 +1373,11 @@ class PoetryRepository {
         matchPartialWords: filter.matchPartialWords,
       );
       if (match == null) {
-        // In compact v6 title-FTS mode, if the title matched FTS5, still surface the opening verse cleanly
-        if (_isCompactV6 && filter.poetId == null && verses.isNotEmpty) {
+        // Only fall back to opening verse when searching title-only index (no full-body FTS5)
+        if (_isCompactV6 &&
+            !_hasBodyFts &&
+            filter.poetId == null &&
+            verses.isNotEmpty) {
           if (hits.length >= poemLimit) {
             hasMore = true;
             break;
@@ -1418,6 +1437,26 @@ class PoetryRepository {
       elapsedMs: sw.elapsedMicroseconds / 1000.0,
       hasMore: hasMore,
     );
+  }
+
+  /// Builds a boolean-AND FTS5 query compatible with `detail=none` (no phrase `+` / quotes).
+  String _buildDetailNoneFtsQuery({
+    required List<String> tokens,
+    required bool matchPartialWords,
+  }) {
+    if (!matchPartialWords) {
+      return tokens.join(' ');
+    }
+    final groups = <String>[];
+    for (final t in tokens) {
+      if (t.length <= 1) {
+        groups.add('$t*');
+      } else {
+        final variants = _arabicFirstTokenVariants(t);
+        groups.add('(${variants.map((v) => '$v*').join(' OR ')})');
+      }
+    }
+    return groups.join(' ');
   }
 
   String _buildCandidateFtsQuery({

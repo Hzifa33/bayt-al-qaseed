@@ -72,6 +72,7 @@ void main() {
           );
           CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);
           CREATE VIRTUAL TABLE poems_title_fts USING fts5(title_norm, content='poems', content_rowid='id');
+          CREATE VIRTUAL TABLE poems_body_fts USING fts5(body_norm, content='', detail=none);
           CREATE VIRTUAL TABLE poets_fts USING fts5(name_norm, content='poets', content_rowid='id');
         ''');
 
@@ -107,6 +108,9 @@ void main() {
         );
         raw.execute(
           "INSERT INTO poems_title_fts(poems_title_fts) VALUES('rebuild')",
+        );
+        raw.execute(
+          "INSERT INTO poems_body_fts(rowid, body_norm) VALUES (1, 'اذا منحتك الطرف هند فانها تمن به والمنح ليس بمنه فان الهوي شوق وسرور يضيء الدجي في كل ليله')",
         );
         raw.execute("INSERT INTO poets_fts(poets_fts) VALUES('rebuild')");
         raw.execute(
@@ -150,6 +154,11 @@ void main() {
 
         final searchRes = repo.search(rawQuery: 'منحتك');
         expect(searchRes.poems.length, equals(1));
+
+        // Full-body FTS5 (detail=none) finds a phrase that appears ONLY inside verse 2 (not title!)
+        final bodySearchRes = repo.search(rawQuery: 'يضيء الدجى');
+        expect(bodySearchRes.poems.length, equals(1));
+        expect(bodySearchRes.poems.first.matchedVerseIndex, equals(1));
         db.dispose();
       } finally {
         tempDir.deleteSync(recursive: true);
@@ -170,6 +179,9 @@ void main() {
       expect(PoetGender.isFemale(poetName: 'أسامة بن منقذ'), isFalse);
       expect(PoetGender.isFemale(poetName: 'حمزة شحاتة'), isFalse);
       expect(PoetGender.isFemale(poetName: 'ماريو ريلي'), isFalse);
+      expect(PoetGender.isFemale(poetName: 'أمل دنقل'), isFalse);
+      expect(PoetGender.isFemale(poetName: 'شمس الدين النواجي'), isFalse);
+      expect(PoetGender.isFemale(poetName: 'صباح الحكيم'), isFalse);
     });
 
     test('FeelingLexicon & PoemRhymeBadge handle sub-feelings and rhymes', () {

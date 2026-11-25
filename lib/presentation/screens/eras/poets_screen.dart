@@ -40,6 +40,7 @@ class _PoetsScreenState extends ConsumerState<PoetsScreen> {
   int _offset = 0;
   bool _hasMore = true;
   bool _initialLoading = true;
+  bool _searching = false;
   bool _loadingMore = false;
   int _reqGen = 0;
   Timer? _debounce;
@@ -49,12 +50,12 @@ class _PoetsScreenState extends ConsumerState<PoetsScreen> {
     super.initState();
     _scrollCtrl.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _resetAndLoad();
+      if (mounted) _resetAndLoad(isInitial: true);
     });
   }
 
   void _onScroll() {
-    if (!_hasMore || _loadingMore || _initialLoading) return;
+    if (!_hasMore || _loadingMore || _initialLoading || _searching) return;
     if (_scrollCtrl.position.pixels >=
         _scrollCtrl.position.maxScrollExtent - 320) {
       _loadNextPage();
@@ -62,18 +63,22 @@ class _PoetsScreenState extends ConsumerState<PoetsScreen> {
   }
 
   void _onQueryChanged(String value) {
-    setState(() => _query = value);
+    setState(() {
+      _query = value;
+      _searching = true;
+    });
     _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 140), () {
+    _debounce = Timer(const Duration(milliseconds: 85), () {
       if (mounted) _resetAndLoad();
     });
   }
 
-  Future<void> _resetAndLoad() async {
+  Future<void> _resetAndLoad({bool isInitial = false}) async {
     final gen = ++_reqGen;
     if (_scrollCtrl.hasClients) _scrollCtrl.jumpTo(0);
     setState(() {
-      _initialLoading = true;
+      if (isInitial) _initialLoading = true;
+      _searching = true;
       _loadingMore = false;
       _offset = 0;
       _hasMore = true;
@@ -95,6 +100,7 @@ class _PoetsScreenState extends ConsumerState<PoetsScreen> {
       _offset = batch.length;
       _hasMore = batch.length >= _pageSize;
       _initialLoading = false;
+      _searching = false;
     });
   }
 
@@ -258,66 +264,65 @@ class _PoetsScreenState extends ConsumerState<PoetsScreen> {
                 }).toList(),
               ),
             ),
+            if (_searching && !_initialLoading)
+              LinearProgressIndicator(
+                minHeight: 2,
+                backgroundColor: Colors.transparent,
+                valueColor: AlwaysStoppedAnimation(p.accent),
+              )
+            else
+              const SizedBox(height: 2),
             Expanded(
-              child: AnimatedSwitcher(
-                duration: BaytMotion.popover,
-                switchInCurve: BaytMotion.easeOut,
-                child: _initialLoading
-                    ? Center(
-                        key: const ValueKey('era_poets_loading'),
-                        child: CircularProgressIndicator(
-                          color: p.accent,
-                          strokeWidth: 2.2,
-                        ),
-                      )
-                    : _poets.isEmpty
-                    ? const EmptyStateView(
-                        key: ValueKey('era_poets_empty'),
-                        icon: Icons.person_search_outlined,
-                        title: 'لا يوجد شاعرٌ مطابق',
-                        subtitle: 'جرّب كتابة جزءٍ من الاسم دون تشكيل.',
-                      )
-                    : ListView.separated(
-                        key: ValueKey(
-                          'era_poets_${_sortBy.index}_${_query.trim()}',
-                        ),
-                        controller: _scrollCtrl,
-                        cacheExtent: 600,
-                        padding: const EdgeInsets.fromLTRB(16, 2, 16, 28),
-                        itemCount: _poets.length + (_loadingMore ? 1 : 0),
-                        separatorBuilder: (_, __) => const SizedBox(height: 7),
-                        itemBuilder: (context, i) {
-                          if (i >= _poets.length) {
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              child: Center(
-                                child: SizedBox(
-                                  width: 22,
-                                  height: 22,
-                                  child: CircularProgressIndicator(
-                                    color: p.accent,
-                                    strokeWidth: 2,
-                                  ),
+              child: _initialLoading
+                  ? Center(
+                      child: CircularProgressIndicator(
+                        color: p.accent,
+                        strokeWidth: 2.2,
+                      ),
+                    )
+                  : (_poets.isEmpty && !_searching)
+                  ? const EmptyStateView(
+                      icon: Icons.person_search_outlined,
+                      title: 'لا يوجد شاعرٌ مطابق',
+                      subtitle: 'جرّب كتابة جزءٍ من الاسم دون تشكيل.',
+                    )
+                  : ListView.separated(
+                      controller: _scrollCtrl,
+                      cacheExtent: 600,
+                      padding: const EdgeInsets.fromLTRB(16, 2, 16, 28),
+                      itemCount: _poets.length + (_loadingMore ? 1 : 0),
+                      separatorBuilder: (_, __) => const SizedBox(height: 7),
+                      itemBuilder: (context, i) {
+                        if (i >= _poets.length) {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            child: Center(
+                              child: SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  color: p.accent,
+                                  strokeWidth: 2,
                                 ),
                               ),
-                            );
-                          }
-                          final poet = _poets[i];
-                          return PoetCard(
-                            poet: poet,
-                            showEra: false,
-                            isFavorite: favPoetIds.contains(poet.id),
-                            onTap: () => BaytNav.pushEditorial(
-                              context,
-                              PoetDetailScreen(poetId: poet.id),
                             ),
-                            onToggleFavorite: () => ref
-                                .read(userDataProvider.notifier)
-                                .toggleFavoritePoet(poet.id),
                           );
-                        },
-                      ),
-              ),
+                        }
+                        final poet = _poets[i];
+                        return PoetCard(
+                          poet: poet,
+                          showEra: false,
+                          isFavorite: favPoetIds.contains(poet.id),
+                          onTap: () => BaytNav.pushEditorial(
+                            context,
+                            PoetDetailScreen(poetId: poet.id),
+                          ),
+                          onToggleFavorite: () => ref
+                              .read(userDataProvider.notifier)
+                              .toggleFavoritePoet(poet.id),
+                        );
+                      },
+                    ),
             ),
           ],
         ),
