@@ -11,6 +11,7 @@ import '../../../core/widgets/bayt_ornaments.dart';
 import '../../../data/models/meter.dart';
 import '../../../data/models/verse.dart';
 import '../../providers/database_providers.dart';
+import '../../widgets/corpus_filter_bar.dart';
 import '../reader/poem_reader_screen.dart';
 import '../studio/poetry_card_studio_screen.dart';
 
@@ -302,6 +303,7 @@ class _FeelingDetailScreenState extends ConsumerState<FeelingDetailScreen> {
   final ScrollController _scrollCtrl = ScrollController();
   Feeling? _selectedBranch;
   late Feeling _activeFeeling;
+  CorpusFilterState _filter = const CorpusFilterState();
 
   final List<FeelingVerseHit> _hits = [];
   int _totalMatched = 0;
@@ -316,9 +318,8 @@ class _FeelingDetailScreenState extends ConsumerState<FeelingDetailScreen> {
     super.initState();
     _activeFeeling = widget.rootFeeling;
     _scrollCtrl.addListener(_onScroll);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _reloadVerses();
-    });
+    // Start isolate query immediately alongside the 180ms slide transition!
+    _reloadVerses(isInitial: true);
   }
 
   @override
@@ -349,19 +350,30 @@ class _FeelingDetailScreenState extends ConsumerState<FeelingDetailScreen> {
     _reloadVerses();
   }
 
-  Future<void> _reloadVerses() async {
+  void _onFilterChanged(CorpusFilterState next) {
+    if (_scrollCtrl.hasClients) _scrollCtrl.jumpTo(0);
+    setState(() => _filter = next);
+    _reloadVerses();
+  }
+
+  Future<void> _reloadVerses({bool isInitial = false}) async {
     final gen = ++_reqGen;
-    setState(() {
-      _loading = true;
-      _loadingMore = false;
-      _offset = 0;
-      _hasMore = true;
-    });
+    if (!isInitial && mounted) {
+      setState(() {
+        _loading = true;
+        _loadingMore = false;
+        _offset = 0;
+        _hasMore = true;
+      });
+    }
     final res = await ref
         .read(poetryRepositoryProvider)
         .getFeelingVerseHitsAsync(
           _activeFeeling,
           rootSlug: widget.rootFeeling.slug,
+          eraId: _filter.eraId,
+          meterId: _filter.meterId,
+          rhymeId: _filter.rhymeId,
           limit: _pageSize,
           offset: 0,
         );
@@ -386,6 +398,9 @@ class _FeelingDetailScreenState extends ConsumerState<FeelingDetailScreen> {
         .getFeelingVerseHitsAsync(
           _activeFeeling,
           rootSlug: widget.rootFeeling.slug,
+          eraId: _filter.eraId,
+          meterId: _filter.meterId,
+          rhymeId: _filter.rhymeId,
           limit: _pageSize,
           offset: _offset,
         );
@@ -635,6 +650,16 @@ class _FeelingDetailScreenState extends ConsumerState<FeelingDetailScreen> {
                         )
                       : const SizedBox.shrink(),
                 ),
+                CorpusFilterBar(
+                  filter: _filter,
+                  onChanged: _onFilterChanged,
+                  showEra: true,
+                  showMeter: true,
+                  showRhyme: true,
+                  showTheme: false,
+                  accentColor: accent,
+                ),
+                const SizedBox(height: 2),
               ],
             ),
           ),

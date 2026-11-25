@@ -219,10 +219,13 @@ class PoetryRepository {
 
   /// Background-isolate emotion verse finder: returns exact matching verses
   /// (with verse index & matched keyword) and real corpus match count without
-  /// ever blocking the UI thread.
+  /// ever blocking the UI thread. Supports optional era, meter, and rhyme filters.
   Future<FeelingSearchResult> getFeelingVerseHitsAsync(
     Feeling feeling, {
     String? rootSlug,
+    int? eraId,
+    int? meterId,
+    int? rhymeId,
     int limit = 30,
     int offset = 0,
   }) async {
@@ -234,6 +237,9 @@ class PoetryRepository {
         slug: feeling.slug,
         name: feeling.name,
         rootSlug: effectiveRoot,
+        eraId: eraId,
+        meterId: meterId,
+        rhymeId: rhymeId,
         limit: limit,
         offset: offset,
       );
@@ -246,6 +252,9 @@ class PoetryRepository {
           feeling.slug,
           feeling.name,
           effectiveRoot,
+          eraId,
+          meterId,
+          rhymeId,
           limit,
           offset,
         ),
@@ -256,6 +265,9 @@ class PoetryRepository {
         slug: feeling.slug,
         name: feeling.name,
         rootSlug: effectiveRoot,
+        eraId: eraId,
+        meterId: meterId,
+        rhymeId: rhymeId,
         limit: limit,
         offset: offset,
       );
@@ -268,6 +280,9 @@ class PoetryRepository {
     String slug,
     String name,
     String rootSlug,
+    int? eraId,
+    int? meterId,
+    int? rhymeId,
     int limit,
     int offset,
   ) {
@@ -279,6 +294,9 @@ class PoetryRepository {
         slug: slug,
         name: name,
         rootSlug: rootSlug,
+        eraId: eraId,
+        meterId: meterId,
+        rhymeId: rhymeId,
         limit: limit,
         offset: offset,
       );
@@ -292,6 +310,9 @@ class PoetryRepository {
     required String slug,
     required String name,
     required String rootSlug,
+    int? eraId,
+    int? meterId,
+    int? rhymeId,
     int limit = 30,
     int offset = 0,
   }) {
@@ -302,6 +323,24 @@ class PoetryRepository {
         .toList(growable: false);
     final themeSlugs = FeelingLexicon.themeSlugsFor(slug, rootSlug);
     final bodyCols = _isCompactV6 ? 'p.block_id, p.offset, p.length' : 'p.body';
+
+    final extraWhere = <String>[];
+    final extraArgs = <Object?>[];
+    if (eraId != null) {
+      extraWhere.add('p.era_id = ?');
+      extraArgs.add(eraId);
+    }
+    if (meterId != null) {
+      extraWhere.add('p.meter_id = ?');
+      extraArgs.add(meterId);
+    }
+    if (rhymeId != null) {
+      extraWhere.add('p.rhyme_id = ?');
+      extraArgs.add(rhymeId);
+    }
+    final extraSql = extraWhere.isEmpty
+        ? ''
+        : ' AND ${extraWhere.join(' AND ')}';
 
     final classicalHits = <FeelingVerseHit>[];
     final freeVerseHits = <FeelingVerseHit>[];
@@ -380,8 +419,10 @@ class PoetryRepository {
           : 'p.is_free_verse ASC, bm25(poems_fts, 3.0, 1.0, 1.5), p.verse_count DESC';
       try {
         final cntRow = _db.select(
-          'SELECT COUNT(*) AS c FROM $ftsTable WHERE $ftsTable MATCH ?',
-          [ftsExpr],
+          extraWhere.isEmpty
+              ? 'SELECT COUNT(*) AS c FROM $ftsTable WHERE $ftsTable MATCH ?'
+              : 'SELECT COUNT(*) AS c FROM $ftsTable f JOIN poems p ON p.id = f.rowid WHERE $ftsTable MATCH ?$extraSql',
+          [ftsExpr, ...extraArgs],
         );
         totalMatched = (cntRow.first['c'] as int?) ?? 0;
 
@@ -398,11 +439,11 @@ class PoetryRepository {
             JOIN eras e ON e.id = p.era_id
             JOIN meters m ON m.id = p.meter_id
             JOIN rhymes r ON r.id = p.rhyme_id
-            WHERE $ftsTable MATCH ?
+            WHERE $ftsTable MATCH ?$extraSql
             ORDER BY $orderSql
             LIMIT ? OFFSET ?
             ''',
-            [ftsExpr, candidateFetch, offset],
+            [ftsExpr, ...extraArgs, candidateFetch, offset],
           );
           processRows(rows);
         }
@@ -414,14 +455,19 @@ class PoetryRepository {
     if (collected < limit && _hasThemesTable && themeSlugs.isNotEmpty) {
       final ph = List.filled(themeSlugs.length, '?').join(',');
       if (totalMatched < limit) {
-        final themeCntRow = _db.select(
-          'SELECT SUM(poem_count) AS c FROM themes WHERE slug IN ($ph)',
-          themeSlugs,
-        );
+        final themeCntRow = extraWhere.isEmpty
+            ? _db.select(
+                'SELECT SUM(poem_count) AS c FROM themes WHERE slug IN ($ph)',
+                themeSlugs,
+              )
+            : _db.select(
+                'SELECT COUNT(*) AS c FROM poems p JOIN themes t ON t.id = p.theme_id WHERE t.slug IN ($ph)$extraSql',
+                [...themeSlugs, ...extraArgs],
+              );
         final themeTotal = (themeCntRow.first['c'] as int?) ?? 0;
         if (themeTotal > totalMatched) totalMatched = themeTotal;
       }
-      final feelingSeedOffset = (feelingId * 37) % 900;
+      final feelingSeedOffset = extraWhere.isEmpty ? (feelingId * 37) % 900 : 0;
       final themeOffset = offset + feelingSeedOffset;
       var rows = _db.select(
         '''
@@ -435,11 +481,11 @@ class PoetryRepository {
         JOIN eras e ON e.id = p.era_id
         JOIN meters m ON m.id = p.meter_id
         JOIN rhymes r ON r.id = p.rhyme_id
-        WHERE t.slug IN ($ph)
+        WHERE t.slug IN ($ph)$extraSql
         ORDER BY p.is_free_verse ASC, p.has_diacritics DESC, p.verse_count DESC, p.id ASC
         LIMIT ? OFFSET ?
         ''',
-        [...themeSlugs, (limit - collected) + 12, themeOffset],
+        [...themeSlugs, ...extraArgs, (limit - collected) + 12, themeOffset],
       );
       if (rows.isEmpty && offset == 0 && feelingSeedOffset > 0) {
         rows = _db.select(
@@ -454,11 +500,11 @@ class PoetryRepository {
           JOIN eras e ON e.id = p.era_id
           JOIN meters m ON m.id = p.meter_id
           JOIN rhymes r ON r.id = p.rhyme_id
-          WHERE t.slug IN ($ph)
+          WHERE t.slug IN ($ph)$extraSql
           ORDER BY p.is_free_verse ASC, p.has_diacritics DESC, p.verse_count DESC, p.id ASC
           LIMIT ? OFFSET 0
           ''',
-          [...themeSlugs, (limit - collected) + 12],
+          [...themeSlugs, ...extraArgs, (limit - collected) + 12],
         );
       }
       processRows(rows);
@@ -665,10 +711,27 @@ class PoetryRepository {
 
   List<PoemSummary> getPoemsByTheme(
     int themeId, {
-    int limit = 60,
+    int? eraId,
+    int? meterId,
+    int? rhymeId,
+    int limit = 50,
     int offset = 0,
   }) {
     if (!_hasThemesTable) return const [];
+    final where = <String>['p.theme_id = ?'];
+    final args = <Object?>[themeId];
+    if (eraId != null) {
+      where.add('p.era_id = ?');
+      args.add(eraId);
+    }
+    if (meterId != null) {
+      where.add('p.meter_id = ?');
+      args.add(meterId);
+    }
+    if (rhymeId != null) {
+      where.add('p.rhyme_id = ?');
+      args.add(rhymeId);
+    }
     final rows = _db.select(
       '''
       SELECT p.id, p.poet_id, $_poetDisplayCol AS poet_name,
@@ -681,13 +744,81 @@ class PoetryRepository {
       JOIN eras e ON e.id = p.era_id
       JOIN meters m ON m.id = p.meter_id
       JOIN rhymes r ON r.id = p.rhyme_id
-      WHERE p.theme_id = ?
-      ORDER BY p.has_diacritics DESC, p.verse_count DESC
+      WHERE ${where.join(' AND ')}
+      ORDER BY p.is_free_verse ASC, p.has_diacritics DESC, p.verse_count DESC
       LIMIT ? OFFSET ?
       ''',
-      [themeId, limit, offset],
+      [...args, limit, offset],
     );
     return rows.map(_mapPoemSummary).toList();
+  }
+
+  /// Background-isolate Theme poems query — zero frame drops even on 200k-poem themes!
+  Future<List<PoemSummary>> getPoemsByThemeAsync(
+    int themeId, {
+    int? eraId,
+    int? meterId,
+    int? rhymeId,
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    final dbPath = _corpus.dbPath;
+    if (dbPath == null) {
+      return getPoemsByTheme(
+        themeId,
+        eraId: eraId,
+        meterId: meterId,
+        rhymeId: rhymeId,
+        limit: limit,
+        offset: offset,
+      );
+    }
+    try {
+      return await Isolate.run(
+        () => _runPoemsByThemeInIsolate(
+          dbPath,
+          themeId,
+          eraId,
+          meterId,
+          rhymeId,
+          limit,
+          offset,
+        ),
+      );
+    } catch (_) {
+      return getPoemsByTheme(
+        themeId,
+        eraId: eraId,
+        meterId: meterId,
+        rhymeId: rhymeId,
+        limit: limit,
+        offset: offset,
+      );
+    }
+  }
+
+  static List<PoemSummary> _runPoemsByThemeInIsolate(
+    String dbPath,
+    int themeId,
+    int? eraId,
+    int? meterId,
+    int? rhymeId,
+    int limit,
+    int offset,
+  ) {
+    final db = PoetryDatabase.openPath(dbPath);
+    try {
+      return PoetryRepository(db).getPoemsByTheme(
+        themeId,
+        eraId: eraId,
+        meterId: meterId,
+        rhymeId: rhymeId,
+        limit: limit,
+        offset: offset,
+      );
+    } finally {
+      db.dispose();
+    }
   }
 
   FeaturedVerse? getVerseOfTheDay([DateTime? now]) {
@@ -1015,9 +1146,26 @@ class PoetryRepository {
 
   List<PoemSummary> getPoemsByMeter(
     int meterId, {
-    int limit = 60,
+    int? eraId,
+    int? rhymeId,
+    int? themeId,
+    int limit = 50,
     int offset = 0,
   }) {
+    final where = <String>['p.meter_id = ?'];
+    final args = <Object?>[meterId];
+    if (eraId != null) {
+      where.add('p.era_id = ?');
+      args.add(eraId);
+    }
+    if (rhymeId != null) {
+      where.add('p.rhyme_id = ?');
+      args.add(rhymeId);
+    }
+    if (themeId != null && _hasThemesTable) {
+      where.add('p.theme_id = ?');
+      args.add(themeId);
+    }
     final rows = _db.select(
       '''
       SELECT p.id, p.poet_id, $_poetDisplayCol AS poet_name,
@@ -1030,13 +1178,81 @@ class PoetryRepository {
       JOIN eras e ON e.id = p.era_id
       JOIN meters m ON m.id = p.meter_id
       JOIN rhymes r ON r.id = p.rhyme_id
-      WHERE p.meter_id = ?
-      ORDER BY p.verse_count DESC
+      WHERE ${where.join(' AND ')}
+      ORDER BY p.has_diacritics DESC, p.verse_count DESC
       LIMIT ? OFFSET ?
       ''',
-      [meterId, limit, offset],
+      [...args, limit, offset],
     );
     return rows.map(_mapPoemSummary).toList();
+  }
+
+  /// Background-isolate Meter poems query — zero frame drops on large meters!
+  Future<List<PoemSummary>> getPoemsByMeterAsync(
+    int meterId, {
+    int? eraId,
+    int? rhymeId,
+    int? themeId,
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    final dbPath = _corpus.dbPath;
+    if (dbPath == null) {
+      return getPoemsByMeter(
+        meterId,
+        eraId: eraId,
+        rhymeId: rhymeId,
+        themeId: themeId,
+        limit: limit,
+        offset: offset,
+      );
+    }
+    try {
+      return await Isolate.run(
+        () => _runPoemsByMeterInIsolate(
+          dbPath,
+          meterId,
+          eraId,
+          rhymeId,
+          themeId,
+          limit,
+          offset,
+        ),
+      );
+    } catch (_) {
+      return getPoemsByMeter(
+        meterId,
+        eraId: eraId,
+        rhymeId: rhymeId,
+        themeId: themeId,
+        limit: limit,
+        offset: offset,
+      );
+    }
+  }
+
+  static List<PoemSummary> _runPoemsByMeterInIsolate(
+    String dbPath,
+    int meterId,
+    int? eraId,
+    int? rhymeId,
+    int? themeId,
+    int limit,
+    int offset,
+  ) {
+    final db = PoetryDatabase.openPath(dbPath);
+    try {
+      return PoetryRepository(db).getPoemsByMeter(
+        meterId,
+        eraId: eraId,
+        rhymeId: rhymeId,
+        themeId: themeId,
+        limit: limit,
+        offset: offset,
+      );
+    } finally {
+      db.dispose();
+    }
   }
 
   (int?, int?) getAdjacentPoemIds(int poetId, int currentPoemId) {

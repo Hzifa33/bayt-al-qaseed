@@ -7,9 +7,11 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/arabic_normalizer.dart';
 import '../../../core/widgets/bayt_ornaments.dart';
+import '../../../core/widgets/empty_state_view.dart';
 import '../../../data/models/meter.dart';
 import '../../../data/models/poem.dart';
 import '../../providers/database_providers.dart';
+import '../../widgets/corpus_filter_bar.dart';
 import '../reader/poem_reader_screen.dart';
 
 class ThemePoemsScreen extends ConsumerStatefulWidget {
@@ -22,29 +24,101 @@ class ThemePoemsScreen extends ConsumerStatefulWidget {
 }
 
 class _ThemePoemsScreenState extends ConsumerState<ThemePoemsScreen> {
+  static const _pageSize = 50;
+
+  final ScrollController _scrollCtrl = ScrollController();
   final List<PoemSummary> _poems = [];
+  CorpusFilterState _filter = const CorpusFilterState();
   int _offset = 0;
   bool _hasMore = true;
   bool _initialLoading = true;
+  bool _filtering = false;
+  bool _loadingMore = false;
+  int _reqGen = 0;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _loadMore();
+    _scrollCtrl.addListener(_onScroll);
+    // Start background isolate query immediately in parallel with the route slide!
+    _reload(isInitial: true);
+  }
+
+  @override
+  void dispose() {
+    _scrollCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_hasMore || _loadingMore || _initialLoading || _filtering) return;
+    if (_scrollCtrl.position.pixels >=
+        _scrollCtrl.position.maxScrollExtent - 340) {
+      _loadNextPage();
+    }
+  }
+
+  void _onFilterChanged(CorpusFilterState next) {
+    setState(() {
+      _filter = next;
+      _filtering = true;
+    });
+    _reload();
+  }
+
+  Future<void> _reload({bool isInitial = false}) async {
+    final gen = ++_reqGen;
+    if (_scrollCtrl.hasClients) _scrollCtrl.jumpTo(0);
+    if (!isInitial && mounted) {
+      setState(() {
+        _filtering = true;
+        _loadingMore = false;
+        _offset = 0;
+        _hasMore = true;
+      });
+    }
+    final batch = await ref
+        .read(poetryRepositoryProvider)
+        .getPoemsByThemeAsync(
+          widget.theme.id,
+          eraId: _filter.eraId,
+          meterId: _filter.meterId,
+          rhymeId: _filter.rhymeId,
+          limit: _pageSize,
+          offset: 0,
+        );
+    if (!mounted || gen != _reqGen) return;
+    setState(() {
+      _poems
+        ..clear()
+        ..addAll(batch);
+      _offset = batch.length;
+      _hasMore = batch.length >= _pageSize;
+      _initialLoading = false;
+      _filtering = false;
     });
   }
 
-  void _loadMore() {
-    if (!_hasMore) return;
-    final batch = ref
+  Future<void> _loadNextPage() async {
+    if (!_hasMore || _loadingMore) return;
+    final gen = _reqGen;
+    setState(() => _loadingMore = true);
+    final batch = await ref
         .read(poetryRepositoryProvider)
-        .getPoemsByTheme(widget.theme.id, limit: 60, offset: _offset);
+        .getPoemsByThemeAsync(
+          widget.theme.id,
+          eraId: _filter.eraId,
+          meterId: _filter.meterId,
+          rhymeId: _filter.rhymeId,
+          limit: _pageSize,
+          offset: _offset,
+        );
+    if (!mounted || gen != _reqGen) return;
     setState(() {
       _poems.addAll(batch);
       _offset += batch.length;
-      _initialLoading = false;
-      if (batch.length < 60) _hasMore = false;
+      _hasMore = batch.length >= _pageSize;
+      _loadingMore = false;
     });
   }
 
@@ -57,14 +131,19 @@ class _ThemePoemsScreenState extends ConsumerState<ThemePoemsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              'غرض ${widget.theme.name}',
-              style: TextStyle(
-                fontFamily: AppFonts.ruqaa,
-                fontSize: 21,
-                fontWeight: FontWeight.w700,
-                color: p.ink,
-                height: 1.25,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: AlignmentDirectional.centerStart,
+              child: Text(
+                'غرض ${widget.theme.name}',
+                maxLines: 1,
+                style: TextStyle(
+                  fontFamily: AppFonts.ruqaa,
+                  fontSize: 21,
+                  fontWeight: FontWeight.w700,
+                  color: p.ink,
+                  height: 1.25,
+                ),
               ),
             ),
             Text(
@@ -91,44 +170,66 @@ class _ThemePoemsScreenState extends ConsumerState<ThemePoemsScreen> {
           ),
         ],
       ),
-      body: AnimatedSwitcher(
-        duration: BaytMotion.popover,
-        switchInCurve: BaytMotion.easeOut,
-        child: _initialLoading
-            ? Center(
-                key: const ValueKey('loading'),
-                child: CircularProgressIndicator(
-                  color: p.accent,
-                  strokeWidth: 2.2,
-                ),
-              )
-            : ListView.separated(
-                key: const ValueKey('list'),
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 30),
-                itemCount: _poems.length + (_hasMore ? 1 : 0),
-                separatorBuilder: (_, __) => const SizedBox(height: 6),
-                itemBuilder: (context, i) {
-                  if (i >= _poems.length) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      child: Center(
-                        child: OutlinedButton(
-                          onPressed: _loadMore,
-                          child: const Text('عرض مزيدٍ من القصائد'),
-                        ),
-                      ),
-                    );
-                  }
-                  final poem = _poems[i];
-                  return BaytStaggeredItem(
-                    index: i,
-                    child: Builder(
-                      builder: (cardCtx) => BaytPressable(
+      body: Column(
+        children: [
+          CorpusFilterBar(
+            filter: _filter,
+            onChanged: _onFilterChanged,
+            showEra: true,
+            showMeter: true,
+            showRhyme: true,
+            showTheme: false,
+          ),
+          if (_filtering && !_initialLoading)
+            LinearProgressIndicator(
+              minHeight: 2,
+              backgroundColor: Colors.transparent,
+              valueColor: AlwaysStoppedAnimation(p.accent),
+            )
+          else
+            const SizedBox(height: 2),
+          Expanded(
+            child: _initialLoading
+                ? Center(
+                    child: CircularProgressIndicator(
+                      color: p.accent,
+                      strokeWidth: 2.2,
+                    ),
+                  )
+                : (_poems.isEmpty && !_filtering)
+                ? const EmptyStateView(
+                    icon: Icons.filter_alt_off_outlined,
+                    title: 'لا توجد قصائد مطابقة',
+                    subtitle: 'جرّب تغيير أو مسح أحد عوامل التصفية.',
+                  )
+                : ListView.separated(
+                    controller: _scrollCtrl,
+                    cacheExtent: 650,
+                    padding: const EdgeInsets.fromLTRB(16, 6, 16, 30),
+                    itemCount: _poems.length + (_loadingMore ? 1 : 0),
+                    separatorBuilder: (_, __) => const SizedBox(height: 7),
+                    itemBuilder: (context, i) {
+                      if (i >= _poems.length) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          child: Center(
+                            child: SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                color: p.accent,
+                                strokeWidth: 2,
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+                      final poem = _poems[i];
+                      return BaytPressable(
                         child: InkWell(
                           onTap: () => BaytNav.pushDrop(
                             context,
                             PoemReaderScreen(poemId: poem.id),
-                            origin: BaytNav.originFromContext(cardCtx),
                           ),
                           borderRadius: BorderRadius.circular(13),
                           child: Container(
@@ -205,11 +306,11 @@ class _ThemePoemsScreenState extends ConsumerState<ThemePoemsScreen> {
                             ),
                           ),
                         ),
-                      ),
-                    ),
-                  );
-                },
-              ),
+                      );
+                    },
+                  ),
+          ),
+        ],
       ),
     );
   }

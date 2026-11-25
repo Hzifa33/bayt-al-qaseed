@@ -54,9 +54,9 @@
 
 | النسخة | المعمارية | التوصية | رابط التحميل المباشر |
 | :--- | :--- | :--- | :--- |
-| **ARM8 (64-bit)** | `arm64-v8a` | **موصى بها** لمعظم الهواتف الحديثة (~188 MB) | [**تحميل ARM8 APK**](https://github.com/Hzifa33/bayt-al-qaseed/releases/download/v1.0.0/BaytAlQaseed-v1.0.0-arm64-v8a.apk) |
-| **ARM7 (32-bit)** | `armeabi-v7a` | للهواتف الأقدم (32-bit) (~186 MB) | [**تحميل ARM7 APK**](https://github.com/Hzifa33/bayt-al-qaseed/releases/download/v1.0.0/BaytAlQaseed-v1.0.0-armeabi-v7a.apk) |
-| **الشاملة (Universal)** | `arm64 + armv7` | متوافقة مع جميع أجهزة أندرويد (~206 MB) | [**تحميل Universal APK**](https://github.com/Hzifa33/bayt-al-qaseed/releases/download/v1.0.0/BaytAlQaseed-v1.0.0-universal.apk) |
+| **ARM8 (64-bit)** | `arm64-v8a` | **موصى بها** لمعظم الهواتف الحديثة (~242 MB) | [**تحميل ARM8 APK**](https://github.com/Hzifa33/bayt-al-qaseed/releases/download/v1.0.0/BaytAlQaseed-v1.0.0-arm64-v8a.apk) |
+| **ARM7 (32-bit)** | `armeabi-v7a` | للهواتف الأقدم (32-bit) (~240 MB) | [**تحميل ARM7 APK**](https://github.com/Hzifa33/bayt-al-qaseed/releases/download/v1.0.0/BaytAlQaseed-v1.0.0-armeabi-v7a.apk) |
+| **الشاملة (Universal)** | `arm64 + armv7` | متوافقة مع جميع أجهزة أندرويد (~261 MB) | [**تحميل Universal APK**](https://github.com/Hzifa33/bayt-al-qaseed/releases/download/v1.0.0/BaytAlQaseed-v1.0.0-universal.apk) |
 
 ---
 

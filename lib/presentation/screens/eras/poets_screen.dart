@@ -50,9 +50,7 @@ class _PoetsScreenState extends ConsumerState<PoetsScreen> {
   void initState() {
     super.initState();
     _scrollCtrl.addListener(_onScroll);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _resetAndLoad(isInitial: true);
-    });
+    _resetAndLoad(isInitial: true);
   }
 
   void _onScroll() {
@@ -77,13 +75,14 @@ class _PoetsScreenState extends ConsumerState<PoetsScreen> {
   Future<void> _resetAndLoad({bool isInitial = false}) async {
     final gen = ++_reqGen;
     if (_scrollCtrl.hasClients) _scrollCtrl.jumpTo(0);
-    setState(() {
-      if (isInitial) _initialLoading = true;
-      _searching = true;
-      _loadingMore = false;
-      _offset = 0;
-      _hasMore = true;
-    });
+    if (!isInitial && mounted) {
+      setState(() {
+        _searching = true;
+        _loadingMore = false;
+        _offset = 0;
+        _hasMore = true;
+      });
+    }
     final batch = await ref
         .read(poetryRepositoryProvider)
         .getPoetsAsync(
