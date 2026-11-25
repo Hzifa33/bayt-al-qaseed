@@ -290,6 +290,7 @@ class _PoetsDirectoryTabState extends ConsumerState<_PoetsDirectoryTab>
 
   String _filter = '';
   PoetSortBy _sort = PoetSortBy.poemsDesc;
+  bool _ascending = false;
   final List<Poet> _poets = [];
   int _offset = 0;
   bool _hasMore = true;
@@ -340,10 +341,24 @@ class _PoetsDirectoryTabState extends ConsumerState<_PoetsDirectoryTab>
   }
 
   void _onSortChanged(PoetSortBy sort) {
-    if (_sort == sort) return;
     HapticFeedback.selectionClick();
     setState(() {
-      _sort = sort;
+      if (_sort == sort) {
+        _ascending = !_ascending;
+      } else {
+        _sort = sort;
+        _ascending =
+            sort == PoetSortBy.alphabetical || sort == PoetSortBy.oldest;
+      }
+      _searching = true;
+    });
+    _resetAndLoad();
+  }
+
+  void _toggleSortDirection() {
+    HapticFeedback.selectionClick();
+    setState(() {
+      _ascending = !_ascending;
       _searching = true;
     });
     _resetAndLoad();
@@ -366,6 +381,7 @@ class _PoetsDirectoryTabState extends ConsumerState<_PoetsDirectoryTab>
         .getPoetsAsync(
           filterQuery: _filter,
           sortBy: _sort,
+          ascending: _ascending,
           limit: _pageSize,
           offset: 0,
         );
@@ -390,6 +406,7 @@ class _PoetsDirectoryTabState extends ConsumerState<_PoetsDirectoryTab>
         .getPoetsAsync(
           filterQuery: _filter,
           sortBy: _sort,
+          ascending: _ascending,
           limit: _pageSize,
           offset: _offset,
         );
@@ -438,17 +455,42 @@ class _PoetsDirectoryTabState extends ConsumerState<_PoetsDirectoryTab>
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: Row(
-              children: PoetSortBy.values.map((s) {
-                return Padding(
+              children: [
+                Padding(
                   padding: const EdgeInsets.only(left: 6),
-                  child: ChoiceChip(
-                    selected: _sort == s,
+                  child: ActionChip(
                     visualDensity: VisualDensity.compact,
-                    label: Text(s.label),
-                    onSelected: (_) => _onSortChanged(s),
+                    avatar: Icon(
+                      _ascending
+                          ? Icons.arrow_upward_rounded
+                          : Icons.arrow_downward_rounded,
+                      size: 15,
+                      color: p.accent,
+                    ),
+                    label: Text(
+                      _ascending ? 'تصاعدي' : 'تنازلي',
+                      style: TextStyle(
+                        color: p.accent,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                      ),
+                    ),
+                    onPressed: _toggleSortDirection,
                   ),
-                );
-              }).toList(),
+                ),
+                ...PoetSortBy.values.map((s) {
+                  final selected = _sort == s;
+                  return Padding(
+                    padding: const EdgeInsets.only(left: 6),
+                    child: ChoiceChip(
+                      selected: selected,
+                      visualDensity: VisualDensity.compact,
+                      label: Text(s.label),
+                      onSelected: (_) => _onSortChanged(s),
+                    ),
+                  );
+                }),
+              ],
             ),
           ),
           if (_searching && !_initialLoading)

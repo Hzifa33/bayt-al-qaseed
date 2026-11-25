@@ -32,6 +32,7 @@ class _PoetsScreenState extends ConsumerState<PoetsScreen> {
   String _query = '';
   bool _searchOpen = false;
   PoetSortBy _sortBy = PoetSortBy.poemsDesc;
+  bool _ascending = false;
   final TextEditingController _ctrl = TextEditingController();
   final FocusNode _focus = FocusNode();
   final ScrollController _scrollCtrl = ScrollController();
@@ -89,6 +90,7 @@ class _PoetsScreenState extends ConsumerState<PoetsScreen> {
           eraId: widget.era.id,
           filterQuery: _query,
           sortBy: _sortBy,
+          ascending: _ascending,
           limit: _pageSize,
           offset: 0,
         );
@@ -114,6 +116,7 @@ class _PoetsScreenState extends ConsumerState<PoetsScreen> {
           eraId: widget.era.id,
           filterQuery: _query,
           sortBy: _sortBy,
+          ascending: _ascending,
           limit: _pageSize,
           offset: _offset,
         );
@@ -246,22 +249,62 @@ class _PoetsScreenState extends ConsumerState<PoetsScreen> {
               child: ListView(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.fromLTRB(16, 2, 16, 6),
-                children: PoetSortBy.values.map((s) {
-                  return Padding(
+                children: [
+                  Padding(
                     padding: const EdgeInsets.only(left: 6),
-                    child: ChoiceChip(
-                      selected: _sortBy == s,
+                    child: ActionChip(
                       visualDensity: VisualDensity.compact,
-                      label: Text(s.label),
-                      onSelected: (_) {
-                        if (_sortBy == s) return;
+                      avatar: Icon(
+                        _ascending
+                            ? Icons.arrow_upward_rounded
+                            : Icons.arrow_downward_rounded,
+                        size: 15,
+                        color: p.accent,
+                      ),
+                      label: Text(
+                        _ascending ? 'تصاعدي' : 'تنازلي',
+                        style: TextStyle(
+                          color: p.accent,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                        ),
+                      ),
+                      onPressed: () {
                         HapticFeedback.selectionClick();
-                        setState(() => _sortBy = s);
+                        setState(() {
+                          _ascending = !_ascending;
+                          _searching = true;
+                        });
                         _resetAndLoad();
                       },
                     ),
-                  );
-                }).toList(),
+                  ),
+                  ...PoetSortBy.values.map((s) {
+                    return Padding(
+                      padding: const EdgeInsets.only(left: 6),
+                      child: ChoiceChip(
+                        selected: _sortBy == s,
+                        visualDensity: VisualDensity.compact,
+                        label: Text(s.label),
+                        onSelected: (_) {
+                          HapticFeedback.selectionClick();
+                          setState(() {
+                            if (_sortBy == s) {
+                              _ascending = !_ascending;
+                            } else {
+                              _sortBy = s;
+                              _ascending =
+                                  s == PoetSortBy.alphabetical ||
+                                  s == PoetSortBy.oldest;
+                            }
+                            _searching = true;
+                          });
+                          _resetAndLoad();
+                        },
+                      ),
+                    );
+                  }),
+                ],
               ),
             ),
             if (_searching && !_initialLoading)

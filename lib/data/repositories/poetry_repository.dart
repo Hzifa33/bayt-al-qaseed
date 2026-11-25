@@ -478,6 +478,7 @@ class PoetryRepository {
     int? eraId,
     String? filterQuery,
     PoetSortBy sortBy = PoetSortBy.poemsDesc,
+    bool? ascending,
     int limit = 50,
     int offset = 0,
   }) async {
@@ -487,6 +488,7 @@ class PoetryRepository {
         eraId: eraId,
         filterQuery: filterQuery,
         sortBy: sortBy,
+        ascending: ascending,
         limit: limit,
         offset: offset,
       );
@@ -499,6 +501,7 @@ class PoetryRepository {
           eraId,
           filterQuery,
           sortIdx,
+          ascending,
           limit,
           offset,
         ),
@@ -508,6 +511,7 @@ class PoetryRepository {
         eraId: eraId,
         filterQuery: filterQuery,
         sortBy: sortBy,
+        ascending: ascending,
         limit: limit,
         offset: offset,
       );
@@ -519,6 +523,7 @@ class PoetryRepository {
     int? eraId,
     String? filterQuery,
     int sortIndex,
+    bool? ascending,
     int limit,
     int offset,
   ) {
@@ -529,6 +534,7 @@ class PoetryRepository {
         eraId: eraId,
         filterQuery: filterQuery,
         sortBy: PoetSortBy.values[sortIndex],
+        ascending: ascending,
         limit: limit,
         offset: offset,
       );
@@ -794,6 +800,7 @@ class PoetryRepository {
     int? eraId,
     String? filterQuery,
     PoetSortBy sortBy = PoetSortBy.poemsDesc,
+    bool? ascending,
     int? limit,
     int offset = 0,
   }) {
@@ -809,11 +816,16 @@ class PoetryRepository {
         ? ArabicNormalizer.normalize(filterQuery)
         : '';
 
+    final isAsc =
+        ascending ??
+        (sortBy == PoetSortBy.alphabetical || sortBy == PoetSortBy.oldest);
+    final dir = isAsc ? 'ASC' : 'DESC';
+
     final orderBy = switch (sortBy) {
-      PoetSortBy.poemsDesc => 'pt.poem_count DESC, pt.name_norm ASC',
-      PoetSortBy.versesDesc => 'pt.verse_count DESC, pt.name_norm ASC',
-      PoetSortBy.alphabetical => 'pt.name_norm ASC',
-      PoetSortBy.oldest => 'pt.era_id ASC, pt.id ASC',
+      PoetSortBy.poemsDesc => 'pt.poem_count $dir, pt.name_norm ASC',
+      PoetSortBy.versesDesc => 'pt.verse_count $dir, pt.name_norm ASC',
+      PoetSortBy.alphabetical => 'pt.name_norm $dir',
+      PoetSortBy.oldest => 'pt.era_id $dir, pt.id $dir',
     };
 
     // Fast path for expanded 17k+ poets: cap unbounded lists smoothly unless specified
