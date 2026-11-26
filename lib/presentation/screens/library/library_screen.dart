@@ -85,49 +85,15 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
   }
 
   Future<void> _createCollectionDialog() async {
-    final nameCtrl = TextEditingController();
-    final descCtrl = TextEditingController();
-    final confirmed = await showDialog<bool>(
+    final result = await showDialog<(String, String)>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('إنشاء مجموعة جديدة'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameCtrl,
-              autofocus: true,
-              decoration: const InputDecoration(hintText: 'اسم المجموعة'),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: descCtrl,
-              decoration: const InputDecoration(
-                hintText: 'وصف مختصر (اختياري)',
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('إلغاء'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('إنشاء'),
-          ),
-        ],
-      ),
+      builder: (_) => const _CreateCollectionDialog(),
     );
-    if (confirmed == true && nameCtrl.text.trim().isNotEmpty) {
+    if (result != null && result.$1.isNotEmpty) {
       try {
         ref
             .read(userDataProvider.notifier)
-            .createCollection(
-              nameCtrl.text.trim(),
-              description: descCtrl.text.trim(),
-            );
+            .createCollection(result.$1, description: result.$2);
       } catch (_) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -1004,6 +970,61 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                 ),
         ],
       ),
+    );
+  }
+}
+
+class _CreateCollectionDialog extends StatefulWidget {
+  const _CreateCollectionDialog();
+
+  @override
+  State<_CreateCollectionDialog> createState() =>
+      _CreateCollectionDialogState();
+}
+
+class _CreateCollectionDialogState extends State<_CreateCollectionDialog> {
+  final TextEditingController _nameCtrl = TextEditingController();
+  final TextEditingController _descCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _descCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('إنشاء مجموعة جديدة'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _nameCtrl,
+            autofocus: true,
+            decoration: const InputDecoration(hintText: 'اسم المجموعة'),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _descCtrl,
+            decoration: const InputDecoration(hintText: 'وصف مختصر (اختياري)'),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('إلغاء'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, (
+            _nameCtrl.text.trim(),
+            _descCtrl.text.trim(),
+          )),
+          child: const Text('إنشاء'),
+        ),
+      ],
     );
   }
 }

@@ -52,6 +52,7 @@ class _PoetDetailScreenState extends ConsumerState<PoetDetailScreen> {
   bool _searchOpen = false;
   bool _searchingVerses = false;
   int _searchSeq = 0;
+  int _loadSeq = 0;
 
   final TextEditingController _searchCtrl = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
@@ -64,52 +65,50 @@ class _PoetDetailScreenState extends ConsumerState<PoetDetailScreen> {
   List<PoemSummary> _poems = const [];
   SearchBundle? _verseSearchBundle;
   bool _loading = true;
+  bool _reloadingPoems = false;
 
   @override
   void initState() {
     super.initState();
-    Future.microtask(_loadInitial);
+    _loadInitial();
   }
 
-  void _loadInitial() {
-    if (!mounted) return;
-    final repo = ref.read(poetryRepositoryProvider);
-    final poet = repo.getPoetById(widget.poetId);
-    final meters = poet != null
-        ? repo.getMetersForPoet(widget.poetId)
-        : <Meter>[];
-    final rhymes = poet != null
-        ? repo.getRhymesForPoet(widget.poetId)
-        : <Rhyme>[];
-    final poems = poet != null
-        ? repo.getPoemsForPoet(widget.poetId, sortBy: _sortBy)
-        : <PoemSummary>[];
+  Future<void> _loadInitial() async {
+    final seq = ++_loadSeq;
+    final bundle = await ref
+        .read(poetryRepositoryProvider)
+        .getPoetDetailBundleAsync(widget.poetId, sortBy: _sortBy);
+    if (!mounted || seq != _loadSeq) return;
     setState(() {
-      _poet = poet;
-      _meters = meters;
-      _rhymes = rhymes;
-      _poems = poems;
+      _poet = bundle.poet;
+      _meters = bundle.meters;
+      _rhymes = bundle.rhymes;
+      _poems = bundle.poems;
       _loading = false;
     });
   }
 
-  void _reloadPoems() {
+  Future<void> _reloadPoems() async {
     if (_poet == null) return;
     if (_searchOpen && _searchCtrl.text.trim().isNotEmpty) {
       _executePoetVerseSearch();
       return;
     }
-    final poems = ref
+    final seq = ++_loadSeq;
+    setState(() => _reloadingPoems = true);
+    final poems = await ref
         .read(poetryRepositoryProvider)
-        .getPoemsForPoet(
+        .getPoemsForPoetAsync(
           _poet!.id,
           sortBy: _sortBy,
           meterId: _selectedMeterId,
           rhymeId: _selectedRhymeId,
         );
+    if (!mounted || seq != _loadSeq) return;
     setState(() {
       _poems = poems;
       _verseSearchBundle = null;
+      _reloadingPoems = false;
     });
     if (_scrollCtrl.hasClients) {
       _scrollCtrl.jumpTo(0);
@@ -576,7 +575,7 @@ class _PoetDetailScreenState extends ConsumerState<PoetDetailScreen> {
               ),
             ),
 
-            if (_searchingVerses)
+            if (_searchingVerses || _reloadingPoems)
               LinearProgressIndicator(
                 minHeight: 2,
                 backgroundColor: Colors.transparent,

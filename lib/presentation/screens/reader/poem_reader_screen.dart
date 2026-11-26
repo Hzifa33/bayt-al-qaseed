@@ -52,8 +52,14 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
   final ScrollController _scrollCtrl = ScrollController();
   final GlobalKey _targetVerseKey = GlobalKey();
   final ValueNotifier<double> _readProgress = ValueNotifier<double>(0.0);
+  final TextEditingController _inPoemSearchCtrl = TextEditingController();
+  final FocusNode _inPoemSearchFocus = FocusNode();
   bool _chromeVisible = true;
   bool _typographyPanelOpen = false;
+  bool _inPoemSearchOpen = false;
+  String _inPoemQuery = '';
+  List<int> _inPoemMatchIndices = const [];
+  int _inPoemMatchCursor = 0;
   int? _targetScrollIndex;
   int? _transientHighlightIndex;
   int _lastBuiltVerse = 0;
@@ -186,9 +192,15 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
 
   void _switchToAdjacentPoem(int targetPoemId) {
     HapticFeedback.lightImpact();
+    _inPoemSearchFocus.unfocus();
+    _inPoemSearchCtrl.clear();
     setState(() {
       _selectedIndices.clear();
       _typographyPanelOpen = false;
+      _inPoemSearchOpen = false;
+      _inPoemQuery = '';
+      _inPoemMatchIndices = const [];
+      _inPoemMatchCursor = 0;
       _cachedHarmoniousKey = null;
       _readProgress.value = 0.0;
       _loadPoem(targetPoemId);
@@ -198,9 +210,97 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
     }
   }
 
+  void _openInPoemSearch() {
+    HapticFeedback.selectionClick();
+    setState(() {
+      _inPoemSearchOpen = true;
+      _typographyPanelOpen = false;
+      _chromeVisible = true;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _inPoemSearchFocus.requestFocus();
+    });
+  }
+
+  void _closeInPoemSearch() {
+    _inPoemSearchFocus.unfocus();
+    _inPoemSearchCtrl.clear();
+    setState(() {
+      _inPoemSearchOpen = false;
+      _inPoemQuery = '';
+      _inPoemMatchIndices = const [];
+      _inPoemMatchCursor = 0;
+    });
+  }
+
+  void _onInPoemQueryChanged(String raw) {
+    final poem = _poem;
+    final trimmed = raw.trim();
+    if (poem == null || trimmed.isEmpty) {
+      setState(() {
+        _inPoemQuery = '';
+        _inPoemMatchIndices = const [];
+        _inPoemMatchCursor = 0;
+      });
+      return;
+    }
+    final tokens = ArabicNormalizer.tokenize(trimmed);
+    if (tokens.isEmpty) {
+      setState(() {
+        _inPoemQuery = '';
+        _inPoemMatchIndices = const [];
+        _inPoemMatchCursor = 0;
+      });
+      return;
+    }
+    final matches = <int>[];
+    for (final v in poem.verses) {
+      final norm = ArabicNormalizer.normalize(v.allHemistichs.join(' '));
+      if (tokens.every((t) => norm.contains(t))) {
+        matches.add(v.index);
+      }
+    }
+    setState(() {
+      _inPoemQuery = trimmed;
+      _inPoemMatchIndices = matches;
+      _inPoemMatchCursor = 0;
+      if (matches.isNotEmpty) {
+        _targetScrollIndex = matches.first;
+      }
+    });
+    if (matches.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollToExactVerseCenter(
+          targetIndex: matches.first,
+          pulseAfterCenter: true,
+        );
+      });
+    }
+  }
+
+  void _jumpToInPoemMatch(int delta) {
+    if (_inPoemMatchIndices.isEmpty) return;
+    HapticFeedback.selectionClick();
+    final len = _inPoemMatchIndices.length;
+    final nextCursor = (_inPoemMatchCursor + delta + len) % len;
+    final targetVerseIdx = _inPoemMatchIndices[nextCursor];
+    setState(() {
+      _inPoemMatchCursor = nextCursor;
+      _targetScrollIndex = targetVerseIdx;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToExactVerseCenter(
+        targetIndex: targetVerseIdx,
+        pulseAfterCenter: true,
+      );
+    });
+  }
+
   @override
   void dispose() {
     _highlightTimer?.cancel();
+    _inPoemSearchCtrl.dispose();
+    _inPoemSearchFocus.dispose();
     _scrollCtrl.removeListener(_onScroll);
     _scrollCtrl.dispose();
     _readProgress.dispose();
@@ -217,7 +317,11 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
         _readProgress.value = nextProgress;
       }
     }
-    if (_selectedIndices.isNotEmpty || _typographyPanelOpen) return;
+    if (_selectedIndices.isNotEmpty ||
+        _typographyPanelOpen ||
+        _inPoemSearchOpen) {
+      return;
+    }
     final dir = _scrollCtrl.position.userScrollDirection;
     if (dir == ScrollDirection.reverse &&
         _chromeVisible &&
@@ -240,8 +344,16 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
 
   void _toggleVerseSelection(int index) {
     HapticFeedback.selectionClick();
+    if (_inPoemSearchOpen) {
+      _inPoemSearchFocus.unfocus();
+      _inPoemSearchCtrl.clear();
+    }
     setState(() {
       _typographyPanelOpen = false;
+      _inPoemSearchOpen = false;
+      _inPoemQuery = '';
+      _inPoemMatchIndices = const [];
+      _inPoemMatchCursor = 0;
       if (_selectedIndices.contains(index)) {
         _selectedIndices.remove(index);
       } else {
@@ -488,29 +600,9 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
   }
 
   Future<void> _showCreateCollectionDialog(BuildContext context) async {
-    final ctrl = TextEditingController();
     final name = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('مجموعة جديدة'),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          decoration: const InputDecoration(
-            hintText: 'اسم المجموعة (مثلاً: عيون الحكمة)',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('إلغاء'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
-            child: const Text('إنشاء'),
-          ),
-        ],
-      ),
+      builder: (_) => const _ReaderCreateCollectionDialog(),
     );
     if (name != null && name.isNotEmpty) {
       try {
@@ -575,13 +667,16 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
       _cachedHarmoniousSize = harmoniousSize;
     }
 
-    final interceptBack = inSelection || _typographyPanelOpen;
+    final interceptBack =
+        inSelection || _typographyPanelOpen || _inPoemSearchOpen;
 
     return PopScope(
       canPop: !interceptBack,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
-        if (_typographyPanelOpen) {
+        if (_inPoemSearchOpen) {
+          _closeInPoemSearch();
+        } else if (_typographyPanelOpen) {
           setState(() => _typographyPanelOpen = false);
         } else if (inSelection) {
           setState(() => _selectedIndices.clear());
@@ -651,7 +746,7 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
                   cacheExtent: 900,
                   padding: EdgeInsets.fromLTRB(
                     12,
-                    66,
+                    _inPoemSearchOpen ? 122 : 66,
                     12,
                     _typographyPanelOpen
                         ? 230
@@ -905,8 +1000,11 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
                       showVerseNumber: settings.showVerseNumbers,
                       isSelected: selected,
                       isHighlightedVerse: isTransientPulse,
-                      // Never highlight individual words inside the poem
-                      searchHighlightQuery: null,
+                      // Highlight matched words only while in-poem search is active
+                      searchHighlightQuery:
+                          _inPoemSearchOpen && _inPoemQuery.isNotEmpty
+                          ? _inPoemQuery
+                          : null,
                       onTap: () {
                         if (_typographyPanelOpen) {
                           setState(() => _typographyPanelOpen = false);
@@ -948,9 +1046,13 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
             AnimatedPositioned(
               duration: const Duration(milliseconds: 220),
               curve: Curves.easeOutCubic,
-              top: (_chromeVisible || inSelection || _typographyPanelOpen)
+              top:
+                  (_chromeVisible ||
+                      inSelection ||
+                      _typographyPanelOpen ||
+                      _inPoemSearchOpen)
                   ? 0
-                  : -110,
+                  : -140,
               left: 0,
               right: 0,
               child: Container(
@@ -962,123 +1064,357 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
                 ),
                 child: SafeArea(
                   bottom: false,
-                  child: SizedBox(
-                    height: 56,
-                    child: inSelection
-                        ? Row(
-                            children: [
-                              IconButton(
-                                tooltip: 'إلغاء التحديد',
-                                onPressed: () =>
-                                    setState(() => _selectedIndices.clear()),
-                                icon: const Icon(Icons.close_rounded),
-                              ),
-                              Text(
-                                'محدّد ${ArabicNormalizer.toArabicNumber(_selectedIndices.length)} بيت',
-                                style: Theme.of(context).textTheme.titleMedium,
-                              ),
-                              const Spacer(),
-                              TextButton(
-                                onPressed: () {
-                                  setState(() {
-                                    if (_selectedIndices.length ==
-                                        poem.verses.length) {
-                                      _selectedIndices.clear();
-                                    } else {
-                                      _selectedIndices.addAll(
-                                        List.generate(
-                                          poem.verses.length,
-                                          (i) => i,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        height: 56,
+                        child: inSelection
+                            ? Row(
+                                children: [
+                                  IconButton(
+                                    tooltip: 'إلغاء التحديد',
+                                    onPressed: () => setState(
+                                      () => _selectedIndices.clear(),
+                                    ),
+                                    icon: const Icon(Icons.close_rounded),
+                                  ),
+                                  Text(
+                                    'محدّد ${ArabicNormalizer.toArabicNumber(_selectedIndices.length)} بيت',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium,
+                                  ),
+                                  const Spacer(),
+                                  TextButton(
+                                    onPressed: () {
+                                      setState(() {
+                                        if (_selectedIndices.length ==
+                                            poem.verses.length) {
+                                          _selectedIndices.clear();
+                                        } else {
+                                          _selectedIndices.addAll(
+                                            List.generate(
+                                              poem.verses.length,
+                                              (i) => i,
+                                            ),
+                                          );
+                                        }
+                                      });
+                                    },
+                                    child: Text(
+                                      _selectedIndices.length ==
+                                              poem.verses.length
+                                          ? 'إلغاء الكل'
+                                          : 'تحديد الكل',
+                                      style: TextStyle(color: p.accent),
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : Row(
+                                children: [
+                                  // Correct Arabic RTL Back Arrow pointing RIGHT (->)
+                                  IconButton(
+                                    tooltip: 'رجوع',
+                                    onPressed: () =>
+                                        Navigator.of(context).pop(),
+                                    icon: const Icon(Icons.east_rounded),
+                                  ),
+                                  PoetAvatarIcon(
+                                    poetId: poem.poetId,
+                                    poetName: poem.poetName,
+                                    size: 17,
+                                    color: p.accent,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      poem.poetName,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium,
+                                    ),
+                                  ),
+                                  IconButton(
+                                    tooltip: _inPoemSearchOpen
+                                        ? 'إغلاق البحث داخل القصيدة'
+                                        : 'بحث داخل القصيدة',
+                                    onPressed: _inPoemSearchOpen
+                                        ? _closeInPoemSearch
+                                        : _openInPoemSearch,
+                                    icon: Icon(
+                                      _inPoemSearchOpen
+                                          ? Icons.search_off_rounded
+                                          : Icons.search_rounded,
+                                      size: 21,
+                                      color: _inPoemSearchOpen
+                                          ? p.accent
+                                          : p.ink,
+                                    ),
+                                  ),
+                                  IconButton(
+                                    tooltip: 'بطاقة القصيدة',
+                                    onPressed: _openPoemInfoSheet,
+                                    icon: const Icon(
+                                      Icons.info_outline_rounded,
+                                      size: 21,
+                                    ),
+                                  ),
+                                  IconButton(
+                                    tooltip: 'إضافة إلى مجموعة',
+                                    onPressed: _openCollectionsSheet,
+                                    icon: const Icon(
+                                      Icons.playlist_add_rounded,
+                                      size: 22,
+                                    ),
+                                  ),
+                                  IconButton(
+                                    tooltip: isFavPoem
+                                        ? 'إزالة من المفضلة'
+                                        : 'حفظ القصيدة',
+                                    onPressed: () {
+                                      HapticFeedback.selectionClick();
+                                      final added = ref
+                                          .read(userDataProvider.notifier)
+                                          .toggleFavoritePoem(poem.id);
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            added
+                                                ? 'حُفظت القصيدة في المفضلة'
+                                                : 'أُزيلت القصيدة من المفضلة',
+                                          ),
                                         ),
                                       );
-                                    }
-                                  });
-                                },
-                                child: Text(
-                                  _selectedIndices.length == poem.verses.length
-                                      ? 'إلغاء الكل'
-                                      : 'تحديد الكل',
-                                  style: TextStyle(color: p.accent),
-                                ),
-                              ),
-                            ],
-                          )
-                        : Row(
-                            children: [
-                              // Correct Arabic RTL Back Arrow pointing RIGHT (->)
-                              IconButton(
-                                tooltip: 'رجوع',
-                                onPressed: () => Navigator.of(context).pop(),
-                                icon: const Icon(Icons.east_rounded),
-                              ),
-                              PoetAvatarIcon(
-                                poetId: poem.poetId,
-                                poetName: poem.poetName,
-                                size: 17,
-                                color: p.accent,
-                              ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  poem.poetName,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleMedium,
-                                ),
-                              ),
-                              IconButton(
-                                tooltip: 'بطاقة القصيدة',
-                                onPressed: _openPoemInfoSheet,
-                                icon: const Icon(
-                                  Icons.info_outline_rounded,
-                                  size: 21,
-                                ),
-                              ),
-                              IconButton(
-                                tooltip: 'إضافة إلى مجموعة',
-                                onPressed: _openCollectionsSheet,
-                                icon: const Icon(
-                                  Icons.playlist_add_rounded,
-                                  size: 22,
-                                ),
-                              ),
-                              IconButton(
-                                tooltip: isFavPoem
-                                    ? 'إزالة من المفضلة'
-                                    : 'حفظ القصيدة',
-                                onPressed: () {
-                                  HapticFeedback.selectionClick();
-                                  final added = ref
-                                      .read(userDataProvider.notifier)
-                                      .toggleFavoritePoem(poem.id);
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        added
-                                            ? 'حُفظت القصيدة في المفضلة'
-                                            : 'أُزيلت القصيدة من المفضلة',
+                                    },
+                                    icon: BaytIconMorph(
+                                      icon: Icon(
+                                        isFavPoem
+                                            ? Icons.bookmark_rounded
+                                            : Icons.bookmark_border_rounded,
+                                        key: ValueKey(isFavPoem),
+                                        color: isFavPoem ? p.accent : p.ink,
                                       ),
                                     ),
-                                  );
-                                },
-                                icon: BaytIconMorph(
-                                  icon: Icon(
-                                    isFavPoem
-                                        ? Icons.bookmark_rounded
-                                        : Icons.bookmark_border_rounded,
-                                    key: ValueKey(isFavPoem),
-                                    color: isFavPoem ? p.accent : p.ink,
+                                  ),
+                                ],
+                              ),
+                      ),
+                      if (_inPoemSearchOpen && !inSelection)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                          child: Container(
+                            height: 44,
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            decoration: BoxDecoration(
+                              color: p.surfaceElevated,
+                              borderRadius: BorderRadius.circular(13),
+                              border: Border.all(
+                                color: p.accent.withValues(alpha: 0.45),
+                                width: 0.9,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.search_rounded,
+                                  size: 18,
+                                  color: p.accent,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: TextField(
+                                    controller: _inPoemSearchCtrl,
+                                    focusNode: _inPoemSearchFocus,
+                                    onChanged: _onInPoemQueryChanged,
+                                    textInputAction: TextInputAction.search,
+                                    onSubmitted: (_) {
+                                      if (_inPoemMatchIndices.isNotEmpty) {
+                                        _jumpToInPoemMatch(1);
+                                      }
+                                    },
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium,
+                                    decoration: const InputDecoration(
+                                      hintText: 'ابحث في أبيات هذه القصيدة…',
+                                      isDense: true,
+                                      filled: false,
+                                      border: InputBorder.none,
+                                      enabledBorder: InputBorder.none,
+                                      focusedBorder: InputBorder.none,
+                                      contentPadding: EdgeInsets.symmetric(
+                                        vertical: 8,
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
+                                if (_inPoemQuery.isNotEmpty) ...[
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 7,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: _inPoemMatchIndices.isEmpty
+                                          ? p.hairline.withValues(alpha: 0.5)
+                                          : p.accentSoft,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      _inPoemMatchIndices.isEmpty
+                                          ? '٠'
+                                          : '${ArabicNormalizer.toArabicNumber(_inPoemMatchCursor + 1)} / ${ArabicNormalizer.toArabicNumber(_inPoemMatchIndices.length)}',
+                                      style: TextStyle(
+                                        fontFamily: AppFonts.ui,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: _inPoemMatchIndices.isEmpty
+                                            ? p.inkMuted
+                                            : p.accent,
+                                      ),
+                                    ),
+                                  ),
+                                  if (_inPoemMatchIndices.length > 1) ...[
+                                    IconButton(
+                                      tooltip: 'الموضع السابق',
+                                      visualDensity: VisualDensity.compact,
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(
+                                        minWidth: 30,
+                                        minHeight: 30,
+                                      ),
+                                      onPressed: () => _jumpToInPoemMatch(-1),
+                                      icon: Icon(
+                                        Icons.keyboard_arrow_up_rounded,
+                                        size: 20,
+                                        color: p.ink,
+                                      ),
+                                    ),
+                                    IconButton(
+                                      tooltip: 'الموضع التالي',
+                                      visualDensity: VisualDensity.compact,
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(
+                                        minWidth: 30,
+                                        minHeight: 30,
+                                      ),
+                                      onPressed: () => _jumpToInPoemMatch(1),
+                                      icon: Icon(
+                                        Icons.keyboard_arrow_down_rounded,
+                                        size: 20,
+                                        color: p.ink,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                                IconButton(
+                                  tooltip: 'إغلاق',
+                                  visualDensity: VisualDensity.compact,
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(
+                                    minWidth: 30,
+                                    minHeight: 30,
+                                  ),
+                                  onPressed: _closeInPoemSearch,
+                                  icon: Icon(
+                                    Icons.close_rounded,
+                                    size: 18,
+                                    color: p.inkMuted,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
+                        ),
+                    ],
                   ),
                 ),
               ),
             ),
+
+            // Quick Back-to-Top Pill for long Qasidas (zero scroll rebuilds via ValueListenableBuilder)
+            if (poem.verses.length >= 25 &&
+                _chromeVisible &&
+                !inSelection &&
+                !_typographyPanelOpen)
+              Positioned(
+                bottom: 84,
+                left: 16,
+                child: SafeArea(
+                  top: false,
+                  child: ValueListenableBuilder<double>(
+                    valueListenable: _readProgress,
+                    builder: (_, progress, __) {
+                      final show = progress > 0.22;
+                      return AnimatedOpacity(
+                        duration: const Duration(milliseconds: 200),
+                        opacity: show ? 1.0 : 0.0,
+                        child: IgnorePointer(
+                          ignoring: !show,
+                          child: Material(
+                            color: p.surfaceElevated.withValues(alpha: 0.94),
+                            elevation: 3,
+                            shadowColor: Colors.black.withValues(alpha: 0.16),
+                            borderRadius: BorderRadius.circular(20),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(20),
+                              onTap: () {
+                                HapticFeedback.selectionClick();
+                                if (_scrollCtrl.hasClients) {
+                                  _scrollCtrl.animateTo(
+                                    0,
+                                    duration: const Duration(milliseconds: 380),
+                                    curve: Curves.easeOutCubic,
+                                  );
+                                }
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: p.accent.withValues(alpha: 0.4),
+                                    width: 0.85,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.vertical_align_top_rounded,
+                                      size: 15,
+                                      color: p.accent,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'المطلع',
+                                      style: TextStyle(
+                                        fontFamily: AppFonts.ui,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: p.accent,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
 
             // Live Non-Obstructive Typography Dock
             AnimatedPositioned(
@@ -1386,6 +1722,49 @@ class _BarAction extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ReaderCreateCollectionDialog extends StatefulWidget {
+  const _ReaderCreateCollectionDialog();
+
+  @override
+  State<_ReaderCreateCollectionDialog> createState() =>
+      _ReaderCreateCollectionDialogState();
+}
+
+class _ReaderCreateCollectionDialogState
+    extends State<_ReaderCreateCollectionDialog> {
+  final TextEditingController _ctrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('مجموعة جديدة'),
+      content: TextField(
+        controller: _ctrl,
+        autofocus: true,
+        decoration: const InputDecoration(
+          hintText: 'اسم المجموعة (مثلاً: عيون الحكمة)',
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('إلغاء'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, _ctrl.text.trim()),
+          child: const Text('إنشاء'),
+        ),
+      ],
     );
   }
 }

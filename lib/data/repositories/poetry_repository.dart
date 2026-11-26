@@ -1144,6 +1144,140 @@ class PoetryRepository {
     return rows.map(_mapPoemSummary).toList();
   }
 
+  /// Background-isolate bundle loader for PoetDetailScreen (bio + meters + rhymes + poems).
+  Future<PoetDetailBundle> getPoetDetailBundleAsync(
+    int poetId, {
+    PoemSortBy sortBy = PoemSortBy.rhyme,
+    int limit = 2500,
+  }) async {
+    final dbPath = _corpus.dbPath;
+    if (dbPath == null) {
+      return _loadPoetDetailBundle(poetId, sortBy: sortBy, limit: limit);
+    }
+    try {
+      return await Isolate.run(
+        () =>
+            _runPoetDetailBundleInIsolate(dbPath, poetId, sortBy.index, limit),
+      );
+    } catch (_) {
+      return _loadPoetDetailBundle(poetId, sortBy: sortBy, limit: limit);
+    }
+  }
+
+  PoetDetailBundle _loadPoetDetailBundle(
+    int poetId, {
+    required PoemSortBy sortBy,
+    required int limit,
+  }) {
+    final poet = getPoetById(poetId);
+    if (poet == null) {
+      return const PoetDetailBundle(
+        poet: null,
+        meters: [],
+        rhymes: [],
+        poems: [],
+      );
+    }
+    return PoetDetailBundle(
+      poet: poet,
+      meters: getMetersForPoet(poetId),
+      rhymes: getRhymesForPoet(poetId),
+      poems: getPoemsForPoet(poetId, sortBy: sortBy, limit: limit),
+    );
+  }
+
+  static PoetDetailBundle _runPoetDetailBundleInIsolate(
+    String dbPath,
+    int poetId,
+    int sortByIndex,
+    int limit,
+  ) {
+    final db = PoetryDatabase.openPath(dbPath);
+    try {
+      return PoetryRepository(db)._loadPoetDetailBundle(
+        poetId,
+        sortBy: PoemSortBy.values[sortByIndex],
+        limit: limit,
+      );
+    } finally {
+      db.dispose();
+    }
+  }
+
+  /// Background-isolate poem list loader when sorting/filtering inside a poet's Diwan.
+  Future<List<PoemSummary>> getPoemsForPoetAsync(
+    int poetId, {
+    PoemSortBy sortBy = PoemSortBy.rhyme,
+    int? meterId,
+    int? rhymeId,
+    String? titleFilter,
+    int limit = 2500,
+    int offset = 0,
+  }) async {
+    final dbPath = _corpus.dbPath;
+    if (dbPath == null) {
+      return getPoemsForPoet(
+        poetId,
+        sortBy: sortBy,
+        meterId: meterId,
+        rhymeId: rhymeId,
+        titleFilter: titleFilter,
+        limit: limit,
+        offset: offset,
+      );
+    }
+    try {
+      return await Isolate.run(
+        () => _runPoemsForPoetInIsolate(
+          dbPath,
+          poetId,
+          sortBy.index,
+          meterId,
+          rhymeId,
+          titleFilter,
+          limit,
+          offset,
+        ),
+      );
+    } catch (_) {
+      return getPoemsForPoet(
+        poetId,
+        sortBy: sortBy,
+        meterId: meterId,
+        rhymeId: rhymeId,
+        titleFilter: titleFilter,
+        limit: limit,
+        offset: offset,
+      );
+    }
+  }
+
+  static List<PoemSummary> _runPoemsForPoetInIsolate(
+    String dbPath,
+    int poetId,
+    int sortByIndex,
+    int? meterId,
+    int? rhymeId,
+    String? titleFilter,
+    int limit,
+    int offset,
+  ) {
+    final db = PoetryDatabase.openPath(dbPath);
+    try {
+      return PoetryRepository(db).getPoemsForPoet(
+        poetId,
+        sortBy: PoemSortBy.values[sortByIndex],
+        meterId: meterId,
+        rhymeId: rhymeId,
+        titleFilter: titleFilter,
+        limit: limit,
+        offset: offset,
+      );
+    } finally {
+      db.dispose();
+    }
+  }
+
   List<PoemSummary> getPoemsByMeter(
     int meterId, {
     int? eraId,
@@ -1798,7 +1932,7 @@ class PoetryRepository {
         var allMatched = true;
         for (final t in tokens) {
           final tokenHit = matchPartialWords
-              ? words.any((w) => w.startsWith(t))
+              ? words.any((w) => w.contains(t))
               : words.contains(t);
           if (!tokenHit) {
             allMatched = false;
@@ -1923,4 +2057,19 @@ class PoetryRepository {
       verseCount: verseCount,
     );
   }
+}
+
+/// Complete Poet detail data loaded atomically in a background isolate.
+class PoetDetailBundle {
+  const PoetDetailBundle({
+    required this.poet,
+    required this.meters,
+    required this.rhymes,
+    required this.poems,
+  });
+
+  final Poet? poet;
+  final List<Meter> meters;
+  final List<Rhyme> rhymes;
+  final List<PoemSummary> poems;
 }

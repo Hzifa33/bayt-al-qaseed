@@ -6,6 +6,7 @@ import 'package:bayt_al_qaseed/core/utils/arabic_codec.dart';
 import 'package:bayt_al_qaseed/core/utils/feeling_lexicon.dart';
 import 'package:bayt_al_qaseed/core/widgets/bayt_ornaments.dart';
 import 'package:bayt_al_qaseed/data/datasources/poetry_database.dart';
+import 'package:bayt_al_qaseed/data/models/search_result.dart';
 import 'package:bayt_al_qaseed/data/repositories/poetry_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart';
@@ -171,6 +172,28 @@ void main() {
         final hamzaWawRes = repo.search(rawQuery: 'فؤاد المؤمن');
         expect(hamzaWawRes.poems.length, equals(1));
         expect(hamzaWawRes.poems.first.matchedVerseIndex, equals(3));
+
+        // Same-verse flexible search matches words across opposite hemistichs + Arabic prefixes
+        final sameVerseRes = repo.search(
+          rawQuery: 'فؤاد بحر',
+          filter: const SearchFilter(
+            matchMode: SearchMatchMode.sameVerse,
+            matchPartialWords: true,
+          ),
+        );
+        expect(sameVerseRes.poems.length, equals(1));
+        expect(sameVerseRes.poems.first.matchedVerseIndex, equals(3));
+
+        // Async poet detail bundle & async poet poems loader
+        final bundle = await repo.getPoetDetailBundleAsync(1);
+        expect(bundle.poet?.id, equals(1));
+        expect(bundle.poet?.bio, equals('شاعرة أردنية معاصرة'));
+        expect(bundle.meters.length, equals(1));
+        expect(bundle.rhymes.length, equals(1));
+        expect(bundle.poems.length, equals(1));
+
+        final asyncPoetPoems = await repo.getPoemsForPoetAsync(1);
+        expect(asyncPoetPoems.length, equals(1));
         db.dispose();
       } finally {
         tempDir.deleteSync(recursive: true);
