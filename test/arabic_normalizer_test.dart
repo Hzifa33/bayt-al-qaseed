@@ -21,6 +21,10 @@ void main() {
           ArabicNormalizer.normalize('سَـيْـفُ الدَّوْلَةِ'),
           equals('سيف الدوله'),
         );
+        expect(
+          ArabicNormalizer.normalize('سَئِ\u200fمتُ فُؤَادَ الْمُؤْمِنِ'),
+          equals('سئمت فؤاد المؤمن'),
+        );
       },
     );
 

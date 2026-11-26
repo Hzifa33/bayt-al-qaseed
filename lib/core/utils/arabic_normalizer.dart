@@ -11,7 +11,7 @@ class ArabicNormalizer {
   ArabicNormalizer._();
 
   static final RegExp _tashkeelRe = RegExp(
-    r'[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]',
+    r'[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]',
   );
 
   static bool _isTashkeel(int c) =>
@@ -19,6 +19,12 @@ class ArabicNormalizer {
       (c >= 0x0610 && c <= 0x061A) ||
       c == 0x0670 ||
       (c >= 0x06D6 && c <= 0x06ED);
+
+  static bool _isInvisibleFormat(int c) =>
+      (c >= 0x200B && c <= 0x200F) ||
+      (c >= 0x202A && c <= 0x202E) ||
+      (c >= 0x2066 && c <= 0x2069) ||
+      c == 0xFEFF;
 
   /// Removes Arabic diacritics (tashkeel) while preserving base letters & punctuation.
   /// Single-pass zero-RegExp implementation with zero-allocation fast path.
@@ -55,7 +61,7 @@ class ArabicNormalizer {
 
     for (var i = 0; i < len; i++) {
       var c = input.codeUnitAt(i);
-      if (_isTashkeel(c) || c == 0x0640) continue;
+      if (_isTashkeel(c) || c == 0x0640 || _isInvisibleFormat(c)) continue;
 
       switch (c) {
         case 0x0623: // أ
@@ -64,9 +70,12 @@ class ArabicNormalizer {
         case 0x0671: // ٱ
           c = 0x0627; // ا
         case 0x0649: // ى
+        case 0x06CC: // ی (Farsi yeh)
           c = 0x064A; // ي
         case 0x0629: // ة
           c = 0x0647; // ه
+        case 0x06A9: // ک (Farsi kaf)
+          c = 0x0643; // ك
       }
 
       if ((c >= 0x0621 && c <= 0x064A) || (c >= 0x0030 && c <= 0x0039)) {
@@ -156,9 +165,12 @@ class ArabicNormalizer {
         case 'ٱ':
           mapped = 'ا';
         case 'ى':
+        case 'ی':
           mapped = 'ي';
         case 'ة':
           mapped = 'ه';
+        case 'ک':
+          mapped = 'ك';
         default:
           mapped = ch;
       }

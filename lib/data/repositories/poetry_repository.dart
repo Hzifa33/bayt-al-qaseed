@@ -1531,7 +1531,9 @@ class PoetryRepository {
             );
 
       final candidateLimit = useBodyFts
-          ? (targetCount * 4).clamp(420, 900)
+          ? (tokens.length >= 2
+                ? (targetCount * 7).clamp(900, 1600)
+                : (targetCount * 4).clamp(450, 900))
           : filter.matchMode == SearchMatchMode.exactSequence
           ? (targetCount * 2).clamp(260, 560)
           : (targetCount * 3).clamp(300, 620);
@@ -1542,7 +1544,7 @@ class PoetryRepository {
           ? 'poems_title_fts'
           : 'poems_fts';
       final orderSql = useBodyFts
-          ? 'p.is_free_verse ASC, p.has_diacritics DESC, p.verse_count DESC'
+          ? 'CASE WHEN p.verse_count <= 140 THEN 0 ELSE 1 END, p.is_free_verse ASC, p.has_diacritics DESC, p.verse_count DESC'
           : _isCompactV6
           ? 'bm25(poems_title_fts), p.verse_count DESC'
           : 'bm25(poems_fts, 2.5, 1.0, 1.5)';

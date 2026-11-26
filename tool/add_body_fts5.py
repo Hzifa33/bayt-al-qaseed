@@ -16,8 +16,10 @@ OUT_DB = "qafiyah_db/bayt_qafiyah_merged.db"
 OUT_GZ = "qafiyah_db/bayt_qafiyah_merged.db.gz"
 TMP_GZ = "qafiyah_db/bayt_qafiyah_merged_new.db.gz"
 
-# Match Dart ArabicNormalizer.normalize() exactly
-_DIACRITICS_RE = re.compile(r"[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED\u0640]")
+# Match Dart ArabicNormalizer.normalize() 100% EXACTLY (preserving ؤ and ئ, stripping tashkeel/tatweel/zero-width marks)
+_DIACRITICS_RE = re.compile(
+    r"[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED\u0640\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]"
+)
 _NON_ARABIC_RE = re.compile(r"[^\u0621-\u064A0-9\s]+")
 _MULTI_SPACE_RE = re.compile(r"\s+")
 _TRANS = str.maketrans({
@@ -27,8 +29,6 @@ _TRANS = str.maketrans({
     "ٱ": "ا",
     "ى": "ي",
     "ة": "ه",
-    "ؤ": "و",
-    "ئ": "ي",
 })
 
 
@@ -154,11 +154,18 @@ def main():
     print(f"   PRAGMA quick_check = {qc}")
     assert qc == "ok", f"Integrity check failed: {qc}"
 
-    # Verify full-verse search (including أيوب صبري!)
+    # Verify full-verse search across ALL tricky Arabic hamza/tashkeel/phrase scenarios!
     for label, q in [
-        ("أيوب صبري", "ايوب* صبري*"),
-        ("على قدر أهل العزم", "علي قدر اهل العزم"),
-        ("قفا نبك", "قفا نبك"),
+        ("سئمت تكاليف", "سئمت* AND تكاليف*"),
+        ("فؤاد", "فؤاد*"),
+        ("مؤمن", "مؤمن*"),
+        ("لؤلؤ", "لؤلؤ*"),
+        ("ذئب", "ذئب*"),
+        ("سؤال", "سؤال*"),
+        ("طائر", "طائر*"),
+        ("أيوب صبري", "ايوب* AND صبري*"),
+        ("على قدر أهل العزم", "علي AND قدر AND اهل AND العزم"),
+        ("قفا نبك", "قفا AND نبك"),
     ]:
         t0 = time.perf_counter()
         rows = con.execute(
@@ -173,7 +180,8 @@ def main():
             (q,),
         ).fetchall()
         dt = (time.perf_counter() - t0) * 1000
-        print(f"   Search [{label}] -> {len(rows)} hits in {dt:.2f} ms | sample: {rows[:3]}")
+        assert len(rows) > 0, f"ZERO hits for {label} ({q})!"
+        print(f"   Search [{label}] -> {len(rows)} hits in {dt:.2f} ms | sample: {rows[:2]}")
 
     con.close()
     db_mb = os.path.getsize(OUT_DB) / 1048576

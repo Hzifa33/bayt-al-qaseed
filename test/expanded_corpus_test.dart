@@ -98,19 +98,22 @@ void main() {
         );
 
         const body =
-            'إذا منحَتْك الطَّرْفَ هندٌ فإنها\tتَمُنُّ به والمَنحُ ليس بمِنّةِ\nفَإِنَّ الهَوى شَوقٌ وَسُرورٌ\tيُضِيءُ الدُّجى في كُلِّ لَيلَةٍ';
+            'إذا منحَتْك الطَّرْفَ هندٌ فإنها\tتَمُنُّ به والمَنحُ ليس بمِنّةِ\n'
+            'فَإِنَّ الهَوى شَوقٌ وَسُرورٌ\tيُضِيءُ الدُّجى في كُلِّ لَيلَةٍ\n'
+            'سَئِمتُ تَكاليفَ الحَياةِ وَمَن يَعِش\tثَمانينَ حَولاً لا أَبا لَكَ يَسأَمِ\n'
+            'وَأَنَّ فُؤادَ المُؤمِنِ الصّابِرِ\tكَلُؤلُؤِ بَحرٍ في دُجى اللَّيلِ';
         final packed = _packArabicTest(body);
         final blockBlob = Uint8List.fromList(zlib.encode(packed));
         raw.execute('INSERT INTO content_blocks VALUES (1, ?)', [blockBlob]);
         raw.execute(
-          "INSERT INTO poems VALUES (1, 'abc', 1, 12, 1, 2, 1, 1, '', 'إذا منحتك الطرف هند', 'اذا منحتك الطرف هند', 2, 1, 0, 1, 0, ?)",
+          "INSERT INTO poems VALUES (1, 'abc', 1, 12, 1, 2, 1, 1, '', 'إذا منحتك الطرف هند', 'اذا منحتك الطرف هند', 4, 1, 0, 1, 0, ?)",
           [packed.length],
         );
         raw.execute(
           "INSERT INTO poems_title_fts(poems_title_fts) VALUES('rebuild')",
         );
         raw.execute(
-          "INSERT INTO poems_body_fts(rowid, body_norm) VALUES (1, 'اذا منحتك الطرف هند فانها تمن به والمنح ليس بمنه فان الهوي شوق وسرور يضيء الدجي في كل ليله')",
+          "INSERT INTO poems_body_fts(rowid, body_norm) VALUES (1, 'اذا منحتك الطرف هند فانها تمن به والمنح ليس بمنه فان الهوي شوق وسرور يضيء الدجي في كل ليله سئمت تكاليف الحياه ومن يعش ثمانين حولا لا ابا لك يسام وان فؤاد المؤمن الصابر كلؤلؤ بحر في دجي الليل')",
         );
         raw.execute("INSERT INTO poets_fts(poets_fts) VALUES('rebuild')");
         raw.execute(
@@ -129,7 +132,7 @@ void main() {
 
         final poem = repo.getPoemById(1);
         expect(poem, isNotNull);
-        expect(poem!.verses.length, equals(2));
+        expect(poem!.verses.length, equals(4));
         expect(poem.verses.first.sadr, contains('هندٌ'));
         expect(poem.rhymeName, equals('ت'));
 
@@ -159,6 +162,15 @@ void main() {
         final bodySearchRes = repo.search(rawQuery: 'يضيء الدجى');
         expect(bodySearchRes.poems.length, equals(1));
         expect(bodySearchRes.poems.first.matchedVerseIndex, equals(1));
+
+        // Regression test: hamza-on-ya (ئ) and hamza-on-waw (ؤ) MUST match identically!
+        final hamzaYaRes = repo.search(rawQuery: 'سئمت تكاليف');
+        expect(hamzaYaRes.poems.length, equals(1));
+        expect(hamzaYaRes.poems.first.matchedVerseIndex, equals(2));
+
+        final hamzaWawRes = repo.search(rawQuery: 'فؤاد المؤمن');
+        expect(hamzaWawRes.poems.length, equals(1));
+        expect(hamzaWawRes.poems.first.matchedVerseIndex, equals(3));
         db.dispose();
       } finally {
         tempDir.deleteSync(recursive: true);
