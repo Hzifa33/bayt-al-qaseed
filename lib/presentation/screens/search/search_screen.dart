@@ -355,31 +355,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     }
   }
 
-  Widget _buildHighlightedVerseText(
-    BuildContext context,
-    String text,
-    String query,
-    TextStyle style,
-    TextAlign align,
-  ) {
-    final p = context.palette;
-    if (query.trim().isEmpty) {
-      return Text(text, textAlign: align, style: style);
-    }
-    final spans = ArabicNormalizer.buildHighlightedSpans(
-      originalText: text,
-      rawQuery: query,
-      baseStyle: style,
-      highlightBackground: p.highlightFill,
-      highlightForeground: p.ink,
-    );
-    return RichText(
-      textDirection: TextDirection.rtl,
-      textAlign: align,
-      text: TextSpan(children: spans),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
@@ -882,54 +857,44 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                   crossAxisAlignment:
                                       CrossAxisAlignment.stretch,
                                   children: [
-                                    _buildHighlightedVerseText(
-                                      context,
+                                    Text(
                                       hit.matchedSadr,
-                                      bundle.query,
-                                      verseStyle,
-                                      TextAlign.right,
+                                      textAlign: TextAlign.right,
+                                      style: verseStyle,
                                     ),
                                     if (hit.matchedAjuz.isNotEmpty)
                                       Padding(
                                         padding: const EdgeInsets.only(
                                           right: 22,
                                         ),
-                                        child: _buildHighlightedVerseText(
-                                          context,
+                                        child: Text(
                                           hit.matchedAjuz,
-                                          bundle.query,
-                                          verseStyle,
-                                          TextAlign.left,
+                                          textAlign: TextAlign.left,
+                                          style: verseStyle,
                                         ),
                                       ),
                                     if (hit.isMukhammas) ...[
                                       const SizedBox(height: 4),
-                                      _buildHighlightedVerseText(
-                                        context,
+                                      Text(
                                         hit.matchedExtraHemistichs[0],
-                                        bundle.query,
-                                        verseStyle,
-                                        TextAlign.right,
+                                        textAlign: TextAlign.right,
+                                        style: verseStyle,
                                       ),
                                       Padding(
                                         padding: const EdgeInsets.only(
                                           right: 22,
                                         ),
-                                        child: _buildHighlightedVerseText(
-                                          context,
+                                        child: Text(
                                           hit.matchedExtraHemistichs[1],
-                                          bundle.query,
-                                          verseStyle,
-                                          TextAlign.left,
+                                          textAlign: TextAlign.left,
+                                          style: verseStyle,
                                         ),
                                       ),
                                       const SizedBox(height: 4),
-                                      _buildHighlightedVerseText(
-                                        context,
+                                      Text(
                                         hit.matchedExtraHemistichs[2],
-                                        bundle.query,
-                                        verseStyle,
-                                        TextAlign.center,
+                                        textAlign: TextAlign.center,
+                                        style: verseStyle,
                                       ),
                                     ],
                                   ],

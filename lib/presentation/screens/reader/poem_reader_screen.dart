@@ -999,12 +999,12 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
                       showDiacritics: settings.showDiacritics,
                       showVerseNumber: settings.showVerseNumbers,
                       isSelected: selected,
-                      isHighlightedVerse: isTransientPulse,
-                      // Highlight matched words only while in-poem search is active
-                      searchHighlightQuery:
-                          _inPoemSearchOpen && _inPoemQuery.isNotEmpty
-                          ? _inPoemQuery
-                          : null,
+                      isHighlightedVerse:
+                          isTransientPulse ||
+                          (_inPoemSearchOpen &&
+                              _inPoemMatchIndices.contains(verse.index)),
+                      // Never split Arabic cursive words with inline TextSpan highlights
+                      searchHighlightQuery: null,
                       onTap: () {
                         if (_typographyPanelOpen) {
                           setState(() => _typographyPanelOpen = false);
