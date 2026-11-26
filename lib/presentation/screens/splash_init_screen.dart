@@ -299,13 +299,13 @@ class _SplashInitScreenState extends ConsumerState<SplashInitScreen>
                           ),
                           const SizedBox(height: 16),
                           // Subtle Corpus Preview Strip
-                          Row(
+                          const Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               _SplashBadge(label: '٥٫٦ مليون بيت'),
-                              const SizedBox(width: 6),
+                              SizedBox(width: 6),
                               _SplashBadge(label: '٣٣٨ ألف قصيدة'),
-                              const SizedBox(width: 6),
+                              SizedBox(width: 6),
                               _SplashBadge(label: '١٧٬٢٤٤ شاعراً'),
                             ],
                           ),
