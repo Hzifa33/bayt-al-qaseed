@@ -3,7 +3,7 @@ class AppConstants {
 
   static const String appName = 'بيت القصيد';
   static const String appTagline = 'الموسوعة الشعرية الشاملة';
-  static const String appVersion = '1.0.1';
+  static const String appVersion = '1.0.0';
 
   static const String developerHandle = 'hzifa33';
   static const String developerWebsite = 'https://hzifa33.com';
