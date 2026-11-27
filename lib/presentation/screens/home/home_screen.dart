@@ -994,20 +994,13 @@ class _VerseOfTheDayCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 6),
-                  IconButton(
-                    visualDensity: VisualDensity.compact,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 32,
-                      minHeight: 32,
-                    ),
+                  AnimatedSpinIconButton(
+                    icon: Icons.shuffle_rounded,
                     tooltip: 'شاهدٌ آخر',
+                    size: 18,
+                    color: p.inkMuted,
+                    turnsPerTap: 1.0,
                     onPressed: onShuffle,
-                    icon: Icon(
-                      Icons.shuffle_rounded,
-                      size: 18,
-                      color: p.inkMuted,
-                    ),
                   ),
                 ],
               ),

@@ -231,14 +231,19 @@ class _SculptedFloatingNavBar extends StatelessWidget {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(
-                                  active ? item.activeIcon : item.icon,
-                                  size: 20.5,
-                                  color: active
-                                      ? Theme.of(context).colorScheme.onPrimary
-                                      : p.ink.withValues(
-                                          alpha: isDark ? 0.78 : 0.68,
-                                        ),
+                                BaytIconMorph(
+                                  icon: Icon(
+                                    active ? item.activeIcon : item.icon,
+                                    key: ValueKey<bool>(active),
+                                    size: 20.5,
+                                    color: active
+                                        ? Theme.of(context)
+                                              .colorScheme
+                                              .onPrimary
+                                        : p.ink.withValues(
+                                            alpha: isDark ? 0.78 : 0.68,
+                                          ),
+                                  ),
                                 ),
                                 AnimatedSize(
                                   duration: const Duration(milliseconds: 155),

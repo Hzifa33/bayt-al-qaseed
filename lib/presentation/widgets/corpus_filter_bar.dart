@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/utils/arabic_normalizer.dart';
+import '../../core/widgets/bayt_ornaments.dart';
 import '../../data/models/era.dart';
 import '../../data/models/meter.dart';
 import '../providers/app_providers.dart';
@@ -164,7 +165,16 @@ class CorpusFilterBar extends ConsumerWidget {
             ),
           if (showRhyme && rhymes.isNotEmpty)
             _FilterPill(
-              icon: Icons.abc_rounded,
+              leadingWidget: ArabicRhymeIcon(
+                color: selectedRhyme != null ? accent : p.inkMuted,
+                size: 13.5,
+                letter:
+                    selectedRhyme != null &&
+                        selectedRhyme.letter.isNotEmpty &&
+                        selectedRhyme.letter.length <= 2
+                    ? selectedRhyme.letter
+                    : 'ق',
+              ),
               label: selectedRhyme != null
                   ? 'الرويّ (${selectedRhyme.letter.isNotEmpty && selectedRhyme.letter.length <= 2 ? selectedRhyme.letter : selectedRhyme.name})'
                   : 'حرف الرويّ',
@@ -496,14 +506,16 @@ class CorpusFilterBar extends ConsumerWidget {
 
 class _FilterPill extends StatelessWidget {
   const _FilterPill({
-    required this.icon,
+    this.icon,
+    this.leadingWidget,
     required this.label,
     required this.active,
     required this.accent,
     required this.onTap,
   });
 
-  final IconData icon;
+  final IconData? icon;
+  final Widget? leadingWidget;
   final String label;
   final bool active;
   final Color accent;
@@ -531,7 +543,10 @@ class _FilterPill extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 13.5, color: active ? accent : p.inkMuted),
+              if (leadingWidget != null)
+                leadingWidget!
+              else if (icon != null)
+                Icon(icon, size: 13.5, color: active ? accent : p.inkMuted),
               const SizedBox(width: 5),
               Text(
                 label,

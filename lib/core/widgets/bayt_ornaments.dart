@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -1016,6 +1017,237 @@ class _SectionFastScrollerState extends State<SectionFastScroller> {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// Authentic Arabic calligraphy letter medallion icon («ق» للقافية والرويّ)
+/// replacing Latin-letter icons such as `Icons.abc_rounded`.
+class ArabicRhymeIcon extends StatelessWidget {
+  const ArabicRhymeIcon({
+    super.key,
+    required this.color,
+    this.size = 15,
+    this.letter = 'ق',
+  });
+
+  final Color color;
+  final double size;
+  final String letter;
+
+  @override
+  Widget build(BuildContext context) {
+    final box = size + 3;
+    return Container(
+      width: box,
+      height: box,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: color.withValues(alpha: 0.78), width: 1.15),
+      ),
+      child: Text(
+        letter,
+        textAlign: TextAlign.center,
+        textScaler: TextScaler.noScaling,
+        style: TextStyle(
+          fontFamily: AppFonts.amiri,
+          fontSize: size * 0.74,
+          fontWeight: FontWeight.w700,
+          color: color,
+          height: 1.0,
+        ),
+      ),
+    );
+  }
+}
+
+/// Interactive Copy button that gives instant tactile & visual confirmation:
+/// smoothly morphs from `copy_rounded` to a highlighted `check_rounded` badge
+/// (and optional «نُسخ» label) for 1.8 seconds before gracefully reverting.
+class AnimatedCopyButton extends StatefulWidget {
+  const AnimatedCopyButton({
+    super.key,
+    required this.onCopy,
+    this.tooltip = 'نسخ',
+    this.size = 17,
+    this.color,
+    this.copiedColor,
+    this.padding = const EdgeInsets.all(6),
+    this.outlined = false,
+    this.showLabel = false,
+    this.label = 'نسخ',
+    this.copiedLabel = 'نُسخ',
+    this.borderRadius = 9,
+  });
+
+  final VoidCallback onCopy;
+  final String tooltip;
+  final double size;
+  final Color? color;
+  final Color? copiedColor;
+  final EdgeInsetsGeometry padding;
+  final bool outlined;
+  final bool showLabel;
+  final String label;
+  final String copiedLabel;
+  final double borderRadius;
+
+  @override
+  State<AnimatedCopyButton> createState() => _AnimatedCopyButtonState();
+}
+
+class _AnimatedCopyButtonState extends State<AnimatedCopyButton> {
+  bool _copied = false;
+  Timer? _resetTimer;
+
+  void _handleTap() {
+    HapticFeedback.lightImpact();
+    widget.onCopy();
+    _resetTimer?.cancel();
+    setState(() => _copied = true);
+    _resetTimer = Timer(const Duration(milliseconds: 1800), () {
+      if (mounted) {
+        setState(() => _copied = false);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _resetTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final idleColor = widget.color ?? p.inkMuted;
+    final activeColor = widget.copiedColor ?? p.accent;
+    final currentColor = _copied ? activeColor : idleColor;
+
+    final iconWidget = AnimatedSwitcher(
+      duration: const Duration(milliseconds: 220),
+      switchInCurve: Curves.easeOutBack,
+      switchOutCurve: Curves.easeInCubic,
+      transitionBuilder: (child, anim) => ScaleTransition(
+        scale: Tween<double>(begin: 0.62, end: 1.0).animate(anim),
+        child: FadeTransition(opacity: anim, child: child),
+      ),
+      child: Icon(
+        _copied ? Icons.check_rounded : Icons.copy_rounded,
+        key: ValueKey<bool>(_copied),
+        size: widget.size,
+        color: currentColor,
+      ),
+    );
+
+    return Tooltip(
+      message: _copied ? widget.copiedLabel : widget.tooltip,
+      child: InkWell(
+        onTap: _handleTap,
+        borderRadius: BorderRadius.circular(widget.borderRadius),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          padding: widget.padding,
+          decoration: BoxDecoration(
+            color: _copied
+                ? activeColor.withValues(alpha: 0.14)
+                : widget.outlined
+                ? p.surface
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(widget.borderRadius),
+            border: (_copied || widget.outlined)
+                ? Border.all(
+                    color: _copied
+                        ? activeColor.withValues(alpha: 0.55)
+                        : p.hairline.withValues(alpha: 0.7),
+                    width: 0.85,
+                  )
+                : null,
+          ),
+          child: widget.showLabel
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    iconWidget,
+                    const SizedBox(height: 3),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 180),
+                      child: Text(
+                        _copied ? widget.copiedLabel : widget.label,
+                        key: ValueKey<bool>(_copied),
+                        style: TextStyle(
+                          fontFamily: AppFonts.ui,
+                          fontSize: 10.5,
+                          fontWeight: _copied
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          color: currentColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                )
+              : iconWidget,
+        ),
+      ),
+    );
+  }
+}
+
+/// Interactive icon button that performs a crisp spring rotation each time it is tapped
+/// (ideal for Shuffle / Refresh controls).
+class AnimatedSpinIconButton extends StatefulWidget {
+  const AnimatedSpinIconButton({
+    super.key,
+    required this.icon,
+    required this.onPressed,
+    this.tooltip,
+    this.size = 18,
+    this.color,
+    this.turnsPerTap = 0.5,
+  });
+
+  final IconData icon;
+  final VoidCallback onPressed;
+  final String? tooltip;
+  final double size;
+  final Color? color;
+  final double turnsPerTap;
+
+  @override
+  State<AnimatedSpinIconButton> createState() => _AnimatedSpinIconButtonState();
+}
+
+class _AnimatedSpinIconButtonState extends State<AnimatedSpinIconButton> {
+  double _turns = 0.0;
+
+  void _handleTap() {
+    setState(() => _turns += widget.turnsPerTap);
+    widget.onPressed();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return IconButton(
+      visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+      tooltip: widget.tooltip,
+      onPressed: _handleTap,
+      icon: AnimatedRotation(
+        turns: _turns,
+        duration: const Duration(milliseconds: 340),
+        curve: Curves.easeOutBack,
+        child: Icon(
+          widget.icon,
+          size: widget.size,
+          color: widget.color ?? p.inkMuted,
+        ),
+      ),
     );
   }
 }

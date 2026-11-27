@@ -1145,14 +1145,17 @@ class _PoemReaderScreenState extends ConsumerState<PoemReaderScreen> {
                                     onPressed: _inPoemSearchOpen
                                         ? _closeInPoemSearch
                                         : _openInPoemSearch,
-                                    icon: Icon(
-                                      _inPoemSearchOpen
-                                          ? Icons.search_off_rounded
-                                          : Icons.search_rounded,
-                                      size: 21,
-                                      color: _inPoemSearchOpen
-                                          ? p.accent
-                                          : p.ink,
+                                    icon: BaytIconMorph(
+                                      icon: Icon(
+                                        _inPoemSearchOpen
+                                            ? Icons.search_off_rounded
+                                            : Icons.search_rounded,
+                                        key: ValueKey<bool>(_inPoemSearchOpen),
+                                        size: 21,
+                                        color: _inPoemSearchOpen
+                                            ? p.accent
+                                            : p.ink,
+                                      ),
                                     ),
                                   ),
                                   IconButton(
@@ -1660,7 +1663,17 @@ class _SelectionActionBar extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _BarAction(icon: Icons.copy_rounded, label: 'نسخ', onTap: onCopy),
+          AnimatedCopyButton(
+            tooltip: 'نسخ الأبيات',
+            size: 20,
+            color: p.ink,
+            showLabel: true,
+            label: 'نسخ',
+            copiedLabel: 'نُسخ',
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            borderRadius: 14,
+            onCopy: onCopy,
+          ),
           _BarAction(
             icon: Icons.favorite_outline_rounded,
             label: 'حفظ البيت',
@@ -1708,7 +1721,14 @@ class _BarAction extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 20, color: color),
+            BaytIconMorph(
+              icon: Icon(
+                icon,
+                key: ValueKey<String>('${icon.codePoint}_$isHighlighted'),
+                size: 20,
+                color: color,
+              ),
+            ),
             const SizedBox(height: 3),
             Text(
               label,

@@ -459,19 +459,26 @@ class _PoetsDirectoryTabState extends ConsumerState<_PoetsDirectoryTab>
                   padding: const EdgeInsets.only(left: 6),
                   child: ActionChip(
                     visualDensity: VisualDensity.compact,
-                    avatar: Icon(
-                      _ascending
-                          ? Icons.arrow_upward_rounded
-                          : Icons.arrow_downward_rounded,
-                      size: 15,
-                      color: p.accent,
-                    ),
-                    label: Text(
-                      _ascending ? 'تصاعدي' : 'تنازلي',
-                      style: TextStyle(
+                    avatar: AnimatedRotation(
+                      turns: _ascending ? 0.5 : 0.0,
+                      duration: const Duration(milliseconds: 240),
+                      curve: Curves.easeOutBack,
+                      child: Icon(
+                        Icons.arrow_downward_rounded,
+                        size: 15,
                         color: p.accent,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12,
+                      ),
+                    ),
+                    label: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 180),
+                      child: Text(
+                        _ascending ? 'تصاعدي' : 'تنازلي',
+                        key: ValueKey<bool>(_ascending),
+                        style: TextStyle(
+                          color: p.accent,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
                     onPressed: _toggleSortDirection,

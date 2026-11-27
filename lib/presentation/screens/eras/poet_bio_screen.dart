@@ -43,20 +43,25 @@ class PoetBioScreen extends ConsumerWidget {
         title: Text(isFemale ? 'ترجمة الشاعرة' : 'ترجمة الشاعر'),
         actions: [
           if (poet.bio.isNotEmpty)
-            IconButton(
-              tooltip: 'نسخ الترجمة',
-              onPressed: () {
-                HapticFeedback.selectionClick();
-                Clipboard.setData(
-                  ClipboardData(text: '${poet.name}\n\n${poet.bio}'),
-                );
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('نُسخت ترجمة الشاعر إلى الحافظة'),
-                  ),
-                );
-              },
-              icon: Icon(Icons.copy_rounded, size: 19, color: p.inkMuted),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              child: AnimatedCopyButton(
+                tooltip: 'نسخ الترجمة',
+                size: 19,
+                color: p.inkMuted,
+                padding: const EdgeInsets.all(8),
+                borderRadius: 12,
+                onCopy: () {
+                  Clipboard.setData(
+                    ClipboardData(text: '${poet.name}\n\n${poet.bio}'),
+                  );
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('نُسخت ترجمة الشاعر إلى الحافظة'),
+                    ),
+                  );
+                },
+              ),
             ),
           IconButton(
             tooltip: isFav

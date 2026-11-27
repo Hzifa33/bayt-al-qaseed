@@ -14,6 +14,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/arabic_normalizer.dart';
 import '../../../core/utils/share_formatter.dart';
+import '../../../core/widgets/bayt_ornaments.dart';
 import '../../../core/widgets/empty_state_view.dart';
 import '../../../core/widgets/poet_card.dart';
 import '../../../data/models/verse.dart';
@@ -594,10 +595,13 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                                         ),
                                       ),
                                     ),
-                                    IconButton(
+                                    AnimatedCopyButton(
                                       tooltip: 'نسخ البيت',
-                                      visualDensity: VisualDensity.compact,
-                                      onPressed: () {
+                                      size: 18,
+                                      color: p.inkMuted,
+                                      padding: const EdgeInsets.all(7),
+                                      borderRadius: 10,
+                                      onCopy: () {
                                         Clipboard.setData(
                                           ClipboardData(
                                             text: ShareFormatter.formatVerses(
@@ -613,11 +617,6 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                                               ),
                                             );
                                       },
-                                      icon: Icon(
-                                        Icons.copy_rounded,
-                                        size: 18,
-                                        color: p.inkMuted,
-                                      ),
                                     ),
                                     IconButton(
                                       tooltip: 'تصميم بطاقة',

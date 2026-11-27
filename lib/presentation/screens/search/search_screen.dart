@@ -502,7 +502,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     (r) => _filter.rhymeIds.contains(r.id),
                   ))
                     _ActiveFilterChip(
-                      icon: Icons.music_note_outlined,
+                      leadingWidget: ArabicRhymeIcon(
+                        color: p.accent,
+                        size: 12.5,
+                        letter: r.letter.isNotEmpty && r.letter.length <= 2
+                            ? r.letter
+                            : 'ق',
+                      ),
                       label: 'رويّ ${r.name}',
                       onRemove: () => _updateFilterAndSearch(
                         _filter.withToggledRhyme(r.id),
@@ -984,10 +990,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                       ),
                                     ),
                                   const SizedBox(width: 4),
-                                  _MiniCardAction(
-                                    icon: Icons.copy_rounded,
+                                  AnimatedCopyButton(
                                     tooltip: 'نسخ البيت',
-                                    onTap: () => _copySearchHit(hit),
+                                    size: 16,
+                                    color: p.inkMuted,
+                                    padding: const EdgeInsets.all(5),
+                                    borderRadius: 8,
+                                    onCopy: () => _copySearchHit(hit),
                                   ),
                                   const SizedBox(width: 2),
                                   _MiniCardAction(
@@ -1047,7 +1056,16 @@ class _SimpleOptionPill extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 15.5, color: active ? p.accent : p.inkMuted),
+            AnimatedScale(
+              scale: active ? 1.12 : 1.0,
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutBack,
+              child: Icon(
+                icon,
+                size: 15.5,
+                color: active ? p.accent : p.inkMuted,
+              ),
+            ),
             const SizedBox(width: 6),
             Flexible(
               child: Text(
@@ -1071,12 +1089,14 @@ class _SimpleOptionPill extends StatelessWidget {
 
 class _ActiveFilterChip extends StatelessWidget {
   const _ActiveFilterChip({
-    required this.icon,
+    this.icon,
+    this.leadingWidget,
     required this.label,
     required this.onRemove,
   });
 
-  final IconData icon;
+  final IconData? icon;
+  final Widget? leadingWidget;
   final String label;
   final VoidCallback onRemove;
 
@@ -1101,7 +1121,10 @@ class _ActiveFilterChip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 12, color: p.accent),
+              if (leadingWidget != null)
+                leadingWidget!
+              else if (icon != null)
+                Icon(icon, size: 12, color: p.accent),
               const SizedBox(width: 4),
               Text(
                 label,
@@ -1251,7 +1274,8 @@ class _SearchFiltersSheetState extends State<_SearchFiltersSheet> {
 
   Widget _buildSectionHeader({
     required BuildContext context,
-    required IconData icon,
+    IconData? icon,
+    Widget? leadingWidget,
     required String title,
     required int count,
     required VoidCallback onClear,
@@ -1259,7 +1283,10 @@ class _SearchFiltersSheetState extends State<_SearchFiltersSheet> {
     final p = context.palette;
     return Row(
       children: [
-        Icon(icon, size: 15.5, color: p.accent),
+        if (leadingWidget != null)
+          leadingWidget
+        else if (icon != null)
+          Icon(icon, size: 15.5, color: p.accent),
         const SizedBox(width: 6),
         Text(title, style: Theme.of(context).textTheme.titleSmall),
         if (count > 0) ...[
@@ -1422,7 +1449,10 @@ class _SearchFiltersSheetState extends State<_SearchFiltersSheet> {
                       const SizedBox(height: 14),
                       _buildSectionHeader(
                         context: context,
-                        icon: Icons.music_note_outlined,
+                        leadingWidget: ArabicRhymeIcon(
+                          color: p.accent,
+                          size: 14,
+                        ),
                         title: 'حرف الرويّ',
                         count: _draft.rhymeIds.length,
                         onClear: () => setState(

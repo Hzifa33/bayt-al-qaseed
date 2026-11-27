@@ -926,11 +926,15 @@ class _FeelingVerseCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 6),
-                    _CompactCardAction(
-                      icon: Icons.copy_rounded,
+                    AnimatedCopyButton(
                       tooltip: 'نسخ البيت',
+                      size: 15,
                       color: p.inkMuted,
-                      onTap: onCopy,
+                      copiedColor: accent,
+                      outlined: true,
+                      padding: const EdgeInsets.all(6),
+                      borderRadius: 9,
+                      onCopy: onCopy,
                     ),
                     const SizedBox(width: 4),
                     _CompactCardAction(
