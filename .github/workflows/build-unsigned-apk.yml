@@ -1,4 +1,4 @@
-name: Build & Sign Official Release APKs (v1.0.0)
+name: Build & Sign Official Release APKs (v1.0.1)
 
 on:
   push:
@@ -20,16 +20,32 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Download Official Corpus Asset (v6 — 338,134 poems · 5.62M verses)
+      - name: Prepare Ultra-Compact XZ Corpus Asset (v9 — 338,134 poems · 5.62M verses)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdir -p assets/db
-          gh release download corpus-expanded-v1 \
-            -p "bayt_qafiyah_merged.db.gz" \
+          if gh release download corpus-expanded-v1 \
+            -p "bayt_qafiyah_merged.db.xz" \
             -D assets/db/ \
-            --clobber
-          ls -lh assets/db/bayt_qafiyah_merged.db.gz
+            --clobber; then
+            echo "Downloaded pre-built compact XZ corpus asset."
+          else
+            echo "XZ corpus asset not cached yet; downloading .db.gz and repacking to .db.xz..."
+            gh release download corpus-expanded-v1 \
+              -p "bayt_qafiyah_merged.db.gz" \
+              -D assets/db/ \
+              --clobber
+            python3 tool/repack_corpus_xz.py \
+              --input assets/db/bayt_qafiyah_merged.db.gz \
+              --output assets/db/bayt_qafiyah_merged.db.xz \
+              --preset 6
+            rm -f assets/db/bayt_qafiyah_merged.db.gz
+            gh release upload corpus-expanded-v1 \
+              assets/db/bayt_qafiyah_merged.db.xz \
+              --clobber
+          fi
+          ls -lh assets/db/bayt_qafiyah_merged.db.xz
 
       - name: Set up Java 17
         uses: actions/setup-java@v5
@@ -77,7 +93,7 @@ jobs:
           mkdir -p dist
 
           # 1. Universal Release APK (arm64-v8a + armeabi-v7a)
-          flutter build apk --release --target-platform android-arm64,android-arm || true
+          flutter build apk --release --target-platform android-arm64,android-arm
           UNI_RAW=$(find build/app/outputs -name "*release*.apk" | grep -v "arm64\|armeabi" | head -n 1)
           if [ -n "$UNI_RAW" ] && [ -f "$UNI_RAW" ]; then
             cp "$UNI_RAW" dist/raw-universal.apk
@@ -88,7 +104,7 @@ jobs:
           fi
 
           # 2. Split-per-ABI Release APKs (arm64-v8a & armeabi-v7a)
-          flutter build apk --release --split-per-abi --target-platform android-arm64,android-arm || true
+          flutter build apk --release --split-per-abi --target-platform android-arm64,android-arm
           find build/app/outputs -name "*.apk" -ls
           ARM64_RAW=$(find build/app/outputs -name "*arm64-v8a*release*.apk" | head -n 1)
           ARM7_RAW=$(find build/app/outputs -name "*armeabi-v7a*release*.apk" | head -n 1)
@@ -102,6 +118,7 @@ jobs:
           BUILD_TOOLS_DIR=$(ls -d "$ANDROID_HOME/build-tools/"* | sort -V | tail -n 1)
           ZIPALIGN="$BUILD_TOOLS_DIR/zipalign"
           APKSIGNER="$BUILD_TOOLS_DIR/apksigner"
+          echo "Using Android build-tools: $BUILD_TOOLS_DIR"
 
           KEY_DIR=$(mktemp -d)
           trap 'rm -rf "$KEY_DIR"' EXIT
@@ -112,7 +129,9 @@ jobs:
             local IN_RAW="$1"
             local OUT_SIGNED="$2"
             local ALIGNED="${OUT_SIGNED}.aligned.apk"
-            "$ZIPALIGN" -p -f -v 4 "$IN_RAW" "$ALIGNED" > /dev/null
+
+            # Android 15 (API 35) 16 KiB page-aligned zipalign (-P 16) for .so libs
+            "$ZIPALIGN" -P 16 -f -v 4 "$IN_RAW" "$ALIGNED" > /dev/null
             "$APKSIGNER" sign \
               --key "$KEY_DIR/key.pk8" \
               --cert "$KEY_DIR/cert.x509.pem" \
@@ -122,66 +141,73 @@ jobs:
               --out "$OUT_SIGNED" \
               "$ALIGNED"
             rm -f "$ALIGNED" "$IN_RAW"
+
+            echo "=== Verifying 16 KiB alignment for $OUT_SIGNED ==="
+            "$ZIPALIGN" -c -P 16 -v 4 "$OUT_SIGNED" | tail -n 5
+
             echo "=== Verified signature for $OUT_SIGNED ==="
             "$APKSIGNER" verify --verbose --print-certs "$OUT_SIGNED"
           }
 
-          sign_apk dist/raw-universal.apk dist/BaytAlQaseed-v1.0.0-universal.apk
-          sign_apk dist/raw-arm64-v8a.apk dist/BaytAlQaseed-v1.0.0-arm64-v8a.apk
-          sign_apk dist/raw-armeabi-v7a.apk dist/BaytAlQaseed-v1.0.0-armeabi-v7a.apk
+          sign_apk dist/raw-universal.apk dist/BaytAlQaseed-v1.0.1-universal.apk
+          sign_apk dist/raw-arm64-v8a.apk dist/BaytAlQaseed-v1.0.1-arm64-v8a.apk
+          sign_apk dist/raw-armeabi-v7a.apk dist/BaytAlQaseed-v1.0.1-armeabi-v7a.apk
 
           rm -rf "$KEY_DIR"
 
-      - name: Verify Signed APKs integrity & bundled assets
+      - name: Verify Signed APKs integrity, size & bundled assets
         run: |
-          ls -lh dist/BaytAlQaseed-v1.0.0-*.apk
-          for APK in dist/BaytAlQaseed-v1.0.0-universal.apk dist/BaytAlQaseed-v1.0.0-arm64-v8a.apk dist/BaytAlQaseed-v1.0.0-armeabi-v7a.apk; do
+          ls -lh dist/BaytAlQaseed-v1.0.1-*.apk
+          for APK in dist/BaytAlQaseed-v1.0.1-universal.apk dist/BaytAlQaseed-v1.0.1-arm64-v8a.apk dist/BaytAlQaseed-v1.0.1-armeabi-v7a.apk; do
             echo "=== Checking assets in $APK ==="
-            unzip -l "$APK" | grep -E "bayt_qafiyah_merged\.db\.gz|libsqlite3\.so|libapp\.so|ArefRuqaa|ReemKufi|Amiri|parchment_texture\.webp|calligraphy_bg\.webp"
+            unzip -l "$APK" | grep -E "bayt_qafiyah_merged\.db\.xz|libsqlite3\.so|libapp\.so|ArefRuqaa|ReemKufi|Amiri|parchment_texture\.webp|calligraphy_bg\.webp"
+            if unzip -l "$APK" | grep -qE "lib/x86(_64)?/"; then
+              echo "ERROR: Unexpected x86/x86_64 native library found in $APK!"
+              exit 1
+            fi
           done
 
       - name: Upload Signed Release APK Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: BaytAlQaseed-v1.0.0-signed-apks
+          name: BaytAlQaseed-v1.0.1-signed-apks
           path: |
-            dist/BaytAlQaseed-v1.0.0-universal.apk
-            dist/BaytAlQaseed-v1.0.0-arm64-v8a.apk
-            dist/BaytAlQaseed-v1.0.0-armeabi-v7a.apk
+            dist/BaytAlQaseed-v1.0.1-universal.apk
+            dist/BaytAlQaseed-v1.0.1-arm64-v8a.apk
+            dist/BaytAlQaseed-v1.0.1-armeabi-v7a.apk
           retention-days: 90
 
-      - name: Publish Signed Official APKs to GitHub Release (v1.0.0)
+      - name: Publish Signed Official APKs to GitHub Release (v1.0.1)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="v1.0.0"
+          TAG="v1.0.1"
           printf '%s\n' \
-            "الإصدار الرسمي الموقّع **1.0.0** من تطبيق **بيت القصيد** — الموسوعة الشعرية العربية الشاملة دون اتصال بالإنترنت." \
+            "الإصدار الرسمي الموقّع **1.0.1** من تطبيق **بيت القصيد** — الموسوعة الشعرية العربية الشاملة دون اتصال بالإنترنت." \
             "" \
-            "يضمّ **٥٬٦٢٦٬٣٣٦ بيتاً شعرياً** و**٣٣٨٬١٣٤ قصيدة** لـ **١٧٬٢٤٤ شاعراً وشاعرة** عبر **١٣ عصراً أدبياً** و**٤٧ بحراً** و**١٠ أغراض شعرية** و**أطلس ١٢٧ شعوراً** مع انتقال مباشر إلى البيت المطابق داخل القصيدة." \
+            "### أبرز التحسينات في هذا الإصدار:" \
+            "- **إصلاح كامل للتثبيت على أندرويد ١٥ وأجهزة سامسونج (One UI 7):** محاذاة صفحات ذاكرة **16 KB** (`zipalign -P 16`)، وتحديث رقم الإصدار (`versionCode`)، وإزالة مكتبات `x86/x86_64` الزائدة." \
+            "- **تقليص حجم التطبيق بشكل جذري (~135 م.ب):** إعادة ضغط الموسوعة بترميز **XZ/LZMA2** مع فك ضغط متدفّق محلي منخفض الذاكرة (< 10 م.ب رام)." \
+            "- **شريط تقدّم واقعي ومعالجة ذكية للمساحة:** عرض نسبة الفك الحقيقية والحجم المستخرج والوقت المتبقي، مع رسالة واضحة عند نقص المساحة وإمكانية الاستئناف بأمان بعد تفريغ الذاكرة دون الإضرار بقاعدة البيانات." \
             "" \
             "### النسخ الموقّعة المتوفرة للتثبيت المباشر:" \
-            "- \`BaytAlQaseed-v1.0.0-arm64-v8a.apk\` — نسخة **ARM8 (64-bit)** (موصى بها لمعظم الهواتف الحديثة — حجم أصغر وأداء مثالي)." \
-            "- \`BaytAlQaseed-v1.0.0-armeabi-v7a.apk\` — نسخة **ARM7 (32-bit)** (للهواتف الأقدم)." \
-            "- \`BaytAlQaseed-v1.0.0-universal.apk\` — النسخة **الشاملة (Universal)** المتوافقة مع جميع معماريات أندرويد." \
+            "- \`BaytAlQaseed-v1.0.1-arm64-v8a.apk\` — نسخة **ARM8 (64-bit)** (موصى بها لمعظم الهواتف الحديثة)." \
+            "- \`BaytAlQaseed-v1.0.1-armeabi-v7a.apk\` — نسخة **ARM7 (32-bit)** (للهواتف الأقدم)." \
+            "- \`BaytAlQaseed-v1.0.1-universal.apk\` — النسخة **الشاملة (Universal)** المتوافقة مع جميع معماريات أندرويد." \
             > dist/release_notes.md
 
           if gh release view "$TAG" >/dev/null 2>&1; then
-            # Clean any legacy Expanded-prefixed assets from v1.0.0
-            for OLD in BaytAlQaseed-Expanded-v1.0.0-arm64-v8a.apk BaytAlQaseed-Expanded-v1.0.0-armeabi-v7a.apk BaytAlQaseed-Expanded-v1.0.0-universal.apk; do
-              gh release delete-asset "$TAG" "$OLD" --yes >/dev/null 2>&1 || true
-            done
             gh release upload "$TAG" \
-              dist/BaytAlQaseed-v1.0.0-universal.apk \
-              dist/BaytAlQaseed-v1.0.0-arm64-v8a.apk \
-              dist/BaytAlQaseed-v1.0.0-armeabi-v7a.apk \
+              dist/BaytAlQaseed-v1.0.1-universal.apk \
+              dist/BaytAlQaseed-v1.0.1-arm64-v8a.apk \
+              dist/BaytAlQaseed-v1.0.1-armeabi-v7a.apk \
               --clobber
-            gh release edit "$TAG" --title "بيت القصيد v1.0.0" --notes-file dist/release_notes.md
+            gh release edit "$TAG" --title "بيت القصيد v1.0.1" --notes-file dist/release_notes.md
           else
             gh release create "$TAG" \
-              dist/BaytAlQaseed-v1.0.0-universal.apk \
-              dist/BaytAlQaseed-v1.0.0-arm64-v8a.apk \
-              dist/BaytAlQaseed-v1.0.0-armeabi-v7a.apk \
-              --title "بيت القصيد v1.0.0" \
+              dist/BaytAlQaseed-v1.0.1-universal.apk \
+              dist/BaytAlQaseed-v1.0.1-arm64-v8a.apk \
+              dist/BaytAlQaseed-v1.0.1-armeabi-v7a.apk \
+              --title "بيت القصيد v1.0.1" \
               --notes-file dist/release_notes.md
           fi

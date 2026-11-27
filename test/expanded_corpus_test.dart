@@ -38,6 +38,14 @@ void main() {
       final compressed = Uint8List.fromList(zlib.encode(packed));
       final restored = ArabicCodec.decodeCompressedText(compressed);
       expect(restored, equals(sample));
+      expect(
+        ArabicCodec.unpack(ArabicCodec.decodeBlock(packed, isRaw: true)),
+        equals(sample),
+      );
+      expect(
+        ArabicCodec.unpack(ArabicCodec.decodeBlock(compressed, isRaw: false)),
+        equals(sample),
+      );
     });
 
     test('PoetryRepository seamlessly reads Compact v6 blocks, themes, and feelings', () async {

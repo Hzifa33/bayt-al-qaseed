@@ -21,6 +21,7 @@ class PoetryRepository {
     _hasBodyFts = _tableExists('poems_body_fts');
     _hasThemesTable = _tableExists('themes');
     _hasFeelingsTable = _tableExists('feelings');
+    _blocksAreRaw = _readMetadataFlag('content_blocks_codec') == 'raw';
   }
 
   final PoetryDatabase _corpus;
@@ -31,6 +32,7 @@ class PoetryRepository {
   late final bool _hasBodyFts;
   late final bool _hasThemesTable;
   late final bool _hasFeelingsTable;
+  late final bool _blocksAreRaw;
   int? _cachedMaxPoemId;
 
   Database get _db => _corpus.db;
@@ -50,6 +52,13 @@ class PoetryRepository {
     return rows.isNotEmpty;
   }
 
+  String? _readMetadataFlag(String key) {
+    if (!_tableExists('metadata')) return null;
+    final rows = _db.select('SELECT value FROM metadata WHERE key = ?', [key]);
+    if (rows.isEmpty) return null;
+    return rows.first['value'] as String?;
+  }
+
   String _readPoemBody(Row r) {
     if (!_isCompactV6) {
       return r['body'] as String;
@@ -64,7 +73,7 @@ class PoetryRepository {
       ]);
       if (bRows.isEmpty) return '';
       final rawBlob = bRows.first['data'] as Uint8List;
-      block = ArabicCodec.decompressZlib(rawBlob);
+      block = ArabicCodec.decodeBlock(rawBlob, isRaw: _blocksAreRaw);
       _blockCache.put(blockId, block);
     }
     return ArabicCodec.unpack(block, offset, length);

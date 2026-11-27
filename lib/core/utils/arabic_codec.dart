@@ -43,6 +43,13 @@ class ArabicCodec {
     return decoded is Uint8List ? decoded : Uint8List.fromList(decoded);
   }
 
+  /// Decodes a `content_blocks.data` blob: returns directly for raw 1-byte
+  /// packed blocks (v9+) or inflates legacy per-block zlib blobs (v6-v8).
+  static Uint8List decodeBlock(Uint8List rawBlob, {required bool isRaw}) {
+    if (isRaw) return rawBlob;
+    return decompressZlib(rawBlob);
+  }
+
   static String decodeCompressedText(Uint8List? compressed) {
     if (compressed == null || compressed.isEmpty) return '';
     return unpack(decompressZlib(compressed));

@@ -15,6 +15,9 @@
 -keep class dev.fluttercommunity.plus.share.** { *; }
 -keep class androidx.core.content.FileProvider { *; }
 
+# XZ / LZMA2 pure-Java streaming decompressor
+-keep class org.tukaani.xz.** { *; }
+
 # Keep native methods intact
 -keepclasseswithmembernames class * {
     native <methods>;

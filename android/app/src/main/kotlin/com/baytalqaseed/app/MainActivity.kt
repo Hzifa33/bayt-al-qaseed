@@ -9,12 +9,17 @@ import android.os.Environment
 import android.provider.MediaStore
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
 import java.io.FileOutputStream
 
 class MainActivity : FlutterActivity() {
     private val channelName = "com.baytalqaseed.app/media"
+    private val corpusChannelName = "com.baytalqaseed.app/corpus"
+    private val corpusProgressChannelName = "com.baytalqaseed.app/corpus_progress"
+
+    private lateinit var corpusExtractor: CorpusExtractor
 
     private val reqExportJson = 4101
     private val reqImportJson = 4102
@@ -25,6 +30,57 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        corpusExtractor = CorpusExtractor(applicationContext)
+
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, corpusProgressChannelName)
+            .setStreamHandler(object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    corpusExtractor.attachEventSink(events)
+                }
+
+                override fun onCancel(arguments: Any?) {
+                    corpusExtractor.attachEventSink(null)
+                }
+            })
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, corpusChannelName)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "checkStorage" -> {
+                        val targetDir = call.argument<String>("targetDir")
+                        val requiredBytes = (call.argument<Number>("requiredBytes"))?.toLong() ?: 0L
+                        if (targetDir == null) {
+                            result.error("INVALID_ARGS", "Missing targetDir", null)
+                            return@setMethodCallHandler
+                        }
+                        result.success(corpusExtractor.checkStorage(targetDir, requiredBytes))
+                    }
+
+                    "extractCorpus" -> {
+                        val assetPath = call.argument<String>("assetPath")
+                        val targetPath = call.argument<String>("targetPath")
+                        val requiredBytes = (call.argument<Number>("requiredBytes"))?.toLong() ?: 0L
+                        if (assetPath == null || targetPath == null) {
+                            result.error("INVALID_ARGS", "Missing assetPath or targetPath", null)
+                            return@setMethodCallHandler
+                        }
+                        val started = corpusExtractor.startExtraction(
+                            assetPath = assetPath,
+                            targetPath = targetPath,
+                            requiredBytes = requiredBytes,
+                        )
+                        result.success(started)
+                    }
+
+                    "cancelExtraction" -> {
+                        corpusExtractor.cancel()
+                        result.success(true)
+                    }
+
+                    else -> result.notImplemented()
+                }
+            }
+
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName)
             .setMethodCallHandler { call, result ->
                 when (call.method) {

@@ -18,15 +18,15 @@ android {
         applicationId = "com.baytalqaseed.app"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = flutter.versionCode
+        versionName = flutter.versionName
         manifestPlaceholders["appName"] = "بيت القصيد"
     }
 
     buildTypes {
         release {
             // Deliberately left unsigned so CI outputs a clean Unsigned Release APK
-            // ready for manual signing via apksigner.
+            // ready for 16 KB page-aligned zipalign + apksigner signing.
             signingConfig = null
             isMinifyEnabled = true
             isShrinkResources = true
@@ -37,9 +37,23 @@ android {
         }
     }
 
-    androidResources {
-        noCompress += listOf("gz", "db")
+    packaging {
+        jniLibs {
+            // Required for Android 15 (API 35) 16 KB page-size direct mmap compatibility.
+            useLegacyPackaging = false
+            // Strip desktop emulator ABIs bundled by third-party AARs (e.g. sqlite3_flutter_libs).
+            excludes += listOf("**/x86/**", "**/x86_64/**")
+        }
     }
+
+    androidResources {
+        noCompress += listOf("xz", "gz", "db")
+    }
+}
+
+dependencies {
+    // Pure-Java XZ/LZMA2 streaming decompressor (zero native .so libs, ~110 KB).
+    implementation("org.tukaani:xz:1.10")
 }
 
 kotlin {

@@ -22,10 +22,16 @@ class SplashInitScreen extends ConsumerStatefulWidget {
 }
 
 class _SplashInitScreenState extends ConsumerState<SplashInitScreen>
-    with TickerProviderStateMixin {
-  double _progress = 0.06;
+    with TickerProviderStateMixin, WidgetsBindingObserver {
+  double _progress = 0.04;
   String _status = 'تهيئة ديوان «بيت القصيد»…';
+  bool _isExtracting = false;
+  int _bytesWritten = 0;
+  int _expectedTotalBytes = 0;
+  int? _etaSeconds;
   String? _error;
+  InsufficientStorageException? _storageError;
+  bool _isBootstrapping = false;
 
   late final AnimationController _enterCtrl;
   late final AnimationController _pulseCtrl;
@@ -33,6 +39,7 @@ class _SplashInitScreenState extends ConsumerState<SplashInitScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _enterCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 520),
@@ -46,15 +53,50 @@ class _SplashInitScreenState extends ConsumerState<SplashInitScreen>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _enterCtrl.dispose();
     _pulseCtrl.dispose();
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // When the user returns from system settings after freeing up storage,
+    // automatically refresh free space and resume if enough space is now free.
+    if (state == AppLifecycleState.resumed &&
+        _storageError != null &&
+        !_isBootstrapping) {
+      _checkAndMaybeAutoResume();
+    }
+  }
+
+  Future<void> _checkAndMaybeAutoResume() async {
+    final check = await PoetryDatabase.checkStorageSpace();
+    if (!mounted || check == null) return;
+    if (check.hasEnoughSpace) {
+      _bootstrap();
+    } else {
+      setState(() {
+        _storageError = InsufficientStorageException(
+          requiredBytes: check.requiredBytes,
+          availableBytes: check.availableBytes,
+        );
+      });
+    }
+  }
+
   Future<void> _bootstrap() async {
+    if (_isBootstrapping) return;
+    _isBootstrapping = true;
+
     setState(() {
       _error = null;
-      _progress = 0.06;
+      _storageError = null;
+      _progress = 0.04;
+      _isExtracting = false;
+      _bytesWritten = 0;
+      _expectedTotalBytes = 0;
+      _etaSeconds = null;
       _status = 'تهيئة الموسوعة الشعرية…';
     });
 
@@ -64,11 +106,15 @@ class _SplashInitScreenState extends ConsumerState<SplashInitScreen>
 
       final userDb = await UserDatabase.openDefault();
       final poetryDb = await PoetryDatabase.openBundled(
-        onProgress: (p, msg) {
+        onProgress: (info) {
           if (!mounted) return;
           setState(() {
-            _progress = p.clamp(0.05, 1.0);
-            _status = msg;
+            _progress = info.fraction.clamp(0.02, 1.0);
+            _status = info.status;
+            _isExtracting = info.isExtracting;
+            _bytesWritten = info.bytesWritten;
+            _expectedTotalBytes = info.expectedTotalBytes;
+            _etaSeconds = info.etaSeconds;
           });
         },
       );
@@ -90,10 +136,51 @@ class _SplashInitScreenState extends ConsumerState<SplashInitScreen>
           ),
         ),
       );
+    } on InsufficientStorageException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _storageError = e;
+        _error = null;
+      });
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = 'تعذّرت تهيئة الديوان:\n$e');
+      setState(() {
+        _storageError = null;
+        _error = 'تعذّرت تهيئة الديوان:\n$e';
+      });
+    } finally {
+      _isBootstrapping = false;
     }
+  }
+
+  String _formatExtractionDetail() {
+    final parts = <String>[];
+    if (_bytesWritten > 0) {
+      final writtenMb = (_bytesWritten / (1024 * 1024)).round();
+      final totalMb = _expectedTotalBytes > 0
+          ? (_expectedTotalBytes / (1024 * 1024)).round()
+          : 0;
+      if (totalMb > 0 && writtenMb <= totalMb) {
+        parts.add(
+          '${ArabicNormalizer.toArabicNumber(writtenMb)} / ${ArabicNormalizer.toArabicNumber(totalMb)} م.ب',
+        );
+      } else {
+        parts.add('${ArabicNormalizer.toArabicNumber(writtenMb)} م.ب');
+      }
+    }
+    if (_etaSeconds != null && _etaSeconds! > 0) {
+      final secs = _etaSeconds!;
+      if (secs >= 60) {
+        final mins = secs ~/ 60;
+        final rem = secs % 60;
+        parts.add(
+          'متبقي ~${ArabicNormalizer.toArabicNumber(mins)} د ${ArabicNormalizer.toArabicNumber(rem)} ث',
+        );
+      } else {
+        parts.add('متبقي ~${ArabicNormalizer.toArabicNumber(secs)} ثانية');
+      }
+    }
+    return parts.join('  •  ');
   }
 
   @override
@@ -101,6 +188,7 @@ class _SplashInitScreenState extends ConsumerState<SplashInitScreen>
     final p = context.palette;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final pct = (_progress * 100).round().clamp(1, 100);
+    final detailLine = _isExtracting ? _formatExtractionDetail() : '';
 
     return Scaffold(
       backgroundColor: p.canvas,
@@ -227,8 +315,12 @@ class _SplashInitScreenState extends ConsumerState<SplashInitScreen>
                           horizontalPadding: 34,
                         ),
 
-                        if (_error == null) ...[
-                          // Refined Editorial Progress Card
+                        if (_storageError != null) ...[
+                          _buildInsufficientStorageCard(context, _storageError!),
+                        ] else if (_error != null) ...[
+                          _buildGenericErrorCard(context, _error!),
+                        ] else ...[
+                          // Refined Editorial Progress Card with live MB & ETA
                           Container(
                             width: double.infinity,
                             padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
@@ -278,14 +370,14 @@ class _SplashInitScreenState extends ConsumerState<SplashInitScreen>
                                 const SizedBox(height: 10),
                                 TweenAnimationBuilder<double>(
                                   tween: Tween<double>(end: _progress),
-                                  duration: const Duration(milliseconds: 220),
+                                  duration: const Duration(milliseconds: 180),
                                   curve: Curves.easeOutCubic,
                                   builder: (context, val, _) {
                                     return ClipRRect(
                                       borderRadius: BorderRadius.circular(999),
                                       child: LinearProgressIndicator(
                                         value: val,
-                                        minHeight: 6,
+                                        minHeight: 7,
                                         backgroundColor: p.hairline,
                                         valueColor: AlwaysStoppedAnimation(
                                           p.accent,
@@ -294,6 +386,40 @@ class _SplashInitScreenState extends ConsumerState<SplashInitScreen>
                                     );
                                   },
                                 ),
+                                if (detailLine.isNotEmpty) ...[
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    detailLine,
+                                    textAlign: TextAlign.center,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelSmall
+                                        ?.copyWith(
+                                          color: p.inkMuted,
+                                          fontSize: 11,
+                                          fontFeatures: const [
+                                            FontFeature.tabularFigures(),
+                                          ],
+                                        ),
+                                  ),
+                                ],
+                                if (_isExtracting) ...[
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    'يُجرى هذا الإعداد مرّة واحدة فقط عند التشغيل الأول ليعمل الديوان بالكامل دون إنترنت',
+                                    textAlign: TextAlign.center,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelSmall
+                                        ?.copyWith(
+                                          color: p.inkMuted.withValues(
+                                            alpha: 0.78,
+                                          ),
+                                          fontSize: 10.2,
+                                          height: 1.4,
+                                        ),
+                                  ),
+                                ],
                               ],
                             ),
                           ),
@@ -309,42 +435,6 @@ class _SplashInitScreenState extends ConsumerState<SplashInitScreen>
                               _SplashBadge(label: '١٧٬٢٤٤ شاعراً'),
                             ],
                           ),
-                        ] else ...[
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: p.surfaceElevated,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: Theme.of(context).colorScheme.error
-                                    .withValues(alpha: 0.4),
-                              ),
-                            ),
-                            child: Column(
-                              children: [
-                                Text(
-                                  _error!,
-                                  textAlign: TextAlign.center,
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .error,
-                                      ),
-                                ),
-                                const SizedBox(height: 14),
-                                FilledButton.icon(
-                                  onPressed: _bootstrap,
-                                  icon: const Icon(
-                                    Icons.refresh_rounded,
-                                    size: 18,
-                                  ),
-                                  label: const Text('إعادة المحاولة'),
-                                ),
-                              ],
-                            ),
-                          ),
                         ],
                       ],
                     ),
@@ -352,6 +442,119 @@ class _SplashInitScreenState extends ConsumerState<SplashInitScreen>
                 ),
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInsufficientStorageCard(
+    BuildContext context,
+    InsufficientStorageException err,
+  ) {
+    final p = context.palette;
+    final cs = Theme.of(context).colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: p.surfaceElevated,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: cs.error.withValues(alpha: 0.45)),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: cs.error.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.sd_storage_outlined,
+              color: cs.error,
+              size: 24,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'المساحة التخزينية غير كافية',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              color: p.ink,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'يحتاج فك ضغط الموسوعة الشعرية إلى ${ArabicNormalizer.toArabicNumber(err.requiredMb)} م.ب من المساحة الحرّة، بينما المتوفر حالياً ${ArabicNormalizer.toArabicNumber(err.availableMb)} م.ب فقط.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: p.inkMuted,
+              height: 1.55,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: p.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: p.hairline, width: 0.8),
+            ),
+            child: Text(
+              'يرجى تفريغ ${ArabicNormalizer.toArabicNumber(err.missingMb)} م.ب على الأقل ثم الضغط على «استئناف».\nلم تتضرر قاعدة البيانات ولا بياناتك المحفوظة.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: p.ink,
+                height: 1.5,
+                fontSize: 11.2,
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _bootstrap,
+              icon: const Icon(Icons.play_arrow_rounded, size: 20),
+              label: const Text('استئناف فك الضغط'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGenericErrorCard(BuildContext context, String message) {
+    final p = context.palette;
+    final cs = Theme.of(context).colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: p.surfaceElevated,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cs.error.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        children: [
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: cs.error),
+          ),
+          const SizedBox(height: 14),
+          FilledButton.icon(
+            onPressed: _bootstrap,
+            icon: const Icon(Icons.refresh_rounded, size: 18),
+            label: const Text('إعادة المحاولة'),
           ),
         ],
       ),
