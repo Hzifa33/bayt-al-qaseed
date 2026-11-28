@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>بيت القصيد — الموسوعة الشعرية العربية الشاملة</title>
-  <meta name="description" content="تطبيق بيت القصيد: الموسوعة الشعرية العربية الشاملة دون اتصال بالإنترنت — ١٧٬٢٤٤ شاعراً، ٣٣٨ ألف قصيدة، وأكثر من ٥٫٦ مليون بيتٍ مع أطلس المشاعر والأغراض بتجربة قراءة تحريرية فاخرة." />
+  <meta name="description" content="تطبيق بيت القصيد: الموسوعة الشعرية العربية الشاملة دون اتصال بالإنترنت — ١٧٬٢٤٤ شاعراً، ٣٣٨ ألف قصيدة، وأكثر من ٥٫٦٢ مليون بيتٍ مع بحث FTS5 فوري وأطلس المشاعر و١٢ خطاً عربياً أصيلاً." />
   <meta property="og:title" content="بيت القصيد — الموسوعة الشعرية العربية الشاملة" />
   <meta property="og:description" content="أكثر من ٥٬٦٢٦٬٣٣٦ بيتاً شعرياً و٣٣٨٬١٣٤ قصيدة لـ ١٧٬٢٤٤ شاعراً عبر ١٣ عصراً و١٢٧ شعوراً في تطبيق أندرويد مجاني يعمل دون إنترنت." />
   <meta property="og:image" content="https://hzifa33.com/bayt-al-qaseed/assets/hero-banner.png" />
@@ -250,7 +250,7 @@
 
     /* Hero Section */
     .hero {
-      padding: clamp(32px, 6vw, 68px) 0 clamp(28px, 4.5vw, 48px);
+      padding: clamp(32px, 6vw, 68px) 0 clamp(24px, 4vw, 44px);
       display: grid;
       grid-template-columns: 1.08fr 0.92fr;
       align-items: center;
@@ -273,7 +273,7 @@
 
     .hero h1 {
       font-family: 'Aref Ruqaa', serif;
-      font-size: clamp(1.42rem, 3.8vw, 3.55rem);
+      font-size: clamp(1.52rem, 3.8vw, 3.55rem);
       line-height: 1.38;
       color: var(--ink);
       margin-bottom: 16px;
@@ -382,6 +382,12 @@
       line-height: 2.08;
       color: var(--ink);
       margin-bottom: clamp(18px, 3vw, 24px);
+      transition: opacity 0.22s ease, transform 0.22s ease;
+    }
+
+    .verse-block.fading {
+      opacity: 0;
+      transform: translateY(4px);
     }
 
     .verse-sadr { text-align: right; }
@@ -433,7 +439,7 @@
       display: grid;
       grid-template-columns: repeat(4, 1fr);
       gap: clamp(10px, 2vw, 16px);
-      margin: 16px 0 clamp(36px, 6vw, 60px);
+      margin: 16px 0 22px;
     }
 
     .stat-card {
@@ -443,6 +449,12 @@
       padding: clamp(14px, 2.6vw, 22px) clamp(10px, 2vw, 16px);
       text-align: center;
       box-shadow: 0 8px 24px -16px rgba(0, 0, 0, 0.12);
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--ornament);
     }
 
     .stat-num {
@@ -458,6 +470,33 @@
       color: var(--ink-muted);
       margin-top: 5px;
       font-weight: 500;
+    }
+
+    /* Highlights Pill Strip */
+    .highlights-strip {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 9px;
+      margin: 0 0 clamp(32px, 5.5vw, 54px);
+    }
+
+    .highlight-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 14px;
+      border-radius: 999px;
+      background: var(--surface-elevated);
+      border: 1px solid var(--hairline);
+      color: var(--ink-muted);
+      font-size: clamp(0.78rem, 0.74rem + 0.2vw, 0.88rem);
+      font-weight: 600;
+    }
+
+    .highlight-chip strong {
+      color: var(--accent);
+      font-weight: 700;
     }
 
     /* Section Headings */
@@ -617,6 +656,30 @@
       line-height: 1.72;
     }
 
+    .offline-note {
+      margin-top: clamp(16px, 2.6vw, 22px);
+      padding: 14px 18px;
+      border-radius: 16px;
+      background: var(--accent-soft);
+      border: 1px solid var(--hairline);
+      display: flex;
+      align-items: flex-start;
+      gap: 11px;
+      font-size: clamp(0.82rem, 0.78rem + 0.2vw, 0.92rem);
+      color: var(--ink-muted);
+      line-height: 1.75;
+    }
+
+    .offline-note svg {
+      flex-shrink: 0;
+      color: var(--accent);
+      margin-top: 3px;
+    }
+
+    .offline-note strong {
+      color: var(--ink);
+    }
+
     /* Footer */
     footer {
       margin-top: clamp(38px, 6vw, 64px);
@@ -718,7 +781,7 @@
         </div>
         <h1>أوسع خزانة <span>للشعر العربي</span> بين يديك</h1>
         <p class="lead">
-          تطبيقٌ أدبيٌّ عربيٌّ صُمّم لقراءة الشعر بسكينةٍ ووضوح؛ يجمع أكثر من <strong>٥٫٦ مليون بيتٍ شعري</strong> و<strong>٣٣٨ ألف قصيدة</strong> لـ <strong>١٧٬٢٤٤ شاعراً</strong> عبر ١٣ عصراً أدبياً، مع أطلس المشاعر (١٢٧ شعوراً)، والأغراض الشعرية، والبحث الفوري، واستوديو تصميم البطاقات.
+          تطبيقٌ أدبيٌّ عربيٌّ صُمّم لقراءة الشعر بسكينةٍ ووضوح؛ يجمع أكثر من <strong>٥٫٦٢ مليون بيتٍ شعري</strong> و<strong>٣٣٨ ألف قصيدة</strong> لـ <strong>١٧٬٢٤٤ شاعراً</strong> عبر ١٣ عصراً أدبياً، مع بحثٍ فوريٍّ في المتون كاملةً، وأطلس المشاعر (١٢٧ شعوراً)، و١٢ خطاً عربياً أصيلاً، واستوديو تصميم البطاقات.
         </p>
         <div class="hero-cta">
           <a class="btn-primary" href="https://github.com/Hzifa33/bayt-al-qaseed/releases/download/v1.0.0/BaytAlQaseed-v1.0.0-arm64-v8a.apk">
@@ -730,7 +793,7 @@
         <div class="hero-meta">
           <span>✓ مجاني ومفتوح المصدر</span>
           <span>✓ بلا إعلانات أو تتبّع</span>
-          <span>✓ موقّع رقمياً وجاهز للتثبيت</span>
+          <span>✓ متوافق مع Android 15</span>
         </div>
       </div>
 
@@ -777,6 +840,16 @@
       </div>
     </section>
 
+    <!-- Technical & Editorial Highlights -->
+    <div class="highlights-strip" aria-label="أبرز المواصفات">
+      <span class="highlight-chip"><strong>١٢ خطاً</strong> عربياً مدمجاً</span>
+      <span class="highlight-chip"><strong>FTS5</strong> بحث في كامل المتون</span>
+      <span class="highlight-chip"><strong>120fps</strong> تصفّح غير متزامن</span>
+      <span class="highlight-chip"><strong>٤٧</strong> بحراً و<strong>٣٣</strong> رويّاً</span>
+      <span class="highlight-chip"><strong>١٧٢</strong> قصيدة من عيون القصيد</span>
+      <span class="highlight-chip"><strong>Android 15</strong> محاذاة 16KB</span>
+    </div>
+
     <!-- Visual Showcase -->
     <section class="section" id="preview">
       <div class="section-head">
@@ -800,16 +873,16 @@
           <div class="feature-icon">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
           </div>
-          <h3>قراءةٌ متوازنةٌ بلا إجهاد</h3>
-          <p>تنسيقٌ متناظر للشطرين (متدرّج أو متقابل) مع ترقيمٍ مصطفّ، وتحكّمٍ حيّ بالتشكيل وحجم النص، وأربعة أوضاعٍ لونيةٍ تشمل الليلي والورقي وMaterial You.</p>
+          <h3>قارئٌ تحريريٌّ و١٢ خطاً عربياً</h3>
+          <p>تنسيقٌ متناظر للشطرين (متدرّج أو متقابل) مع ترقيمٍ مصطفّ، و١٢ خطاً عربياً أصيلاً، وتحكّمٍ حيّ بالتشكيل وحجم النص، وأربعة أوضاعٍ لونيةٍ تشمل الورقي والداكن والأسود العميق وMaterial You.</p>
         </article>
 
         <article class="feature-card">
           <div class="feature-icon">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           </div>
-          <h3>محرك بحثٍ فائق السرعة</h3>
-          <p>بحثٌ فوري بالحروف المتتابعة بالتشكيل أو بدونه مع تصفيةٍ متعددة الاختيارات بالعصور والبحور والقوافي، وانتقالٍ دقيق إلى البيت المطابق في منتصف الشاشة.</p>
+          <h3>محرك بحثٍ فوري في ٥٫٦٢ مليون بيت</h3>
+          <p>فهرسة FTS5 شاملة لمتون القصائد بالتشكيل أو بدونه مع تطبيعٍ دقيق للهمزات، وبحثٍ داخل القصيدة، وتصفيةٍ متعددة الأبعاد بالعصور والبحور والقوافي والأغراض، مع انتقالٍ مباشر إلى البيت المطابق.</p>
         </article>
 
         <article class="feature-card">
@@ -817,7 +890,7 @@
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
           </div>
           <h3>أطلسُ المشاعر والأغراض الشعرية</h3>
-          <p>استكشف ١٢٧ شعوراً متفرّعاً من ٧ مشاعر كبرى مع انتقالٍ مباشر إلى البيت المعنيّ داخل القصيدة، إلى جانب ١٠ أغراضٍ شعرية و١٧٢ قصيدةً من عيون القصيد الخالدة.</p>
+          <p>استكشف ١٢٧ شعوراً متفرّعاً من ٧ مشاعر كبرى مع استخراج البيت المعنيّ والانتقال المباشر إليه، و١٠ أغراضٍ شعرية وفلاتر متقدّمة داخل البحور والمشاعر، و١٧٢ قصيدةً من عيون القصيد الخالدة.</p>
         </article>
 
         <article class="feature-card">
@@ -825,7 +898,7 @@
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
           </div>
           <h3>استوديو البطاقات الشعرية</h3>
-          <p>حوّل أيّ بيتٍ أو مجموعة أبيات إلى بطاقةٍ فنيةٍ بملمس المخطوطة العتيقة وقوالب متعددة، واحفظها مباشرةً في معرض الصور أو شاركها بدقّة فائقة.</p>
+          <p>حوّل أيّ بيتٍ أو مجموعة أبيات إلى بطاقةٍ فنيةٍ بملمس المخطوطة العتيقة وقوالب وخطوط متعددة، واحفظها مباشرةً في معرض الصور أو شاركها بدقّة فائقة.</p>
         </article>
 
         <article class="feature-card">
@@ -833,15 +906,15 @@
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
           </div>
           <h3>مكتبتك ونسخك الاحتياطي</h3>
-          <p>احفظ قصائدك وأبياتك وشعراءك وأنشئ مجموعاتك الخاصة، وصدّر كامل مفضلتك وإعدادات التطبيق أو استعدها في أيّ وقت عبر ملفات JSON.</p>
+          <p>احفظ قصائدك وأبياتك وشعراءك وأنشئ مجموعاتك الأدبية الخاصة، وصدّر كامل مفضّلتك وإعدادات التطبيق أو استعدها في أيّ وقت عبر ملفات JSON.</p>
         </article>
 
         <article class="feature-card">
           <div class="feature-icon">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
           </div>
-          <h3>خصوصيةٌ تامةٌ دون إنترنت</h3>
-          <p>الديوان بأكمله يعمل محلياً على هاتفك دون الحاجة لأيّ اتصال بالشبكة، وبلا إعلانات أو حسابات أو أيّ جمعٍ لبيانات المستخدم.</p>
+          <h3>سلاسة 120fps وخصوصيةٌ مطلقة</h3>
+          <p>تصفّحٌ غير متزامن لـ ١٧٬٢٤٤ شاعراً عبر مسارات خلفية دون تجمّد، وضغط XZ محلي مدمج؛ يعمل بالكامل دون اتصال بالشبكة وبلا إعلانات أو حسابات أو أيّ جمعٍ للبيانات.</p>
         </article>
       </div>
     </section>
@@ -851,7 +924,7 @@
       <div class="download-box">
         <div class="section-head" style="margin-bottom: 12px;">
           <h2>تحميل تطبيق بيت القصيد</h2>
-          <p>الإصدار الرسمي <strong>v1.0.0</strong> — جميع الحزم موقّعة رقمياً وجاهزة للتثبيت المباشر على أندرويد.</p>
+          <p>الإصدار الرسمي <strong>v1.0.0</strong> — جميع الحزم موقّعة رقمياً، متوافقة مع Android 15 (16KB)، وجاهزة للتثبيت المباشر.</p>
         </div>
 
         <div class="download-grid">
@@ -859,7 +932,7 @@
             <div>
               <span class="rec-tag">موصى به لمعظم الهواتف</span>
               <div class="apk-title">نسخة ARM8 (64-bit)</div>
-              <span class="apk-arch">arm64-v8a • ~242 MB</span>
+              <span class="apk-arch">arm64-v8a • ~205 MB</span>
               <p class="apk-desc" style="margin-top: 10px;">الأخف حجماً والأسرع أداءً على جميع هواتف أندرويد الحديثة بمعالجات 64-bit.</p>
             </div>
             <a class="btn-primary" href="https://github.com/Hzifa33/bayt-al-qaseed/releases/download/v1.0.0/BaytAlQaseed-v1.0.0-arm64-v8a.apk">تحميل ARM8 APK</a>
@@ -868,7 +941,7 @@
           <div class="apk-card">
             <div>
               <div class="apk-title">نسخة ARM7 (32-bit)</div>
-              <span class="apk-arch">armeabi-v7a • ~240 MB</span>
+              <span class="apk-arch">armeabi-v7a • ~203 MB</span>
               <p class="apk-desc" style="margin-top: 10px;">نسخة مخصّصة وخفيفة للأجهزة والهواتف الأقدم ذات المعالجات 32-bit.</p>
             </div>
             <a class="btn-outline" href="https://github.com/Hzifa33/bayt-al-qaseed/releases/download/v1.0.0/BaytAlQaseed-v1.0.0-armeabi-v7a.apk">تحميل ARM7 APK</a>
@@ -877,10 +950,17 @@
           <div class="apk-card">
             <div>
               <div class="apk-title">النسخة الشاملة (Universal)</div>
-              <span class="apk-arch">arm64 + armv7 • ~261 MB</span>
+              <span class="apk-arch">arm64 + armv7 • ~223 MB</span>
               <p class="apk-desc" style="margin-top: 10px;">حزمة واحدة متكاملة تعمل على جميع معماريات أندرويد إن لم تكن متأكداً من نوع جهازك.</p>
             </div>
             <a class="btn-outline" href="https://github.com/Hzifa33/bayt-al-qaseed/releases/download/v1.0.0/BaytAlQaseed-v1.0.0-universal.apk">تحميل Universal APK</a>
+          </div>
+        </div>
+
+        <div class="offline-note" role="note">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          <div>
+            <strong>ملاحظة عند التشغيل الأول:</strong> يقوم التطبيق بفك ضغط قاعدة بيانات الموسوعة محلياً على هاتفك <strong>مرةً واحدة فقط ودون أي اتصال بالإنترنت</strong> مع مؤشّر تقدّمٍ حيّ واستئنافٍ آمن.
           </div>
         </div>
       </div>
@@ -933,13 +1013,18 @@
     ];
 
     let vIdx = 0;
+    const verseBox = document.getElementById('verseBox');
     document.getElementById('shuffleVerse').addEventListener('click', () => {
-      vIdx = (vIdx + 1) % verses.length;
-      const v = verses[vIdx];
-      document.getElementById('verseSadr').textContent = v.sadr;
-      document.getElementById('verseAjuz').textContent = v.ajuz;
-      document.getElementById('versePoet').textContent = v.poet;
-      document.getElementById('verseEra').textContent = v.era;
+      verseBox.classList.add('fading');
+      setTimeout(() => {
+        vIdx = (vIdx + 1) % verses.length;
+        const v = verses[vIdx];
+        document.getElementById('verseSadr').textContent = v.sadr;
+        document.getElementById('verseAjuz').textContent = v.ajuz;
+        document.getElementById('versePoet').textContent = v.poet;
+        document.getElementById('verseEra').textContent = v.era;
+        verseBox.classList.remove('fading');
+      }, 170);
     });
 
     const root = document.documentElement;
