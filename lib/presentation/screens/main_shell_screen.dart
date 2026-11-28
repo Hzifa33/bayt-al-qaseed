@@ -168,7 +168,7 @@ class _SculptedFloatingNavBar extends StatelessWidget {
         SafeArea(
           top: false,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(22, 10, 22, 12),
+            padding: const EdgeInsets.fromLTRB(22, 8, 22, 22),
             child: Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(30),

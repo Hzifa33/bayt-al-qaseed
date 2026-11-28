@@ -404,20 +404,47 @@ class _SplashInitScreenState extends ConsumerState<SplashInitScreen>
                                   ),
                                 ],
                                 if (_isExtracting) ...[
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    'يُجرى هذا الإعداد مرّة واحدة فقط عند التشغيل الأول ليعمل الديوان بالكامل دون إنترنت',
-                                    textAlign: TextAlign.center,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .labelSmall
-                                        ?.copyWith(
-                                          color: p.inkMuted.withValues(
-                                            alpha: 0.78,
-                                          ),
-                                          fontSize: 10.2,
-                                          height: 1.4,
+                                  const SizedBox(height: 10),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: p.accent.withValues(alpha: 0.08),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color: p.accent.withValues(alpha: 0.22),
+                                        width: 0.8,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.wifi_off_rounded,
+                                          size: 14,
+                                          color: p.accent,
                                         ),
+                                        const SizedBox(width: 6),
+                                        Flexible(
+                                          child: Text(
+                                            'فكّ ضغط محلي بالكامل دون إنترنت (مرّة واحدة فقط)',
+                                            textAlign: TextAlign.center,
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .labelSmall
+                                                ?.copyWith(
+                                                  color: p.ink,
+                                                  fontWeight: FontWeight.w600,
+                                                  fontSize: 10.8,
+                                                  height: 1.35,
+                                                ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ],
                               ],
