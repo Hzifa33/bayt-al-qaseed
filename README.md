@@ -199,6 +199,8 @@ flutter build apk --release --split-per-abi
 
 طُوّر التطبيق بعنايةٍ وشغفٍ لخدمة اللغة العربية وتراثها الشعري بواسطة **[hzifa33](https://hzifa33.com)**
 
+شكرٌ وتقديرٌ خاصّ لـ **[Ahmed Baset](https://github.com/AhmedBaset)** على جهوده القيّمة في الاختبار ومراجعة الجودة (`Tester`).
+
 <p>
   <a href="https://hzifa33.com/bayt-al-qaseed/"><img src="docs/assets/badges/footer-site.png" width="150" height="22" alt="صفحة التطبيق — hzifa33.com" /></a>
   <a href="https://github.com/Hzifa33/bayt-al-qaseed/releases/tag/v1.0.0"><img src="docs/assets/badges/footer-release.png" width="124" height="22" alt="صفحة الإصدار — v1.0.0" /></a>
