@@ -7,10 +7,10 @@
 ### ✦ أوسع خزانةٍ للشعر العربي بين يديك — دون إنترنت وبلا إعلانات ✦
 
 <p>
-  <a href="https://github.com/Hzifa33/bayt-al-qaseed/releases/tag/v1.0.0"><img src="docs/assets/badges/hero-release.png" height="36" alt="الإصدار الرسمي v1.0.0" /></a>
-  <a href="https://hzifa33.com/bayt-al-qaseed/"><img src="docs/assets/badges/hero-website.png" height="36" alt="الموقع الرسمي hzifa33.com" /></a>
-  <a href="https://github.com/Hzifa33/bayt-al-qaseed/releases/tag/v1.0.0"><img src="docs/assets/badges/hero-android.png" height="36" alt="أندرويد ١٥ — 16KB Ready" /></a>
-  <a href="https://github.com/Hzifa33/bayt-al-qaseed/releases/tag/v1.0.0"><img src="docs/assets/badges/hero-offline.png" height="36" alt="دون إنترنت — ١٠٠٪ محلي" /></a>
+  <a href="https://github.com/Hzifa33/bayt-al-qaseed/releases/tag/v1.0.0"><img src="docs/assets/badges/hero-release.png" width="160" height="28" alt="الإصدار الرسمي v1.0.0" /></a>
+  <a href="https://hzifa33.com/bayt-al-qaseed/"><img src="docs/assets/badges/hero-website.png" width="193" height="28" alt="الموقع الرسمي hzifa33.com" /></a>
+  <a href="https://github.com/Hzifa33/bayt-al-qaseed/releases/tag/v1.0.0"><img src="docs/assets/badges/hero-android.png" width="170" height="28" alt="أندرويد ١٥ — 16KB Ready" /></a>
+  <a href="https://github.com/Hzifa33/bayt-al-qaseed/releases/tag/v1.0.0"><img src="docs/assets/badges/hero-offline.png" width="153" height="28" alt="دون إنترنت — ١٠٠٪ محلي" /></a>
 </p>
 
 <p>
@@ -47,12 +47,12 @@
 <div align="center">
 
 <p>
-  <img src="docs/assets/badges/stat-verses.png" height="31" alt="الأبيات الشعرية: ٥٬٦٢٦٬٣٣٦" />
-  <img src="docs/assets/badges/stat-poems.png" height="31" alt="القصائد الكاملة: ٣٣٨٬١٣٤" />
-  <img src="docs/assets/badges/stat-poets.png" height="31" alt="الشعراء والشاعرات: ١٧٬٢٤٤" />
-  <img src="docs/assets/badges/stat-eras.png" height="31" alt="العصور الأدبية: ١٣ عصراً" />
-  <img src="docs/assets/badges/stat-atlas.png" height="31" alt="أطلس المشاعر: ١٢٧ شعوراً" />
-  <img src="docs/assets/badges/stat-classics.png" height="31" alt="عيون القصيد: ١٧٢ قصيدة" />
+  <img src="docs/assets/badges/stat-verses.png" width="140" height="22" alt="الأبيات الشعرية: ٥٬٦٢٦٬٣٣٦" />
+  <img src="docs/assets/badges/stat-poems.png" width="132" height="22" alt="القصائد الكاملة: ٣٣٨٬١٣٤" />
+  <img src="docs/assets/badges/stat-poets.png" width="136" height="22" alt="الشعراء والشاعرات: ١٧٬٢٤٤" />
+  <img src="docs/assets/badges/stat-eras.png" width="123" height="22" alt="العصور الأدبية: ١٣ عصراً" />
+  <img src="docs/assets/badges/stat-atlas.png" width="136" height="22" alt="أطلس المشاعر: ١٢٧ شعوراً" />
+  <img src="docs/assets/badges/stat-classics.png" width="132" height="22" alt="عيون القصيد: ١٧٢ قصيدة" />
 </p>
 
 </div>
@@ -125,17 +125,17 @@
 ### <img src="docs/assets/icons/award.svg" width="18" height="18" alt="" /> &nbsp;نسخة ARM8 (64-bit) — *موصى بها لمعظم الهواتف*
 - **المعمارية:** `arm64-v8a` · **الحجم:** `~205 MB`
 - **الملاءمة:** الأخفّ حجماً والأسرع أداءً على جميع هواتف أندرويد الحديثة بمعالجات 64-bit.
-- <a href="https://github.com/Hzifa33/bayt-al-qaseed/releases/download/v1.0.0/BaytAlQaseed-v1.0.0-arm64-v8a.apk"><img src="docs/assets/badges/dl-arm8.png" height="38" alt="تحميل ARM8 APK — 205 MB" /></a>
+- <a href="https://github.com/Hzifa33/bayt-al-qaseed/releases/download/v1.0.0/BaytAlQaseed-v1.0.0-arm64-v8a.apk"><img src="docs/assets/badges/dl-arm8.png" width="208" height="28" alt="تحميل ARM8 APK — 205 MB" /></a>
 
 ### <img src="docs/assets/icons/smartphone.svg" width="18" height="18" alt="" /> &nbsp;نسخة ARM7 (32-bit)
 - **المعمارية:** `armeabi-v7a` · **الحجم:** `~203 MB`
 - **الملاءمة:** مخصّصة للهواتف والأجهزة الأقدم ذات المعالجات 32-bit.
-- <a href="https://github.com/Hzifa33/bayt-al-qaseed/releases/download/v1.0.0/BaytAlQaseed-v1.0.0-armeabi-v7a.apk"><img src="docs/assets/badges/dl-arm7.png" height="38" alt="تحميل ARM7 APK — 203 MB" /></a>
+- <a href="https://github.com/Hzifa33/bayt-al-qaseed/releases/download/v1.0.0/BaytAlQaseed-v1.0.0-armeabi-v7a.apk"><img src="docs/assets/badges/dl-arm7.png" width="208" height="28" alt="تحميل ARM7 APK — 203 MB" /></a>
 
 ### <img src="docs/assets/icons/package.svg" width="18" height="18" alt="" /> &nbsp;النسخة الشاملة (Universal)
 - **المعمارية:** `arm64-v8a + armeabi-v7a` · **الحجم:** `~223 MB`
 - **الملاءمة:** حزمةٌ واحدةٌ متكاملة تعمل على جميع أجهزة أندرويد إن لم تكن متأكداً من معمارية هاتفك.
-- <a href="https://github.com/Hzifa33/bayt-al-qaseed/releases/download/v1.0.0/BaytAlQaseed-v1.0.0-universal.apk"><img src="docs/assets/badges/dl-universal.png" height="38" alt="تحميل النسخة الشاملة — 223 MB" /></a>
+- <a href="https://github.com/Hzifa33/bayt-al-qaseed/releases/download/v1.0.0/BaytAlQaseed-v1.0.0-universal.apk"><img src="docs/assets/badges/dl-universal.png" width="229" height="28" alt="تحميل النسخة الشاملة — 223 MB" /></a>
 
 > [!NOTE]
 > **ملاحظة عند التشغيل الأول:** يفكّ التطبيق ضغط الموسوعة محلياً على جهازك **مرةً واحدة فقط دون الحاجة لأي إنترنت**، مع شريط تقدّمٍ حيّ واستئنافٍ آمن في حال توقّف العملية.
@@ -200,9 +200,9 @@ flutter build apk --release --split-per-abi
 طُوّر التطبيق بعنايةٍ وشغفٍ لخدمة اللغة العربية وتراثها الشعري بواسطة **[hzifa33](https://hzifa33.com)**
 
 <p>
-  <a href="https://hzifa33.com/bayt-al-qaseed/"><img src="docs/assets/badges/footer-site.png" height="31" alt="صفحة التطبيق — hzifa33.com" /></a>
-  <a href="https://github.com/Hzifa33/bayt-al-qaseed/releases/tag/v1.0.0"><img src="docs/assets/badges/footer-release.png" height="31" alt="صفحة الإصدار — v1.0.0" /></a>
-  <a href="https://hzifa33.com"><img src="docs/assets/badges/footer-dev.png" height="31" alt="موقع المطوّر — hzifa33.com" /></a>
+  <a href="https://hzifa33.com/bayt-al-qaseed/"><img src="docs/assets/badges/footer-site.png" width="150" height="22" alt="صفحة التطبيق — hzifa33.com" /></a>
+  <a href="https://github.com/Hzifa33/bayt-al-qaseed/releases/tag/v1.0.0"><img src="docs/assets/badges/footer-release.png" width="124" height="22" alt="صفحة الإصدار — v1.0.0" /></a>
+  <a href="https://hzifa33.com"><img src="docs/assets/badges/footer-dev.png" width="144" height="22" alt="موقع المطوّر — hzifa33.com" /></a>
 </p>
 
 </div>
